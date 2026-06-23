@@ -1,0 +1,40 @@
+experiment:
+  project_name: maglev_sparse_jet_9w
+  case_name: week1_b02_baseline
+  max_iterations: 900
+
+control:
+  strategy: uniform_sparse_jet
+  interval_iterations: 50
+  jets:
+    - id: jet_01
+      location: left_front
+    - id: jet_02
+      location: right_front
+    - id: jet_03
+      location: left_mid
+    - id: jet_04
+      location: right_mid
+    - id: jet_05
+      location: left_rear
+    - id: jet_06
+      location: right_rear
+    - id: jet_07
+      location: top_front
+    - id: jet_08
+      location: top_mid
+    - id: jet_09
+      location: top_rear
+  defaults:
+    mass_flow_rate: 0.02
+    duty_cycle: 0.50
+    frequency_hz: 20.0
+
+plant:
+  adapter: mock
+  target_metrics:
+    - drag
+    - pressure_loss
+
+output:
+  run_dir: runs/week1_b02_baseline

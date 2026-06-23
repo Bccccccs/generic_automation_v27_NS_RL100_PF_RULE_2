@@ -1,0 +1,17 @@
+.DS_Store
+.claude/
+.idea/
+.venv/
+__pycache__/
+*.py[cod]
+
+logs/
+results/
+results_validation/
+runs/*
+!runs/.gitkeep
+
+*.sim
+*.sim~
+*.log
+*.csv.tmp

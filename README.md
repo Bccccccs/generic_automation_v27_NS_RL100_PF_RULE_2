@@ -181,4 +181,3 @@ ai_optimization:
     manual_rules:
       enabled: true
 ```
-# generic_automation_v27_NS_RL100_PF_RULE_2
