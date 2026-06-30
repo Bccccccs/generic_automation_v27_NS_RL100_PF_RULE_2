@@ -25,6 +25,7 @@ kept separate from the new `flow_control/` prototype.
 - `generic_automation/monitor/`: online monitor, parameter write-back, observation/action output records.
 - `generic_automation/rl/`: RL controller, action space, state construction, reward, safety rules.
 - `flow_control/`: first sparse-jet schedule generation, validation, mock plant, schema, and analysis modules.
+- `scripts/`: compatibility entrypoint wrappers and operational shell pipelines.
 - `configs/`: YAML configuration files.
 - `cases/`: sweep input CSV files.
 - `docs/`: project notes, environment setup, audit reports, and restructure notes.
@@ -34,8 +35,10 @@ kept separate from the new `flow_control/` prototype.
 - `article/`: reference papers and external research material.
 - `logs/`: archived local launcher/SLURM logs.
 - `results/` and `results_validation/`: generated or historical case outputs.
+- `archive/legacy/`: archived legacy project snapshots.
 
-Root scripts such as `run_case.py` are compatibility wrappers. They call the implementations under `generic_automation/cli/`.
+The root-level `ga.py` is the preferred unified launcher. Historical script names
+are kept under `scripts/entrypoints/` as compatibility wrappers.
 
 ## Available configs
 
@@ -60,7 +63,7 @@ python -m flow_control.schedule_generator --config configs/maglev_sparse_jet_9w.
 ## Run a single case
 
 ```bash
-python run_case.py --config configs/config.yaml
+python ga.py case --config configs/config.yaml
 ```
 
 This now starts an embedded RL monitor automatically when
@@ -70,19 +73,19 @@ or if another monitor process will attach externally.
 Or run the build-matched RL case:
 
 ```bash
-python run_case.py --config configs/config_rl_build_amg_match_mesh.yaml
+python ga.py case --config configs/config_rl_build_amg_match_mesh.yaml
 ```
 
 For online RL-controlled runs that should react to native STAR-CCM+ iteration output:
 
 ```bash
-python run_monitor_only.py --config configs/config.yaml
+python ga.py monitor --config configs/config.yaml
 ```
 
 Or:
 
 ```bash
-python run_monitor_only.py --config configs/config_rl_build_amg_match_mesh.yaml
+python ga.py monitor --config configs/config_rl_build_amg_match_mesh.yaml
 ```
 
 ## Run modes
@@ -106,7 +109,7 @@ case:
 You can also override the config from the CLI:
 
 ```bash
-python run_case.py --config configs/config.yaml --run-mode solve_only --input-sim /path/to/mesh_ready.sim
+python ga.py case --config configs/config.yaml --run-mode solve_only --input-sim /path/to/mesh_ready.sim
 ```
 
 Relative `input_sim` and `template_sim` values from config files are resolved
@@ -116,7 +119,7 @@ normalized to absolute paths from the current shell.
 ## Run a sweep
 
 ```bash
-python run_sweep.py --config configs/config.yaml --cases cases/cases.csv
+python ga.py sweep --config configs/config.yaml --cases cases/cases.csv
 ```
 
 ## Minimal config

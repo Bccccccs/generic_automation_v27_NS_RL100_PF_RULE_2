@@ -10,6 +10,8 @@ results/
 results_validation/
 runs/*
 !runs/.gitkeep
+archive/legacy/*
+!archive/legacy/.gitkeep
 
 *.sim
 *.sim~

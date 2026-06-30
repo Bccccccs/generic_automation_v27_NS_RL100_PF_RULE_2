@@ -31,14 +31,11 @@
 ├── logs/
 ├── results/
 ├── results_validation/
-├── force_param_update.py
-├── offline_replay.py
+├── archive/
+├── ga.py
 ├── README.md
 ├── requirements.txt
-├── run_case.py
-├── run_full_pipeline.sh
-├── run_monitor_only.py
-└── run_sweep.py
+└── scripts/
 ```
 
 ## 3. Python 包结构
@@ -107,19 +104,30 @@ STAR-CCM+ 专属逻辑：
 - `offline_replay.py`
 - `force_param_update.py`
 
-根目录中的同名脚本现在是兼容 wrapper，例如：
+第一次重构时，根目录中的同名脚本是兼容 wrapper，例如：
 
 ```python
 from generic_automation.cli.run_case import main
 ```
 
-因此原来的运行方式仍可使用：
+因此第一次重构后，原来的运行方式仍可使用：
 
 ```bash
 python run_case.py --config configs/config.yaml
 python run_monitor_only.py --config configs/config.yaml
 python run_sweep.py --config configs/config.yaml --cases cases/cases.csv
 ```
+
+第二次结构优化后，兼容 wrapper 已进一步移动到 `scripts/entrypoints/`，
+根目录推荐使用统一入口：
+
+```bash
+python ga.py case --config configs/config.yaml
+python ga.py monitor --config configs/config.yaml
+python ga.py sweep --config configs/config.yaml --cases cases/cases.csv
+```
+
+详见 `docs/STRUCTURE_OPTIMIZATION_ROUND2.md`。
 
 ## 4. 配置文件调整
 
@@ -208,7 +216,7 @@ config.yaml
 configs/config.yaml
 ```
 
-- `run_sweep.py` 调用根目录 wrapper：
+- `run_sweep.py` 当时调用根目录 wrapper：
 
 ```text
 run_case.py
@@ -216,10 +224,22 @@ run_case.py
 
 避免从 `generic_automation/cli/` 内部错误定位脚本。
 
-- `run_full_pipeline.sh` 默认配置路径改为：
+第二次结构优化后，`run_sweep.py` 已改为调用包入口：
+
+```text
+python -m generic_automation.cli.run_case
+```
+
+- `run_full_pipeline.sh` 第一次重构时默认配置路径改为：
 
 ```bash
 CONFIG_PATH="${1:-$SCRIPT_DIR/configs/config.yaml}"
+```
+
+第二次结构优化后，脚本移动到 `scripts/pipelines/`，默认配置路径改为按项目根目录解析：
+
+```bash
+CONFIG_PATH="${1:-$PROJECT_DIR/configs/config.yaml}"
 ```
 
 - `starccm_macro_builder.py` 和 `starccm_macro_template.java` 放在同一目录下，仍使用：
@@ -239,7 +259,9 @@ Path(__file__).with_name("starccm_macro_template.java")
 ```bash
 find generic_automation -name '*.py' -print | sort | \
   xargs .venv/bin/python -m py_compile \
-  run_case.py run_monitor_only.py run_sweep.py offline_replay.py force_param_update.py
+  ga.py scripts/entrypoints/run_case.py scripts/entrypoints/run_monitor_only.py \
+  scripts/entrypoints/run_sweep.py scripts/entrypoints/offline_replay.py \
+  scripts/entrypoints/force_param_update.py
 ```
 
 结果：通过。
@@ -247,9 +269,9 @@ find generic_automation -name '*.py' -print | sort | \
 ### CLI 加载检查
 
 ```bash
-.venv/bin/python run_case.py --help
-.venv/bin/python run_monitor_only.py --help
-.venv/bin/python run_sweep.py --help
+.venv/bin/python ga.py case --help
+.venv/bin/python ga.py monitor --help
+.venv/bin/python ga.py sweep --help
 ```
 
 结果：通过。
@@ -291,4 +313,3 @@ PY
 - 如果后续要打包安装，可补充 `pyproject.toml`。
 - 如果继续扩展喷气控制，建议在 `generic_automation/` 下新增 `jet/` 子包，而不是把喷气逻辑混进现有 solver RL action space。
 - 运行真实 STAR-CCM+ 前，应确认 `configs/*.yaml` 中的 `starccm_path`、`template_sim`、`input_sim` 在目标机器上存在。
-

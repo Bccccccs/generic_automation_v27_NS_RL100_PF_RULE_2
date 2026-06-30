@@ -2,10 +2,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_PATH="${1:-$SCRIPT_DIR/configs/config.yaml}"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+CONFIG_PATH="${1:-$PROJECT_DIR/configs/config.yaml}"
 PYTHON_BIN="${PYTHON_BIN:-$HOME/miniconda3/bin/python}"
 SBATCH_BIN="${SBATCH_BIN:-sbatch}"
-MONITOR_SCRIPT="$SCRIPT_DIR/run_monitor_only.py"
+MONITOR_SCRIPT="$PROJECT_DIR/scripts/entrypoints/run_monitor_only.py"
 SBATCH_JOB_NAME="${SBATCH_JOB_NAME:-starccm+}"
 SBATCH_PARTITION="${SBATCH_PARTITION:-xahcnormal}"
 SBATCH_NODES="${SBATCH_NODES:-2}"
@@ -22,7 +23,7 @@ if [ ! -x "$PYTHON_BIN" ]; then
   exit 1
 fi
 
-cd "$SCRIPT_DIR"
+cd "$PROJECT_DIR"
 
 CASE_DIR="$("$PYTHON_BIN" - <<'PY' "$CONFIG_PATH"
 from pathlib import Path
@@ -79,24 +80,24 @@ SBATCH_OUT="$(
     --partition="$SBATCH_PARTITION" \
     --nodes="$SBATCH_NODES" \
     --ntasks-per-node="$SBATCH_TASKS_PER_NODE" \
-    --export=ALL,CONFIG_PATH="$CONFIG_PATH",SCRIPT_DIR="$SCRIPT_DIR",PYTHON_BIN="$PYTHON_BIN" \
+    --export=ALL,CONFIG_PATH="$CONFIG_PATH",PROJECT_DIR="$PROJECT_DIR",PYTHON_BIN="$PYTHON_BIN" \
     <<'SBATCH_EOF'
 #!/bin/bash
 set -euo pipefail
 
-cd "$SCRIPT_DIR"
+cd "$PROJECT_DIR"
 
 source ~/apprepo/starccmplus/17.06.007-none/scripts/env.sh
 
-srun hostname | sort | uniq -c | awk '{print $2}' > "$SCRIPT_DIR/logs/hostfile"
+srun hostname | sort | uniq -c | awk '{print $2}' > "$PROJECT_DIR/logs/hostfile"
 
 export STARCCM_NP="${NP:-${SLURM_NTASKS:-}}"
-export STARCCM_MACHINEFILE="${HOSTFILE:-$SCRIPT_DIR/logs/hostfile}"
+export STARCCM_MACHINEFILE="${HOSTFILE:-$PROJECT_DIR/logs/hostfile}"
 export STARCCM_MPIDRIVER=intel
 
 sed -i "s/num_cores:.*/num_cores: ${SLURM_NTASKS}/g" "$CONFIG_PATH"
 
-"$PYTHON_BIN" run_case.py --config "$CONFIG_PATH" --no-monitor
+"$PYTHON_BIN" -m generic_automation.cli.run_case --config "$CONFIG_PATH" --no-monitor
 
 "$PYTHON_BIN" - <<'PYTHON_EOF'
 import os

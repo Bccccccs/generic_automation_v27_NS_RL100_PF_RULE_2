@@ -4,7 +4,7 @@
 
 ## 1. Overall Workflow
 
-主流程从 `run_case.py` 开始：
+主流程从 `ga.py case` 或 `generic_automation.cli.run_case` 开始：
 
 1. 读取 YAML/JSON 配置文件。
 2. 通过 `project_config.py` 解析并规范化为统一的 `Case` 对象。
@@ -57,7 +57,7 @@
 
 ## 3. Entrypoints
 
-### `run_case.py`
+### `ga.py case` / `generic_automation.cli.run_case`
 
 单算例主入口。主要职责：
 
@@ -72,12 +72,12 @@
 命令示例：
 
 ```bash
-python run_case.py --config configs/config.yaml
-python run_case.py --config configs/config.yaml --run-mode solve_only --input-sim /path/to/mesh_ready.sim
-python run_case.py --config configs/config.yaml --no-monitor
+python ga.py case --config configs/config.yaml
+python ga.py case --config configs/config.yaml --run-mode solve_only --input-sim /path/to/mesh_ready.sim
+python ga.py case --config configs/config.yaml --no-monitor
 ```
 
-### `run_monitor_only.py`
+### `ga.py monitor` / `generic_automation.cli.run_monitor_only`
 
 外部监控入口。适合 STAR-CCM+ 已经由 SLURM 或其他进程启动时，单独运行 Python monitor。
 
@@ -90,16 +90,16 @@ python run_case.py --config configs/config.yaml --no-monitor
 - 检测 `sim_done.flag` 后退出。
 - 可在 `ai_optimization.enabled=false` 时进入 observe-only/profiling-only 模式。
 
-### `run_sweep.py`
+### `ga.py sweep` / `generic_automation.cli.run_sweep`
 
 CSV 参数扫描入口：
 
 - 读取基础配置。
 - 读取 `cases/cases.csv`。
 - 为每个 case 生成独立 JSON 配置。
-- 调用 `run_case.py` 顺序运行。
+- 调用 `generic_automation.cli.run_case` 顺序运行。
 
-### `offline_replay.py`
+### `ga.py replay` / `generic_automation.cli.offline_replay`
 
 离线回放工具：
 
@@ -421,17 +421,17 @@ solver profiling 后处理：
 - CSV scalar 转换。
 - 均值等基础工具。
 
-### `force_param_update.py`
+### `ga.py force-update` / `generic_automation.cli.force_param_update`
 
 用于手动写入参数更新文件，通常用于调试 RL 文件握手或强制 STAR 宏应用某个参数。
 
-### `run_full_pipeline.sh`
+### `scripts/pipelines/run_full_pipeline.sh`
 
 Shell 级完整 pipeline 启动脚本，适合将 mesh/solve/monitor 等步骤串起来运行。
 
 ### `cases/cases.csv`
 
-参数扫描输入文件，由 `run_sweep.py` 读取。
+参数扫描输入文件，由 `ga.py sweep` 或 `generic_automation.cli.run_sweep` 读取。
 
 ## 11. Runtime File Protocol
 
@@ -460,4 +460,3 @@ Python monitor 与 STAR-CCM+ Java 宏之间通过文件通信：
 - `ai_optimization.enabled=false` 时，独立 monitor 可退化为 observe-only/profiling-only。
 - `intervention_enabled=false` 时，RL 可以观察和记录建议，但不会写入 STAR 参数更新。
 - `solve_only` 和 `resume` 必须提供可用的 `input_sim`，或 case_dir/sims 中已有匹配 mesh-ready 文件。
-
