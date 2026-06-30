@@ -17,18 +17,21 @@ from .mock_plant import MockPlant, MockPlantConfig, _HIDDEN_CRITICAL_JET_INDICES
 from .schedule_generator import ActuationConfig, generate_actuation_matrix
 
 
+DEFAULT_B04_OUTPUT_DIR = Path("runs/b04_mock_plant")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run MockPlant CFD/RL validation demo.")
     parser.add_argument("--config", default="configs/pilot_sparse24.yaml")
-    parser.add_argument("--output-dir", help="Override output.run_dir from config.")
+    parser.add_argument("--output-dir", help="Override the B04 mock-plant output directory.")
     parser.add_argument("--seed", type=int, help="Override actuation random_seed for the plant.")
     argv = [arg.replace("–", "--", 1) if arg.startswith("–") else arg for arg in sys.argv[1:]]
     args = parser.parse_args(argv)
 
     raw_config = _read_yaml(args.config)
     actuation = ActuationConfig.from_mapping(raw_config)
-    if args.output_dir:
-        actuation = _replace_actuation_output_dir(actuation, Path(args.output_dir))
+    output_dir = Path(args.output_dir) if args.output_dir else DEFAULT_B04_OUTPUT_DIR
+    actuation = _replace_actuation_output_dir(actuation, output_dir)
 
     plant_seed = int(args.seed if args.seed is not None else actuation.random_seed + 404)
     plant_config = _mock_config_from_mapping(raw_config)

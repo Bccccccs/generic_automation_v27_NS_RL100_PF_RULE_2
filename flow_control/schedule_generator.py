@@ -196,7 +196,11 @@ def write_actuation_outputs(config: ActuationConfig, matrix: list[list[int]]) ->
         float_format="{:.8f}",
     )
     _write_mass_flow_csv(config, matrix)
+    _write_total_load_curve_csv(config, matrix)
+    _write_spatial_nonuniformity_csv(config, matrix)
     _write_heatmap_svg(config, matrix)
+    _write_total_load_curve_svg(config, matrix)
+    _write_spatial_nonuniformity_curve_svg(config, matrix)
 
     same_seed_matrix = generate_actuation_matrix(config)
     changed_seed_config = ActuationConfig(
@@ -228,6 +232,10 @@ def write_actuation_outputs(config: ActuationConfig, matrix: list[list[int]]) ->
             "pairwise_cooccurrence": "pairwise_cooccurrence.csv",
             "input_correlation_matrix": "input_correlation_matrix.csv",
             "mass_flow": "mass_flow.csv",
+            "total_load_curve": "total_load_curve.svg",
+            "total_load_curve_data": "total_load_curve.csv",
+            "spatial_nonuniformity_curve": "spatial_nonuniformity_curve.svg",
+            "spatial_nonuniformity_curve_data": "spatial_nonuniformity_curve.csv",
         },
         "validation": {
             "passed": not validation_errors and all(reproducibility.values()),
@@ -442,6 +450,44 @@ def _write_mass_flow_csv(config: ActuationConfig, matrix: list[list[int]]) -> No
             )
 
 
+def _write_total_load_curve_csv(config: ActuationConfig, matrix: list[list[int]]) -> None:
+    with (config.output_dir / "total_load_curve.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(["window_id", "t_mid", "active_jets", "total_load"])
+        for window_id, row in enumerate(matrix):
+            t_mid = (window_id + 0.5) * config.window_duration
+            active = sum(row)
+            writer.writerow([window_id, f"{t_mid:.8g}", active, f"{active * config.command_amplitude:.8g}"])
+
+
+def _write_spatial_nonuniformity_csv(config: ActuationConfig, matrix: list[list[int]]) -> None:
+    with (config.output_dir / "spatial_nonuniformity_curve.csv").open(
+        "w", newline="", encoding="utf-8"
+    ) as handle:
+        writer = csv.writer(handle)
+        writer.writerow(
+            [
+                "window_id",
+                "t_mid",
+                "mean_cumulative_activation",
+                "std_cumulative_activation",
+                "coefficient_of_variation",
+                "range_imbalance",
+            ]
+        )
+        for row in _spatial_nonuniformity_series(config, matrix):
+            writer.writerow(
+                [
+                    row["window_id"],
+                    f"{row['t_mid']:.8g}",
+                    f"{row['mean']:.8g}",
+                    f"{row['std']:.8g}",
+                    f"{row['cv']:.8g}",
+                    f"{row['range']:.8g}",
+                ]
+            )
+
+
 def _write_heatmap_svg(config: ActuationConfig, matrix: list[list[int]]) -> None:
     cell = 10
     label_width = 54
@@ -473,6 +519,132 @@ def _write_heatmap_svg(config: ActuationConfig, matrix: list[list[int]]) -> None
         )
     lines.append("</svg>")
     (config.output_dir / "actuation_heatmap.svg").write_text("\n".join(lines), encoding="utf-8")
+
+
+def _write_total_load_curve_svg(config: ActuationConfig, matrix: list[list[int]]) -> None:
+    points = [
+        (window_id, sum(row) * config.command_amplitude)
+        for window_id, row in enumerate(matrix)
+    ]
+    _write_line_chart_svg(
+        config.output_dir / "total_load_curve.svg",
+        title="Total load over actuation windows",
+        x_label="window",
+        y_label="total load",
+        points=points,
+        stroke="#1864ab",
+        y_min=0.0,
+    )
+
+
+def _write_spatial_nonuniformity_curve_svg(config: ActuationConfig, matrix: list[list[int]]) -> None:
+    points = [
+        (row["window_id"], row["cv"])
+        for row in _spatial_nonuniformity_series(config, matrix)
+    ]
+    _write_line_chart_svg(
+        config.output_dir / "spatial_nonuniformity_curve.svg",
+        title="Spatial nonuniformity over actuation windows",
+        x_label="window",
+        y_label="CV of cumulative activations",
+        points=points,
+        stroke="#c92a2a",
+        y_min=0.0,
+    )
+
+
+def _spatial_nonuniformity_series(
+    config: ActuationConfig, matrix: list[list[int]]
+) -> list[dict[str, float]]:
+    cumulative = [0] * config.n_jets
+    rows: list[dict[str, float]] = []
+    for window_id, row in enumerate(matrix):
+        for jet_idx, value in enumerate(row):
+            cumulative[jet_idx] += value
+        mean_value = sum(cumulative) / config.n_jets
+        variance = sum((value - mean_value) ** 2 for value in cumulative) / config.n_jets
+        std_value = math.sqrt(variance)
+        min_value = min(cumulative)
+        max_value = max(cumulative)
+        rows.append(
+            {
+                "window_id": float(window_id),
+                "t_mid": (window_id + 0.5) * config.window_duration,
+                "mean": mean_value,
+                "std": std_value,
+                "cv": std_value / mean_value if mean_value else 0.0,
+                "range": float(max_value - min_value),
+            }
+        )
+    return rows
+
+
+def _write_line_chart_svg(
+    path: Path,
+    title: str,
+    x_label: str,
+    y_label: str,
+    points: list[tuple[float, float]],
+    stroke: str,
+    y_min: float | None = None,
+) -> None:
+    width = 860
+    height = 320
+    left = 62
+    top = 34
+    right = 24
+    bottom = 46
+    plot_w = width - left - right
+    plot_h = height - top - bottom
+    x_values = [point[0] for point in points] or [0.0]
+    y_values = [point[1] for point in points] or [0.0]
+    x0 = min(x_values)
+    x1 = max(x_values) if max(x_values) != x0 else x0 + 1.0
+    raw_y0 = min(y_values)
+    y0 = raw_y0 if y_min is None else min(y_min, raw_y0)
+    y1 = max(y_values) if max(y_values) != y0 else y0 + 1.0
+    y_pad = (y1 - y0) * 0.08
+    y0 = max(0.0, y0 - y_pad) if y_min == 0.0 else y0 - y_pad
+    y1 += y_pad
+
+    def sx(value: float) -> float:
+        return left + (value - x0) * plot_w / (x1 - x0)
+
+    def sy(value: float) -> float:
+        return top + (y1 - value) * plot_h / (y1 - y0)
+
+    polyline = " ".join(f"{sx(x):.2f},{sy(y):.2f}" for x, y in points)
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" '
+        f'viewBox="0 0 {width} {height}">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        f'<text x="12" y="20" font-family="Arial" font-size="14" fill="#1f2328">{title}</text>',
+        f'<rect x="{left}" y="{top}" width="{plot_w}" height="{plot_h}" fill="#fbfcfe" stroke="#d0d7de"/>',
+    ]
+    for idx in range(5):
+        y = top + idx * plot_h / 4
+        value = y1 - idx * (y1 - y0) / 4
+        lines.append(f'<line x1="{left}" y1="{y:.2f}" x2="{left + plot_w}" y2="{y:.2f}" stroke="#edf2f7"/>')
+        lines.append(
+            f'<text x="8" y="{y + 4:.2f}" font-family="Arial" font-size="9" fill="#57606a">{value:.3g}</text>'
+        )
+    for idx in range(0, 6):
+        x = left + idx * plot_w / 5
+        value = x0 + idx * (x1 - x0) / 5
+        lines.append(f'<line x1="{x:.2f}" y1="{top}" x2="{x:.2f}" y2="{top + plot_h}" stroke="#f1f3f5"/>')
+        lines.append(
+            f'<text x="{x - 8:.2f}" y="{height - 26}" font-family="Arial" font-size="9" fill="#57606a">{value:.0f}</text>'
+        )
+    lines.append(f'<polyline fill="none" stroke="{stroke}" stroke-width="2" points="{polyline}"/>')
+    lines.append(
+        f'<text x="{left + plot_w / 2 - 22:.2f}" y="{height - 8}" font-family="Arial" font-size="10" fill="#57606a">{x_label}</text>'
+    )
+    lines.append(
+        f'<text x="8" y="{top + plot_h + 18}" font-family="Arial" font-size="10" fill="#57606a">{y_label}</text>'
+    )
+    lines.append("</svg>")
+    path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def _config_summary(config: ActuationConfig) -> dict[str, Any]:

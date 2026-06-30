@@ -56,6 +56,10 @@ def test_actuation_outputs_are_written(tmp_path):
         "pairwise_cooccurrence.csv",
         "input_correlation_matrix.csv",
         "mass_flow.csv",
+        "total_load_curve.csv",
+        "total_load_curve.svg",
+        "spatial_nonuniformity_curve.csv",
+        "spatial_nonuniformity_curve.svg",
         "config_summary.yaml",
         "validation_report.json",
     }
