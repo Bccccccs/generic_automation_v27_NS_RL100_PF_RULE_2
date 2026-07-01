@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 import yaml
 
+from .data_schema import CaseSchema, JET_COLUMNS
 from .mock_plant import MockPlant, MockPlantConfig, _HIDDEN_CRITICAL_JET_INDICES
 from .schedule_generator import ActuationConfig, generate_actuation_matrix
 
@@ -56,6 +57,16 @@ def main() -> None:
     top5 = [item["jet_id"] for item in ranking[:5]]
     hidden_labels = [f"J{idx + 1:02d}" for idx in _HIDDEN_CRITICAL_JET_INDICES]
     hidden_hits = set(top5).intersection(hidden_labels)
+    schema_result = _write_mock_schema_case(
+        actuation=actuation,
+        raw_config=raw_config,
+        plant_config=plant_config,
+        plant_seed=plant_seed,
+        inputs=inputs,
+        outputs=outputs,
+        stability=stability,
+    )
+    _copy_mock_figures_to_standard_dir(actuation.output_dir)
     summary = {
         "config": str(args.config),
         "seed": plant_seed,
@@ -79,6 +90,16 @@ def main() -> None:
             "outputs_csv": "mock_outputs.csv",
             "input_output_correlations": "mock_input_output_correlations.csv",
             "hidden_jet_influence_ranking": "mock_hidden_jet_influence_ranking.csv",
+            "case_manifest": "case_manifest.yaml",
+            "actuation_schedule": "actuation_schedule.csv",
+            "timeseries": "timeseries.csv",
+            "quality_report": "quality_report.json",
+            "case_io_log": "logs/case_io.log",
+        },
+        "schema": {
+            "case_id": schema_result["case_id"],
+            "run_dir": str(schema_result["run_dir"]),
+            "standard_layout": True,
         },
     }
     with (actuation.output_dir / "mock_demo_summary.json").open("w", encoding="utf-8") as handle:
@@ -122,6 +143,136 @@ def _run_plant(plant: MockPlant, inputs: np.ndarray, dt: float) -> np.ndarray:
     for step_idx in range(inputs.shape[1]):
         outputs.append(plant.step(inputs[:, step_idx], dt=dt))
     return np.asarray(outputs, dtype=float).T
+
+
+def _write_mock_schema_case(
+    actuation: ActuationConfig,
+    raw_config: dict[str, Any],
+    plant_config: MockPlantConfig,
+    plant_seed: int,
+    inputs: np.ndarray,
+    outputs: np.ndarray,
+    stability: dict[str, Any],
+) -> dict[str, Any]:
+    timeseries = _mock_timeseries_rows(actuation, inputs, outputs, stability)
+    schedule = _mock_actuation_schedule_rows(actuation, inputs)
+    manifest = _mock_manifest(actuation, raw_config, plant_config, plant_seed)
+    quality_report = {
+        "stability_score": 1.0 if stability["stable"] else 0.0,
+        "constraint_violation_count": 0 if stability["stable"] else outputs.shape[1],
+        "data_completeness": {
+            "missing_count": 0,
+            "total_cells": len(timeseries) * len(timeseries[0]) if timeseries else 0,
+            "complete": True,
+        },
+        "run_success_flag": bool(stability["stable"]),
+        "mock_plant_stability": stability,
+        "case_stage": "mock_plant_rollout",
+    }
+    old_root = CaseSchema.runs_root
+    CaseSchema.runs_root = actuation.output_dir.parent
+    try:
+        return CaseSchema.write_case(
+            {
+                "case_id": actuation.output_dir.name,
+                "manifest": manifest,
+                "timeseries": timeseries,
+                "actuation_schedule": schedule,
+                "quality_report": quality_report,
+            }
+        )
+    finally:
+        CaseSchema.runs_root = old_root
+
+
+def _mock_manifest(
+    actuation: ActuationConfig,
+    raw_config: dict[str, Any],
+    plant_config: MockPlantConfig,
+    plant_seed: int,
+) -> dict[str, Any]:
+    case = raw_config.get("case", {})
+    flow = raw_config.get("flow", {})
+    geometry = raw_config.get("geometry", {})
+    mesh = raw_config.get("mesh", {})
+    return {
+        "geometry_version": geometry.get("version", case.get("geometry_version", "mock-plant-virtual")),
+        "mesh_version": mesh.get("version", case.get("mesh_version", "not-applicable")),
+        "flow_velocity": float(flow.get("velocity", case.get("flow_velocity", 0.0))),
+        "gap": float(geometry.get("gap", case.get("gap", 0.0))),
+        "time_step": actuation.window_duration,
+        "jet_amplitude": actuation.command_amplitude,
+        "window_duration": actuation.window_duration,
+        "random_seed": plant_seed,
+        "actuation_random_seed": actuation.random_seed,
+        "n_jets": actuation.n_jets,
+        "n_outputs": plant_config.n_outputs,
+        "delay_steps": plant_config.delay_steps,
+        "case_stage": "mock_plant_rollout",
+    }
+
+
+def _mock_timeseries_rows(
+    actuation: ActuationConfig,
+    inputs: np.ndarray,
+    outputs: np.ndarray,
+    stability: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for window_id in range(inputs.shape[1]):
+        y = outputs[:, window_id]
+        finite = bool(np.all(np.isfinite(y)))
+        left_total = float(y[0] + y[2] + y[4])
+        right_total = float(y[1] + y[3] + y[5])
+        front_total = float(y[0] + y[1])
+        rear_total = float(y[4] + y[5])
+        record: dict[str, Any] = {
+            "physical_time": window_id * actuation.window_duration,
+            "window_id": window_id,
+            "Fz_S1L": float(y[0]),
+            "Fz_S1R": float(y[1]),
+            "Fz_S2L": float(y[2]),
+            "Fz_S2R": float(y[3]),
+            "Fz_S3L": float(y[4]),
+            "Fz_S3R": float(y[5]),
+            "Fz_Total": float(np.sum(y)),
+            "Drag_Total": float(np.sqrt(np.mean(y * y))),
+            "Pitch_Moment": rear_total - front_total,
+            "Roll_Moment": right_total - left_total,
+            "Jet_Reaction_Z": float(np.sum(inputs[:, window_id])),
+            "solver_status": "success" if finite and stability["stable"] else "failed",
+            "case_stage": "mock_plant_rollout",
+        }
+        for jet_idx, jet_name in enumerate(JET_COLUMNS):
+            record[jet_name] = float(inputs[jet_idx, window_id]) if jet_idx < inputs.shape[0] else 0.0
+        rows.append(record)
+    return rows
+
+
+def _mock_actuation_schedule_rows(
+    actuation: ActuationConfig,
+    inputs: np.ndarray,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for window_id in range(inputs.shape[1]):
+        record: dict[str, Any] = {
+            "window_id": window_id,
+            "t_start": window_id * actuation.window_duration,
+            "t_end": (window_id + 1) * actuation.window_duration,
+        }
+        for jet_idx, jet_name in enumerate(JET_COLUMNS):
+            record[jet_name] = float(inputs[jet_idx, window_id]) if jet_idx < inputs.shape[0] else 0.0
+        rows.append(record)
+    return rows
+
+
+def _copy_mock_figures_to_standard_dir(output_dir: Path) -> None:
+    figures_dir = output_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    for file_name in ("mock_input_heatmap.svg", "mock_output_timeseries.svg"):
+        source = output_dir / file_name
+        if source.exists():
+            (figures_dir / file_name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 def _stability_check(outputs: np.ndarray) -> dict[str, Any]:

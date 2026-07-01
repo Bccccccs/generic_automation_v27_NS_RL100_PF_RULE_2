@@ -15,7 +15,14 @@ from typing import Any
 
 import yaml
 
-from .data_schema import ControlAction, ExperimentConfig, Schedule, ScheduleStep
+from .data_schema import (
+    CaseSchema,
+    ControlAction,
+    ExperimentConfig,
+    JET_COLUMNS,
+    Schedule,
+    ScheduleStep,
+)
 
 
 def generate_schedule(config: ExperimentConfig) -> Schedule:
@@ -222,6 +229,8 @@ def write_actuation_outputs(config: ActuationConfig, matrix: list[list[int]]) ->
         "same_seed_reproduces": matrix == same_seed_matrix,
         "different_seed_changes_sequence": matrix != changed_seed_matrix,
     }
+    schema_result = _write_actuation_schema_case(config, matrix, validation_errors, reproducibility)
+    _copy_actuation_figures_to_standard_dir(config.output_dir)
     summary = {
         "config": _config_summary(config),
         "random_seed": config.random_seed,
@@ -236,6 +245,15 @@ def write_actuation_outputs(config: ActuationConfig, matrix: list[list[int]]) ->
             "total_load_curve_data": "total_load_curve.csv",
             "spatial_nonuniformity_curve": "spatial_nonuniformity_curve.svg",
             "spatial_nonuniformity_curve_data": "spatial_nonuniformity_curve.csv",
+            "case_manifest": "case_manifest.yaml",
+            "timeseries": "timeseries.csv",
+            "quality_report": "quality_report.json",
+            "case_io_log": "logs/case_io.log",
+        },
+        "schema": {
+            "case_id": schema_result["case_id"],
+            "run_dir": str(schema_result["run_dir"]),
+            "standard_layout": True,
         },
         "validation": {
             "passed": not validation_errors and all(reproducibility.values()),
@@ -448,6 +466,132 @@ def _write_mass_flow_csv(config: ActuationConfig, matrix: list[list[int]]) -> No
                     f"{active * config.command_amplitude:.8g}",
                 ]
             )
+
+
+def _write_actuation_schema_case(
+    config: ActuationConfig,
+    matrix: list[list[int]],
+    validation_errors: list[str],
+    reproducibility: dict[str, bool],
+) -> dict[str, Any]:
+    manifest = _actuation_manifest(config)
+    timeseries = _actuation_timeseries_rows(config, matrix)
+    schedule_rows = _actuation_schedule_rows(config, matrix)
+    quality_report = {
+        "stability_score": 1.0 if not validation_errors else 0.0,
+        "constraint_violation_count": len(validation_errors),
+        "data_completeness": {
+            "missing_count": 0,
+            "total_cells": len(timeseries) * len(timeseries[0]) if timeseries else 0,
+            "complete": True,
+        },
+        "run_success_flag": not validation_errors and all(reproducibility.values()),
+        "actuation_validation": {
+            "errors": validation_errors,
+            **reproducibility,
+        },
+        "case_stage": "actuation_schedule",
+    }
+    return _write_case_in_output_dir(
+        config.output_dir,
+        {
+            "case_id": config.output_dir.name,
+            "manifest": manifest,
+            "timeseries": timeseries,
+            "actuation_schedule": schedule_rows,
+            "quality_report": quality_report,
+        },
+    )
+
+
+def _actuation_manifest(config: ActuationConfig) -> dict[str, Any]:
+    return {
+        "geometry_version": "actuation-schedule-only",
+        "mesh_version": "not-applicable",
+        "flow_velocity": 0.0,
+        "gap": 0.0,
+        "time_step": config.window_duration,
+        "jet_amplitude": config.command_amplitude,
+        "window_duration": config.window_duration,
+        "random_seed": config.random_seed,
+        "n_jets": config.n_jets,
+        "n_active_per_window": config.n_active_per_window,
+        "n_excitation_windows": config.n_excitation_windows,
+        "n_reference_windows": config.n_reference_windows,
+        "case_stage": "actuation_schedule",
+    }
+
+
+def _actuation_timeseries_rows(config: ActuationConfig, matrix: list[list[int]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for window_id, row in enumerate(matrix):
+        active = sum(row)
+        record: dict[str, Any] = {
+            "physical_time": window_id * config.window_duration,
+            "window_id": window_id,
+            "Fz_S1L": 0.0,
+            "Fz_S1R": 0.0,
+            "Fz_S2L": 0.0,
+            "Fz_S2R": 0.0,
+            "Fz_S3L": 0.0,
+            "Fz_S3R": 0.0,
+            "Fz_Total": 0.0,
+            "Drag_Total": 0.0,
+            "Pitch_Moment": 0.0,
+            "Roll_Moment": 0.0,
+            "Jet_Reaction_Z": active * config.command_amplitude,
+            "solver_status": "success",
+            "case_stage": "actuation_schedule",
+            "active_jets": active,
+        }
+        for jet_idx, jet_name in enumerate(JET_COLUMNS):
+            record[jet_name] = (
+                row[jet_idx] * config.command_amplitude
+                if jet_idx < len(row)
+                else 0.0
+            )
+        rows.append(record)
+    return rows
+
+
+def _actuation_schedule_rows(config: ActuationConfig, matrix: list[list[int]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for window_id, row in enumerate(matrix):
+        record: dict[str, Any] = {
+            "window_id": window_id,
+            "t_start": window_id * config.window_duration,
+            "t_end": (window_id + 1) * config.window_duration,
+        }
+        for jet_idx, jet_name in enumerate(JET_COLUMNS):
+            record[jet_name] = (
+                row[jet_idx] * config.command_amplitude
+                if jet_idx < len(row)
+                else 0.0
+            )
+        rows.append(record)
+    return rows
+
+
+def _write_case_in_output_dir(output_dir: Path, case_data: dict[str, Any]) -> dict[str, Any]:
+    old_root = CaseSchema.runs_root
+    CaseSchema.runs_root = output_dir.parent
+    try:
+        return CaseSchema.write_case(case_data)
+    finally:
+        CaseSchema.runs_root = old_root
+
+
+def _copy_actuation_figures_to_standard_dir(output_dir: Path) -> None:
+    figures_dir = output_dir / "figures"
+    figures_dir.mkdir(parents=True, exist_ok=True)
+    for file_name in (
+        "actuation_heatmap.svg",
+        "total_load_curve.svg",
+        "spatial_nonuniformity_curve.svg",
+    ):
+        source = output_dir / file_name
+        if source.exists():
+            (figures_dir / file_name).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 def _write_total_load_curve_csv(config: ActuationConfig, matrix: list[list[int]]) -> None:

@@ -1,0 +1,22 @@
+{
+  "case_name": "case_rl_build_amg_match_mesh_20260516",
+  "action_rows_replayed": 20,
+  "action_match_count": 5,
+  "action_match_rate": 0.25,
+  "reward_rows_compared": 9,
+  "reward_mae": 1.7915504444444446,
+  "reward_rmse": 2.3674772298368105,
+  "first_iteration": 10,
+  "last_iteration": 150,
+  "replay_rows_written": 20,
+  "mode": "behavior",
+  "config": "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/config_rl_build_amg_match_mesh.yaml",
+  "case_dir": "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/validation_phase2_solve_only_iter10_cap233_20260610T034023Z",
+  "timeseries_path": "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/validation_phase2_solve_only_iter10_cap233_20260610T034023Z/profiling/profiling_timeseries.jsonl",
+  "actions_path": "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/validation_phase2_solve_only_iter10_cap233_20260610T034023Z/profiling/profiling_actions.jsonl",
+  "output_dir": "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/validation_phase2_solve_only_iter10_cap233_20260610T034023Z/_offline_replay/20260613T051126",
+  "comparison_jsonl": "replay_comparison.jsonl",
+  "summary_json": "replay_summary.json",
+  "controller_state_json": "rl/rl_controller_state.json",
+  "controller_trace_jsonl": "rl/rl_controller_trace.jsonl"
+}

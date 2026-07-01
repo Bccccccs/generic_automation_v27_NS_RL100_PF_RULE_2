@@ -60,7 +60,16 @@ def test_actuation_outputs_are_written(tmp_path):
         "total_load_curve.svg",
         "spatial_nonuniformity_curve.csv",
         "spatial_nonuniformity_curve.svg",
+        "case_manifest.yaml",
+        "timeseries.csv",
+        "quality_report.json",
         "config_summary.yaml",
         "validation_report.json",
     }
     assert expected_files <= {path.name for path in tmp_path.iterdir()}
+    assert (tmp_path / "logs" / "case_io.log").exists()
+    assert {
+        "actuation_heatmap.svg",
+        "total_load_curve.svg",
+        "spatial_nonuniformity_curve.svg",
+    } <= {path.name for path in (tmp_path / "figures").iterdir()}

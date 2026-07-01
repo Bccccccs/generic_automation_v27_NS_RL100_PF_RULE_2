@@ -1,0 +1,7 @@
+case_name,inlet_velocity,yaw_angle,reference_area,base_mesh_size,num_prism_layers,surface_mesh_size
+case_yaw00_bm1p0_sm0p05_pl6,83.33,0.0,10.0,1.0,6,0.05
+case_yaw15_bm1p0_sm0p05_pl6,83.33,15.0,10.0,1.0,6,0.05
+case_yaw30_bm1p0_sm0p05_pl6,83.33,30.0,10.0,1.0,6,0.05
+case_yaw45_bm1p0_sm0p05_pl6,83.33,45.0,10.0,1.0,6,0.05
+case_yaw00_bm0p8_sm0p03_pl8,69.44,0.0,10.0,0.8,8,0.03
+case_yaw30_bm0p8_sm0p03_pl8,69.44,30.0,10.0,0.8,8,0.03

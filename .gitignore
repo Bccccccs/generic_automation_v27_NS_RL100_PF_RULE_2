@@ -17,3 +17,4 @@ archive/legacy/*
 *.sim~
 *.log
 *.csv.tmp
+~$*

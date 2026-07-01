@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "run_case.py", line 127, in <module>
+    raise SystemExit(main())
+  File "run_case.py", line 115, in main
+    adapter.run(case, case_dir, run_context=run_context)
+  File "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/simulation_adapter.py", line 28, in run
+    self._adapter.run(case, case_dir, run_context=run_context)
+  File "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/starccm_adapter.py", line 90, in run
+    template_path = self._resolve_input_sim(case, case_dir)
+  File "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/starccm_adapter.py", line 175, in _resolve_input_sim
+    include_case_dir_fallback=True,
+  File "/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/starccm_adapter.py", line 78, in _resolve_existing_path
+    f"{label} not found. raw={raw_path!r}; config_path={config_path}; checked={checked}"
+FileNotFoundError: Input .sim for run_mode=solve_only not found. raw='results_validation/sims/validation_phase2_mesh_only_20260610T034023Z_mesh_ready_ab2102163fc5.sim'; config_path=/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/phase2_solve_only_external_monitor.yaml; checked=config_dir=/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage -> /work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/sims/validation_phase2_mesh_only_20260610T034023Z_mesh_ready_ab2102163fc5.sim; case_dir=/work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/validation_phase2_solve_only_iter10_cap233_20260610T034023Z -> /work/home/acn6k38urd/CSU-ML/Code_tmp/generic_automation_v09_2stage/results_validation/validation_phase2_solve_only_iter10_cap233_20260610T034023Z/results_validation/sims/validation_phase2_mesh_only_20260610T034023Z_mesh_ready_ab2102163fc5.sim
