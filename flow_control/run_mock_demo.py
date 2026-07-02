@@ -13,6 +13,8 @@ from typing import Any
 import numpy as np
 import yaml
 
+from starccm_control import StarCCMControlLayer
+
 from .data_schema import CaseSchema, JET_COLUMNS
 from .mock_plant import MockPlant, MockPlantConfig, _HIDDEN_CRITICAL_JET_INDICES
 from .schedule_generator import ActuationConfig, generate_actuation_matrix
@@ -219,32 +221,27 @@ def _mock_timeseries_rows(
     stability: dict[str, Any],
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
+    control_layer = StarCCMControlLayer()
     for window_id in range(inputs.shape[1]):
         y = outputs[:, window_id]
         finite = bool(np.all(np.isfinite(y)))
-        left_total = float(y[0] + y[2] + y[4])
-        right_total = float(y[1] + y[3] + y[5])
-        front_total = float(y[0] + y[1])
-        rear_total = float(y[4] + y[5])
-        record: dict[str, Any] = {
-            "physical_time": window_id * actuation.window_duration,
-            "window_id": window_id,
-            "Fz_S1L": float(y[0]),
-            "Fz_S1R": float(y[1]),
-            "Fz_S2L": float(y[2]),
-            "Fz_S2R": float(y[3]),
-            "Fz_S3L": float(y[4]),
-            "Fz_S3R": float(y[5]),
-            "Fz_Total": float(np.sum(y)),
-            "Drag_Total": float(np.sqrt(np.mean(y * y))),
-            "Pitch_Moment": rear_total - front_total,
-            "Roll_Moment": right_total - left_total,
-            "Jet_Reaction_Z": float(np.sum(inputs[:, window_id])),
-            "solver_status": "success" if finite and stability["stable"] else "failed",
-            "case_stage": "mock_plant_rollout",
+        report_values = {
+            point.report_name: float(y[idx])
+            for idx, point in enumerate(control_layer.spec.load_points)
         }
-        for jet_idx, jet_name in enumerate(JET_COLUMNS):
-            record[jet_name] = float(inputs[jet_idx, window_id]) if jet_idx < inputs.shape[0] else 0.0
+        report_values["Drag_Total"] = float(np.sqrt(np.mean(y * y)))
+        jet_commands = {
+            jet_name: float(inputs[jet_idx, window_id]) if jet_idx < inputs.shape[0] else 0.0
+            for jet_idx, jet_name in enumerate(JET_COLUMNS)
+        }
+        record = control_layer.map_timeseries_row(
+            report_values,
+            jet_commands,
+            physical_time=window_id * actuation.window_duration,
+            window_id=window_id,
+            solver_status="success" if finite and stability["stable"] else "failed",
+        )
+        record["case_stage"] = "mock_plant_rollout"
         rows.append(record)
     return rows
 

@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import json
 import logging
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from generic_automation.core.adapter_base import Case
+from generic_automation.starccm_translator import GenericAutomationStarCCMTranslator
 from generic_automation.monitor.ai_monitor_outputs import STARCCM_LOG_NAME
-from generic_automation.starccm.starccm_macro_builder import build_macro
-from generic_automation.starccm.starccm_result_files import (
+from starccm_runtime.starccm_macro_builder import build_macro
+from starccm_runtime.starccm_result_files import (
     cleanup_intermediate_outputs,
     collect_reports,
     write_output,
@@ -18,6 +20,7 @@ from generic_automation.core.runtime_metadata import (
     default_mesh_ready_filename,
     update_run_context,
 )
+from starccm_control import StarCCMControlLayer
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,8 @@ class StarCCMAdapter:
                 mesh_cache_key=case.mesh_cache_key,
             )
 
+        self._write_control_context(case_dir)
+        self._write_runtime_plan(case, case_dir)
         macro_path = case_dir / "AutoSetupMacro.java"
         macro_path.write_text(
             build_macro(
@@ -149,6 +154,19 @@ class StarCCMAdapter:
         reports = collect_reports(case, case_dir)
         write_output(case, case_dir, reports)
         cleanup_intermediate_outputs(case_dir, macro_path)
+
+    def _write_control_context(self, case_dir: Path) -> None:
+        context_path = case_dir / "starccm_control_context.json"
+        context = StarCCMControlLayer().macro_context()
+        context_path.write_text(json.dumps(context, indent=2), encoding="utf-8")
+
+    def _write_runtime_plan(self, case: Case, case_dir: Path) -> None:
+        plan_path = case_dir / "starccm_runtime_plan.json"
+        plan = GenericAutomationStarCCMTranslator().translate(
+            case,
+            check_interval=self._check_interval,
+        )
+        plan.write_json(plan_path)
 
     def _resolve_input_sim(self, case: Case, case_dir: Path) -> Path:
         run_mode = str(getattr(case, "run_mode", "full_run") or "full_run").strip().lower()

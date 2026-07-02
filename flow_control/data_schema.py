@@ -15,17 +15,13 @@ from typing import Any
 
 import yaml
 
-
-JET_COLUMNS = tuple(f"JET_{idx:02d}" for idx in range(1, 25))
-LOAD_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
-GLOBAL_COLUMNS = (
-    "Fz_Total",
-    "Drag_Total",
-    "Pitch_Moment",
-    "Roll_Moment",
-    "Jet_Reaction_Z",
-    "solver_status",
+from starccm_control.control_spec import (
+    GLOBAL_OUTPUT_COLUMNS,
+    JET_COLUMNS,
+    LOAD_COLUMNS,
 )
+
+GLOBAL_COLUMNS = GLOBAL_OUTPUT_COLUMNS
 TIMESERIES_REQUIRED_COLUMNS = (
     "physical_time",
     "window_id",
