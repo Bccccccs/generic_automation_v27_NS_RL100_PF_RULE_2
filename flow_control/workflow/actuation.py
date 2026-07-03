@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import yaml
 
-from .excitation_patterns import ActuationConfig, ScheduleTable, generate_pattern_table
+from ..excitation_patterns import ActuationConfig, ScheduleTable, generate_pattern_table
 
 
 @dataclass(frozen=True)
@@ -45,4 +45,3 @@ def load_actuation_run(config_path: str | Path, output_dir: str | Path | None = 
 def read_yaml(path: str | Path) -> dict[str, Any]:
     with Path(path).open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
-

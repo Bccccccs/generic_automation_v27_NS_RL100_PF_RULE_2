@@ -3,14 +3,14 @@ from itertools import groupby
 from pathlib import Path
 
 from flow_control.excitation_patterns.common import ActuationConfig, generate_pattern_table
-from flow_control.schedule_generator import (
+from flow_control.workflow.schedule_generator import (
     activation_counts,
     generate_actuation_matrix,
     run_from_yaml,
     validate_actuation_matrix,
     write_actuation_outputs,
 )
-from flow_control.schedule_validator import validate_actuation_schedule_csv
+from flow_control.workflow.schedule_validator import validate_actuation_schedule_csv
 
 
 def _config(seed: int = 20260618) -> ActuationConfig:

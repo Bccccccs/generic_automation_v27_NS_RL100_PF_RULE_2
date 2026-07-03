@@ -113,7 +113,7 @@ physical_time、t_start、t_end 都是物理时间秒，不是求解器迭代步
 生成某一种动作表：
 
 ```bash
-.venv/bin/python -m flow_control.schedule_generator --config configs/pulse_singlejet.yaml
+.venv/bin/python -m flow_control.workflow.schedule_generator --config configs/pulse_singlejet.yaml
 ```
 
 生成结果默认写到：
@@ -146,7 +146,7 @@ total_mass_flow_curve.svg    总质量流量曲线
 只生成动作表时，入口是：
 
 ```text
-flow_control/schedule_generator.py
+flow_control/workflow/schedule_generator.py
 ```
 
 调用链：
@@ -177,41 +177,38 @@ flow_control/excitation_patterns/common.py          共用配置、表格、校�
 如果想生成动作后立刻送入本地 mock plant，入口是：
 
 ```text
-flow_control/run_mock_demo.py
+examples/run_mock_dynamic24x6.py
 ```
 
 示例：
 
 ```bash
-.venv/bin/python -m flow_control.run_mock_demo \
-  --config configs/prbs_demo.yaml \
-  --output-dir runs/mock_examples/prbs_demo
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
 ```
 
 调用链：
 
 ```text
 configs/*.yaml
-  -> run_mock_demo.py
-  -> actuation_workflow.py 生成动作并转成 24 x T 输入矩阵
-  -> mock_rollout.py 运行 MockPlant
-  -> mock_case_bundle.py 写 mock_inputs、mock_outputs、timeseries 和图
+  -> examples/run_mock_dynamic24x6.py
+  -> workflow/schedule_generator.py 生成 actuation_schedule.csv
+  -> mock_plant.py 运行 MockDynamic24x6
+  -> mock_plant.py 写 timeseries 和验收图
 ```
 
 mock 输出通常包括：
 
 ```text
 actuation_schedule.csv
-mock_inputs.csv
-mock_outputs.csv
-mock_input_output_correlations.csv
-mock_hidden_jet_influence_ranking.csv
-mock_input_heatmap.svg
-mock_output_timeseries.svg
+figures/input_heatmap.svg
+figures/fz_regions.svg
+figures/fz_total.svg
+figures/spatial_nonuniformity.svg
+figures/total_massflow.svg
 timeseries.csv
 case_manifest.yaml
 quality_report.json
-mock_demo_summary.json
+mock_dynamic24x6_summary.json
 ```
 
 注意：mock plant 是本地虚拟模型，用于验证数据链路，不代表真实 STAR-CCM+ 结果。
@@ -229,7 +226,7 @@ mock_demo_summary.json
 ```bash
 .venv/bin/python -m pytest -q \
   tests/test_actuation_schedule_generator.py \
-  tests/test_mock_plant_contract.py \
+  tests/test_mock_dynamic24x6.py \
   tests/test_flow_control_smoke.py \
   tests/test_case_schema.py \
   tests/test_starccm_runtime_translators.py

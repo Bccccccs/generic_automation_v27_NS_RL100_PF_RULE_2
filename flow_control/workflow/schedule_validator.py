@@ -5,9 +5,9 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-from .data_schema import ExperimentConfig, Schedule
-from .excitation_patterns.common import MASSFLOW_COLUMNS
-from .data_schema import JET_COLUMNS
+from ..data_schema import ExperimentConfig, Schedule
+from ..excitation_patterns.common import MASSFLOW_COLUMNS
+from ..data_schema import JET_COLUMNS
 
 
 def validate_schedule(schedule: Schedule, config: ExperimentConfig) -> list[str]:

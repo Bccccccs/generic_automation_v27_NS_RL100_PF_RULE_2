@@ -1,0 +1,85 @@
+import csv
+
+from flow_control.data_schema import CaseSchema
+from flow_control.mock import (
+    MockDynamic24x6Config,
+    MockDynamicPlant24x6,
+    read_actuation_schedule,
+    write_mock_dynamic_case,
+)
+from starccm_control.control_spec import JET_COLUMNS, LOAD_COLUMNS
+
+
+def _write_schedule(path):
+    columns = [
+        "physical_time",
+        "window_id",
+        "t_start",
+        "t_end",
+        *JET_COLUMNS,
+        *(f"cmd_massflow_{idx:02d}" for idx in range(1, 25)),
+    ]
+    rows = []
+    for window_id in range(5):
+        row = {
+            "physical_time": window_id * 0.1,
+            "window_id": window_id,
+            "t_start": window_id * 0.1,
+            "t_end": (window_id + 1) * 0.1,
+        }
+        for idx, column in enumerate(JET_COLUMNS, start=1):
+            active = int((window_id == 1 and idx in {1, 2, 3, 4}) or (window_id == 3 and idx in {17, 18}))
+            row[column] = active
+            row[f"cmd_massflow_{idx:02d}"] = 0.25 if active else 0.0
+        rows.append(row)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=columns)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def test_mock_dynamic24x6_is_schedule_driven_and_schema_compatible(tmp_path):
+    schedule_path = tmp_path / "actuation_schedule.csv"
+    config_path = tmp_path / "mock_dynamic24x6.yaml"
+    output_dir = tmp_path / "mock_dynamic24x6_demo"
+    _write_schedule(schedule_path)
+    config_path.write_text(
+        "mock_dynamic24x6:\n"
+        "  random_seed: 123\n"
+        "  fz_noise_std: 0.0\n"
+        "  drag_noise_std: 0.0\n"
+        "  moment_noise_std: 0.0\n",
+        encoding="utf-8",
+    )
+
+    result = write_mock_dynamic_case(
+        schedule_path=schedule_path,
+        config_path=config_path,
+        output_dir=output_dir,
+    )
+
+    timeseries_path = result["files"]["timeseries"]
+    with timeseries_path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert len(rows) == 5
+    assert CaseSchema.validate_timeseries(rows) == []
+    assert set(LOAD_COLUMNS).issubset(rows[0])
+    assert rows[0]["solver_status"] == "success"
+    assert (output_dir / "figures" / "input_heatmap.svg").exists()
+    assert (output_dir / "figures" / "fz_regions.svg").exists()
+    assert (output_dir / "figures" / "fz_total.svg").exists()
+    assert (output_dir / "figures" / "spatial_nonuniformity.svg").exists()
+    assert (output_dir / "figures" / "total_massflow.svg").exists()
+
+
+def test_mock_dynamic24x6_fixed_seed_is_reproducible(tmp_path):
+    schedule_path = tmp_path / "actuation_schedule.csv"
+    _write_schedule(schedule_path)
+    rows = read_actuation_schedule(schedule_path)
+    config = MockDynamic24x6Config(random_seed=321)
+
+    left = MockDynamicPlant24x6(config).simulate(rows)["timeseries"]
+    right = MockDynamicPlant24x6(config).simulate(rows)["timeseries"]
+
+    assert left == right

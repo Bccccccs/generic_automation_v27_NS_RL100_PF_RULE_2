@@ -9,14 +9,14 @@ from typing import Any
 
 import yaml
 
-from .data_schema import ControlAction, ExperimentConfig, Schedule, ScheduleStep
-from .excitation_patterns import (
+from ..data_schema import ControlAction, ExperimentConfig, Schedule, ScheduleStep
+from ..excitation_patterns import (
     ActuationConfig,
     ScheduleTable,
     generate_pattern_table,
     write_pattern_outputs,
 )
-from .excitation_patterns.sparse_groups import (
+from ..excitation_patterns.sparse_groups import (
     activation_counts,
     generate_actuation_matrix,
     validate_sparse_matrix,
