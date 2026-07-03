@@ -1,12 +1,12 @@
 import pytest
 
 from generic_automation.adapters.starccm_adapter import StarCCMAdapter
-from starccm_control import (
+from starccm.control import (
     DEFAULT_LOAD_POINTS,
     DEFAULT_STARCCM_JETS,
     StarCCMControlLayer,
 )
-from starccm_control.control_spec import JET_COLUMNS, LOAD_COLUMNS
+from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 from flow_control.data_schema import CaseSchema
 
 

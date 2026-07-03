@@ -9,6 +9,8 @@ def test_schedule_to_mock_timeseries_pipeline_smoke(tmp_path):
     run_dir = tmp_path / "mock_case"
 
     schedule_config.write_text(
+        "system:\n"
+        "  random_seed: 7\n"
         "actuation:\n"
         "  mode: pulse_singlejet\n"
         "  n_jets: 24\n"
@@ -17,14 +19,14 @@ def test_schedule_to_mock_timeseries_pipeline_smoke(tmp_path):
         "  total_windows: 5\n"
         "  mass_flow_rate: 0.5\n"
         "  window_duration: 0.1\n"
-        "  random_seed: 7\n"
         "output:\n"
         f"  run_dir: {schedule_dir}\n",
         encoding="utf-8",
     )
     mock_config.write_text(
-        "mock_dynamic24x6:\n"
+        "system:\n"
         "  random_seed: 11\n"
+        "mock_dynamic24x6:\n"
         "  fz_noise_std: 0.0\n"
         "  drag_noise_std: 0.0\n"
         "  moment_noise_std: 0.0\n",

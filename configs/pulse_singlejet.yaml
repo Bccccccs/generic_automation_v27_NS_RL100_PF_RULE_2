@@ -6,7 +6,6 @@ actuation:
   mass_flow_rate: 0.02
   jet_ids: [3]
   pulse_windows: [1]
-  random_seed: 20260702
 
 output:
   run_dir: runs/schedule_examples/pulse_singlejet

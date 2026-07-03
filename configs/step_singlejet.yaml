@@ -7,7 +7,6 @@ actuation:
   jet_ids: [3]
   step_start_window: 1
   step_end_window: 8
-  random_seed: 20260702
 
 output:
   run_dir: runs/schedule_examples/step_singlejet

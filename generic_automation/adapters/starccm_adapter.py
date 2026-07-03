@@ -9,8 +9,8 @@ from typing import Any
 from generic_automation.core.adapter_base import Case
 from generic_automation.starccm_translator import GenericAutomationStarCCMTranslator
 from generic_automation.monitor.ai_monitor_outputs import STARCCM_LOG_NAME
-from starccm_runtime.starccm_macro_builder import build_macro
-from starccm_runtime.starccm_result_files import (
+from starccm.runtime.starccm_macro_builder import build_macro
+from starccm.runtime.starccm_result_files import (
     cleanup_intermediate_outputs,
     collect_reports,
     write_output,
@@ -20,7 +20,7 @@ from generic_automation.core.runtime_metadata import (
     default_mesh_ready_filename,
     update_run_context,
 )
-from starccm_control import StarCCMControlLayer
+from starccm.control import StarCCMControlLayer
 
 logger = logging.getLogger(__name__)
 

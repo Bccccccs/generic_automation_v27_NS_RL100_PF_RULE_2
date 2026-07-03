@@ -7,7 +7,6 @@ actuation:
   jet_ids: [3, 7, 14, 18]
   chirp_start_frequency_hz: 1.0
   chirp_end_frequency_hz: 8.0
-  random_seed: 20260702
 
 output:
   run_dir: runs/schedule_examples/chirp_keyjets

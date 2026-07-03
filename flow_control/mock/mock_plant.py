@@ -25,9 +25,10 @@ from typing import Any
 import numpy as np
 import yaml
 
+from flow_control.config import load_config_with_system_defaults
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
-from starccm_control.control_spec import JET_COLUMNS, LOAD_COLUMNS
+from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,10 @@ class MockDynamic24x6Config:
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "MockDynamic24x6Config":
+        system = data.get("system", {}) if isinstance(data, dict) else {}
         values = dict(data.get("mock_dynamic24x6", data))
+        if "random_seed" not in values and isinstance(system, dict) and "random_seed" in system:
+            values["random_seed"] = system["random_seed"]
         allowed = set(cls.__dataclass_fields__)
         kwargs = {key: values[key] for key in allowed if key in values}
         return cls(**kwargs)
@@ -307,8 +311,7 @@ class MockDynamicPlant24x6:
 
 def load_config(path: str | Path) -> dict[str, Any]:
     """读取 mock 参数 YAML。"""
-    with Path(path).open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}
+    return load_config_with_system_defaults(path)
 
 
 def read_actuation_schedule(path: str | Path) -> list[dict[str, Any]]:

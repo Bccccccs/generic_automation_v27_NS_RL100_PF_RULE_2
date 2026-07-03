@@ -205,3 +205,54 @@ output:
     schedule_path = tmp_path / "pulse_singlejet" / "actuation_schedule.csv"
     assert schedule_path.exists()
     assert validate_actuation_schedule_csv(schedule_path) == []
+
+
+def test_system_random_seed_drives_actuation_config():
+    base = ActuationConfig.from_mapping(
+        {
+            "system": {"random_seed": 1234},
+            "actuation": {
+                "mode": "prbs_demo",
+                "total_windows": 12,
+                "max_active_jets": 4,
+            },
+        }
+    )
+    override = ActuationConfig.from_mapping(
+        {
+            "system": {"random_seed": 1234},
+            "actuation": {
+                "mode": "prbs_demo",
+                "total_windows": 12,
+                "random_seed": 5678,
+                "max_active_jets": 4,
+            },
+        }
+    )
+
+    assert base.random_seed == 1234
+    assert override.random_seed == 5678
+
+
+def test_run_from_yaml_uses_shared_system_config(tmp_path, monkeypatch):
+    system_config = tmp_path / "system.yaml"
+    config_path = tmp_path / "prbs.yaml"
+    output_dir = tmp_path / "prbs_out"
+    system_config.write_text(
+        "system:\n"
+        "  random_seed: 777\n",
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        "actuation:\n"
+        "  mode: prbs_demo\n"
+        "  total_windows: 8\n"
+        "  max_active_jets: 4\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FLOW_CONTROL_SYSTEM_CONFIG", str(system_config))
+
+    config = run_from_yaml(config_path, output_dir=output_dir)
+
+    assert config.random_seed == 777
+    assert (output_dir / "actuation_schedule.csv").exists()

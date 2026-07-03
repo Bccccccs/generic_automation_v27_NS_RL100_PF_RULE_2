@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from generic_automation.core.adapter_base import Case
-from starccm_runtime.starccm_log_reader import (
+from starccm.runtime.starccm_log_reader import (
     StarCCMLogReader,
     _AMG_CYCLE_PHRASES,
     _SOLVER_ITERATION_PHRASES,

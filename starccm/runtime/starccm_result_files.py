@@ -6,8 +6,8 @@ import logging
 from pathlib import Path
 
 from generic_automation.core.adapter_base import Case
-from starccm_runtime.starccm_log_reader import StarCCMLogReader
-from starccm_runtime.starccm_solver_profiling import finalize_solver_profiling
+from starccm.runtime.starccm_log_reader import StarCCMLogReader
+from starccm.runtime.starccm_solver_profiling import finalize_solver_profiling
 
 logger = logging.getLogger(__name__)
 

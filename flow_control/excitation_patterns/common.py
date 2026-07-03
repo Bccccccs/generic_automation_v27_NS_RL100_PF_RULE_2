@@ -83,6 +83,7 @@ class ActuationConfig:
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "ActuationConfig":
+        system = data.get("system", {})
         actuation = data.get("actuation", {})
         output = data.get("output", {})
         if not actuation:
@@ -113,7 +114,7 @@ class ActuationConfig:
                 actuation.get("mass_flow_rate", actuation.get("command_amplitude", 1.0))
             ),
             window_duration=float(actuation.get("window_duration", 0.1)),
-            random_seed=int(actuation.get("random_seed", 20260618)),
+            random_seed=int(actuation.get("random_seed", system.get("random_seed", 20260618))),
             output_dir=Path(output.get("run_dir", f"runs/schedule_examples/{mode}")),
             total_windows=total_windows,
             jet_ids=tuple(int(value) for value in jet_ids),

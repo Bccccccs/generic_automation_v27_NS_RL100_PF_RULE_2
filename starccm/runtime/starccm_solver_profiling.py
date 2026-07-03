@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from generic_automation.core.adapter_base import Case
-from starccm_runtime.starccm_log_parser import (
+from starccm.runtime.starccm_log_parser import (
     parse_starccm_log_rows,
     parse_starccm_mesh_cell_count,
     parse_starccm_solver_metric_diagnostics,

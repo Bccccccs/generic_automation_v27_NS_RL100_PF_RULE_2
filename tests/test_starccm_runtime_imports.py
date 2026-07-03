@@ -2,7 +2,7 @@ from pathlib import Path
 
 from generic_automation.core.adapter_base import Case
 from generic_automation.starccm.starccm_macro_builder import build_macro as legacy_build_macro
-from starccm_runtime.starccm_macro_builder import build_macro
+from starccm.runtime.starccm_macro_builder import build_macro
 
 
 def _case() -> Case:

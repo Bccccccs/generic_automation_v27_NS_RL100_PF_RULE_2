@@ -38,8 +38,8 @@ from generic_automation.core.runtime_metadata import (
     append_jsonl,
 )
 from generic_automation.core.runtime_value_utils import optional_text, safe_float, safe_int, to_csv_scalar
-from starccm_runtime.starccm_log_reader import StarCCMLogReader
-from starccm_runtime.starccm_log_parser import parse_starccm_mesh_cell_count
+from starccm.runtime.starccm_log_reader import StarCCMLogReader
+from starccm.runtime.starccm_log_parser import parse_starccm_mesh_cell_count
 
 log = logging.getLogger(__name__)
 

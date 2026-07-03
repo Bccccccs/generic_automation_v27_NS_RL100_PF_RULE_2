@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from starccm_control import DEFAULT_STARCCM_SPEC, StarCCMControlSpec
-from starccm_runtime import (
+from starccm.control import DEFAULT_STARCCM_SPEC, StarCCMControlSpec
+from starccm.runtime import (
     ReadReports,
     RunTimeWindow,
     SetBoundaryProfile,

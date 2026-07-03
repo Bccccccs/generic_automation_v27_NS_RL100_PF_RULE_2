@@ -41,11 +41,9 @@ generic_automation/
 flow_control/
   喷气流控原型：激励动作表、mock plant、数据 schema、STAR 命令翻译
 
-starccm_control/
-  24 个喷气区、6 个载荷点、report 名称和结果映射的共用契约
-
-starccm_runtime/
-  STAR-CCM+ runtime 命令模型、macro builder、日志解析和结果收集
+starccm/
+  control/：24 个喷气区、6 个载荷点、report 名称和结果映射的共用契约
+  runtime/：STAR-CCM+ runtime 命令模型、macro builder、日志解析和结果收集
 
 configs/
   YAML 配置文件

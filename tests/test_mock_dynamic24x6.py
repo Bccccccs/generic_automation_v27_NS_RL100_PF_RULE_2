@@ -7,7 +7,7 @@ from flow_control.mock import (
     read_actuation_schedule,
     write_mock_dynamic_case,
 )
-from starccm_control.control_spec import JET_COLUMNS, LOAD_COLUMNS
+from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 
 def _write_schedule(path):
@@ -83,3 +83,40 @@ def test_mock_dynamic24x6_fixed_seed_is_reproducible(tmp_path):
     right = MockDynamicPlant24x6(config).simulate(rows)["timeseries"]
 
     assert left == right
+
+
+def test_system_random_seed_drives_mock_config():
+    base = MockDynamic24x6Config.from_mapping(
+        {"system": {"random_seed": 4321}, "mock_dynamic24x6": {}}
+    )
+    override = MockDynamic24x6Config.from_mapping(
+        {
+            "system": {"random_seed": 4321},
+            "mock_dynamic24x6": {"random_seed": 8765},
+        }
+    )
+
+    assert base.random_seed == 4321
+    assert override.random_seed == 8765
+
+
+def test_mock_config_loads_shared_system_seed(tmp_path, monkeypatch):
+    from flow_control.mock.mock_plant import load_config
+
+    system_config = tmp_path / "system.yaml"
+    mock_config = tmp_path / "mock.yaml"
+    system_config.write_text(
+        "system:\n"
+        "  random_seed: 24680\n",
+        encoding="utf-8",
+    )
+    mock_config.write_text(
+        "mock_dynamic24x6:\n"
+        "  fz_noise_std: 0.0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FLOW_CONTROL_SYSTEM_CONFIG", str(system_config))
+
+    config = MockDynamic24x6Config.from_mapping(load_config(mock_config))
+
+    assert config.random_seed == 24680

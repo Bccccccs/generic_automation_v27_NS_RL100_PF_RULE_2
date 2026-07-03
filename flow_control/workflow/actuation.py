@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
+from ..config import load_config_with_system_defaults, read_yaml
 from ..excitation_patterns import ActuationConfig, ScheduleTable, generate_pattern_table
 
 
@@ -24,7 +24,7 @@ class ActuationRun:
 
 
 def load_actuation_run(config_path: str | Path, output_dir: str | Path | None = None) -> ActuationRun:
-    raw_config = read_yaml(config_path)
+    raw_config = load_config_with_system_defaults(config_path)
     config = ActuationConfig.from_mapping(raw_config)
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
@@ -40,8 +40,3 @@ def load_actuation_run(config_path: str | Path, output_dir: str | Path | None = 
         inputs=inputs,
         extra=extra,
     )
-
-
-def read_yaml(path: str | Path) -> dict[str, Any]:
-    with Path(path).open("r", encoding="utf-8") as handle:
-        return yaml.safe_load(handle) or {}

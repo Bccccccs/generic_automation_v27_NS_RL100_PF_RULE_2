@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from starccm_control.control_spec import (
+from starccm.control.control_spec import (
     GLOBAL_OUTPUT_COLUMNS,
     JET_COLUMNS,
     LOAD_COLUMNS,

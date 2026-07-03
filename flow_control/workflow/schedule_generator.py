@@ -9,6 +9,7 @@ from typing import Any
 
 import yaml
 
+from ..config import load_config_with_system_defaults
 from ..data_schema import ControlAction, ExperimentConfig, Schedule, ScheduleStep
 from ..excitation_patterns import (
     ActuationConfig,
@@ -79,8 +80,7 @@ def generate_from_config(config: ActuationConfig) -> tuple[ScheduleTable, dict[s
 
 
 def run_from_yaml(config_path: str | Path, output_dir: str | Path | None = None) -> ActuationConfig:
-    with Path(config_path).open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle) or {}
+    data = load_config_with_system_defaults(config_path)
     config = ActuationConfig.from_mapping(data)
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
@@ -97,8 +97,7 @@ def main() -> None:
     parser.add_argument("--output-dir", help="Override output.run_dir from the config file.")
     args = parser.parse_args()
 
-    with Path(args.config).open("r", encoding="utf-8") as handle:
-        data = yaml.safe_load(handle) or {}
+    data = load_config_with_system_defaults(args.config)
 
     if "actuation" in data:
         config = run_from_yaml(args.config, output_dir=args.output_dir)

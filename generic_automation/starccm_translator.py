@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from generic_automation.core.adapter_base import Case
-from starccm_runtime import (
+from starccm.runtime import (
     ReadReports,
     RunIterations,
     SetSolverParameter,

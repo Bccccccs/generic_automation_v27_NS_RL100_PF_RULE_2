@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-ISOLATED_ROOTS = (PROJECT_ROOT / "flow_control", PROJECT_ROOT / "starccm_control")
+ISOLATED_ROOTS = (PROJECT_ROOT / "flow_control", PROJECT_ROOT / "starccm" / "control")
 
 
 def _project_imports(path: Path) -> list[str]:
@@ -39,7 +39,7 @@ def test_importing_flow_control_does_not_load_solver_optimization_modules():
     importlib.import_module("flow_control.workflow.schedule_generator")
     importlib.import_module("flow_control.workflow.schedule_validator")
     importlib.import_module("flow_control.mock")
-    importlib.import_module("starccm_control")
+    importlib.import_module("starccm.control")
 
     loaded = [
         module_name

@@ -4,7 +4,6 @@ actuation:
   total_windows: 80
   window_duration: 0.05
   mass_flow_rate: 0.02
-  random_seed: 20260702
   max_active_jets: 4
   max_total_mass_flow: 0.08
   prbs_switch_probability: 0.35
