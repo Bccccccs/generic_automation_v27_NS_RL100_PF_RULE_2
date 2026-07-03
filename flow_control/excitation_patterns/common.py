@@ -288,13 +288,14 @@ def write_heatmap_svg(config: ActuationConfig, table: ScheduleTable) -> None:
     cell = 10
     label_width = 64
     label_height = 28
-    width = label_width + table.n_windows * cell + 16
+    title = f"{config.mode} switch heatmap"
+    width = max(label_width + table.n_windows * cell + 16, 18 + len(title) * 8)
     height = label_height + table.n_jets * cell + 30
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">',
         '<rect width="100%" height="100%" fill="#ffffff"/>',
-        f'<text x="8" y="18" font-family="Arial" font-size="12" fill="#1f2328">{config.mode} actuation heatmap</text>',
+        f'<text x="8" y="18" font-family="Arial" font-size="12" fill="#1f2328">{title}</text>',
     ]
     for jet_idx, jet_name in enumerate(config.jet_names):
         y = label_height + jet_idx * cell

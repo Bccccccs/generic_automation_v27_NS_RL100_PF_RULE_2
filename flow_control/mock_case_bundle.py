@@ -256,22 +256,24 @@ def write_ranking_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def write_input_heatmap_svg(path: Path, inputs: np.ndarray) -> None:
-    cell_w = 9
+    cell_w = 10
     cell_h = 10
-    left = 48
+    left = 64
     top = 26
-    width = left + inputs.shape[1] * cell_w + 18
+    title = "24xT cmd_massflow heatmap"
+    width = max(left + inputs.shape[1] * cell_w + 18, 18 + len(title) * 8)
     height = top + inputs.shape[0] * cell_h + 28
-    max_abs = max(float(np.max(np.abs(inputs))), 1.0)
-    lines = svg_header(width, height, "24xT input heatmap")
+    raw_max = float(np.max(np.abs(inputs))) if inputs.size else 0.0
+    max_abs = raw_max if raw_max > 0.0 else 1.0
+    lines = svg_header(width, height, title)
     for row_idx in range(inputs.shape[0]):
         y = top + row_idx * cell_h
-        lines.append(svg_text(6, y + 8, f"J{row_idx + 1:02d}", 8, "#2b2f33"))
+        lines.append(svg_text(6, y + 8, f"JET_{row_idx + 1:02d}", 8, "#2b2f33"))
         for col_idx in range(inputs.shape[1]):
             x = left + col_idx * cell_w
             value = float(inputs[row_idx, col_idx] / max_abs)
             fill = blend("#f4f7fb", "#1864ab", max(0.0, value))
-            lines.append(f'<rect x="{x}" y="{y}" width="8" height="9" fill="{fill}"/>')
+            lines.append(f'<rect x="{x}" y="{y}" width="{cell_w - 1}" height="{cell_h - 1}" fill="{fill}"/>')
     append_time_ticks(lines, left, top + inputs.shape[0] * cell_h + 12, inputs.shape[1], cell_w)
     lines.append("</svg>")
     path.write_text("\n".join(lines), encoding="utf-8")
