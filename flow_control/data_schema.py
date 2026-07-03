@@ -29,6 +29,12 @@ TIMESERIES_REQUIRED_COLUMNS = (
     *LOAD_COLUMNS,
     *GLOBAL_COLUMNS,
 )
+PRESSURE_SENSOR_REQUIRED_COLUMNS = (
+    "physical_time",
+    "window_id",
+    "sensor_id",
+    "pressure",
+)
 MANIFEST_REQUIRED_FIELDS = (
     "geometry_version",
     "mesh_version",
@@ -41,6 +47,7 @@ MANIFEST_REQUIRED_FIELDS = (
     "git_commit",
     "created_time",
 )
+CASE_DIRECTORIES = ("figures", "logs", "flow_snapshots")
 
 
 def _is_nan_like(value: Any) -> bool:
@@ -126,7 +133,9 @@ class CaseSchema:
 
     runs_root = Path("runs")
     timeseries_required_columns = TIMESERIES_REQUIRED_COLUMNS
+    pressure_sensor_required_columns = PRESSURE_SENSOR_REQUIRED_COLUMNS
     manifest_required_fields = MANIFEST_REQUIRED_FIELDS
+    case_directories = CASE_DIRECTORIES
 
     @classmethod
     def validate_timeseries(cls, df: Any) -> list[str]:
@@ -186,6 +195,45 @@ class CaseSchema:
         return errors
 
     @classmethod
+    def validate_pressure_sensors(cls, df: Any) -> list[str]:
+        """Return schema errors for optional pressure_sensors.csv data."""
+
+        errors: list[str] = []
+        columns, rows = _normalize_tabular(df)
+        column_set = set(columns)
+
+        missing_columns = [
+            column
+            for column in cls.pressure_sensor_required_columns
+            if column not in column_set
+        ]
+        if missing_columns:
+            errors.append(f"pressure_sensors.csv missing required columns: {', '.join(missing_columns)}")
+
+        if not rows:
+            errors.append("pressure_sensors.csv must contain at least one row when provided")
+            return errors
+
+        for row_idx, row in enumerate(rows):
+            for column in cls.pressure_sensor_required_columns:
+                if _is_nan_like(row.get(column)):
+                    errors.append(
+                        f"pressure_sensors.csv contains missing/NaN value at row {row_idx}, column {column}"
+                    )
+                    break
+            try:
+                int(row.get("window_id"))
+            except (TypeError, ValueError):
+                errors.append(f"pressure_sensors.csv row {row_idx} has non-integer window_id")
+            try:
+                float(row.get("physical_time"))
+                float(row.get("pressure"))
+            except (TypeError, ValueError):
+                errors.append(f"pressure_sensors.csv row {row_idx} has non-numeric time or pressure")
+
+        return errors
+
+    @classmethod
     def build_run_directory(cls, case_id: str) -> Path:
         """Create and return the standard run directory for a case."""
 
@@ -195,8 +243,8 @@ class CaseSchema:
             raise ValueError("case_id must be a plain directory name without path separators")
 
         run_dir = cls.runs_root / str(case_id)
-        (run_dir / "figures").mkdir(parents=True, exist_ok=True)
-        (run_dir / "logs").mkdir(parents=True, exist_ok=True)
+        for directory_name in cls.case_directories:
+            (run_dir / directory_name).mkdir(parents=True, exist_ok=True)
         return run_dir
 
     @classmethod
@@ -232,6 +280,20 @@ class CaseSchema:
         else:
             schedule_columns, schedule_rows = _normalize_tabular(schedule)
 
+        pressure_sensors = case_data.get("pressure_sensors")
+        pressure_sensor_rows: list[dict[str, Any]] | None = None
+        pressure_sensor_columns: list[str] | None = None
+        if pressure_sensors is not None:
+            pressure_sensor_columns, pressure_sensor_rows = _normalize_tabular(pressure_sensors)
+            pressure_sensor_columns = cls._ordered_columns(
+                pressure_sensor_columns,
+                cls.pressure_sensor_required_columns,
+            )
+            pressure_errors = cls.validate_pressure_sensors(pressure_sensor_rows)
+            if pressure_errors:
+                logger.error("pressure sensor validation failed: %s", pressure_errors)
+                raise ValueError("; ".join(pressure_errors))
+
         quality_report = cls._build_quality_report(ts_rows)
         quality_report.update(dict(case_data.get("quality_report") or {}))
         quality_report.setdefault("run_success_flag", len(validation_errors) == 0)
@@ -240,6 +302,8 @@ class CaseSchema:
             yaml.safe_dump(manifest, handle, sort_keys=False, allow_unicode=True)
         _write_csv_rows(run_dir / "timeseries.csv", ts_columns, ts_rows)
         _write_csv_rows(run_dir / "actuation_schedule.csv", schedule_columns, schedule_rows)
+        if pressure_sensor_rows is not None and pressure_sensor_columns is not None:
+            _write_csv_rows(run_dir / "pressure_sensors.csv", pressure_sensor_columns, pressure_sensor_rows)
         with (run_dir / "quality_report.json").open("w", encoding="utf-8") as handle:
             json.dump(quality_report, handle, indent=2, ensure_ascii=False)
 
@@ -251,6 +315,8 @@ class CaseSchema:
                 "manifest": run_dir / "case_manifest.yaml",
                 "actuation_schedule": run_dir / "actuation_schedule.csv",
                 "timeseries": run_dir / "timeseries.csv",
+                "pressure_sensors": run_dir / "pressure_sensors.csv",
+                "flow_snapshots": run_dir / "flow_snapshots",
                 "quality_report": run_dir / "quality_report.json",
                 "log": run_dir / "logs" / "case_io.log",
             },
@@ -276,12 +342,16 @@ class CaseSchema:
             manifest = yaml.safe_load(handle) or {}
         timeseries = _read_csv_rows(required_paths["timeseries"])
         actuation_schedule = _read_csv_rows(required_paths["actuation_schedule"])
+        pressure_sensor_path = run_dir / "pressure_sensors.csv"
+        pressure_sensors = _read_csv_rows(pressure_sensor_path) if pressure_sensor_path.exists() else []
         with required_paths["quality_report"].open("r", encoding="utf-8") as handle:
             quality_report = json.load(handle)
 
         validation_errors = []
         validation_errors.extend(cls.validate_manifest(manifest))
         validation_errors.extend(cls.validate_timeseries(timeseries))
+        if pressure_sensors:
+            validation_errors.extend(cls.validate_pressure_sensors(pressure_sensors))
         validation_errors.extend(cls._validate_directory(run_dir))
         if validation_errors:
             raise ValueError("; ".join(validation_errors))
@@ -292,6 +362,8 @@ class CaseSchema:
             "manifest": manifest,
             "actuation_schedule": actuation_schedule,
             "timeseries": timeseries,
+            "pressure_sensors": pressure_sensors,
+            "flow_snapshots_dir": run_dir / "flow_snapshots",
             "quality_report": quality_report,
         }
 
@@ -303,7 +375,7 @@ class CaseSchema:
     @classmethod
     def _validate_directory(cls, run_dir: Path) -> list[str]:
         errors = []
-        for directory_name in ("figures", "logs"):
+        for directory_name in cls.case_directories:
             path = run_dir / directory_name
             if not path.exists() or not path.is_dir():
                 errors.append(f"run directory missing {directory_name}/")

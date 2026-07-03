@@ -1,6 +1,43 @@
 # generic_automation / maglev_sparse_jet_9w
 
-STAR-CCM+ automation for single cases, simple parameter sweeps, and online parameter control.
+STAR-CCM+ automation for single cases, simple parameter sweeps, online solver
+parameter control, and a local sparse-jet flow-control prototype.
+
+## Quick start from a fresh clone
+
+The local flow-control examples and tests do not require STAR-CCM+.
+
+```bash
+git clone <repo-url>
+cd generic_automation_v27_NS_RL100_PF_RULE_2
+
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+python -m pytest
+```
+
+Run the constrained 24-jet, 80-window actuation generator:
+
+```bash
+python -m flow_control.schedule_generator \
+  --config configs/pilot_sparse24.yaml \
+  --output-dir runs/pilot_sparse24_readme
+```
+
+Run the 24-input, 6-output mock plant rollout and write a standard case bundle:
+
+```bash
+python -m flow_control.run_mock_demo \
+  --config configs/pilot_sparse24.yaml \
+  --output-dir runs/b04_mock_plant_readme
+```
+
+Expected local outputs include `actuation_schedule.csv`, `timeseries.csv`,
+`quality_report.json`, `figures/`, `logs/`, and `flow_snapshots/` under the
+chosen `runs/...` directory.
 
 ## B02 sparse-jet project branch
 
@@ -8,8 +45,10 @@ This workspace now includes an isolated Week 1 B02 prototype branch:
 
 - Git branch: `maglev_sparse_jet_9w`
 - New flow-control module: `flow_control/`
-- First config: `configs/maglev_sparse_jet_9w.yaml`
-- Mock example: `examples/run_mock_flow_control.py`
+- First baseline config: `configs/maglev_sparse_jet_9w.yaml`
+- Constrained 24x80 actuation config: `configs/pilot_sparse24.yaml`
+- Legacy mock example: `examples/run_mock_flow_control.py`
+- 24-input/6-output mock plant demo: `python -m flow_control.run_mock_demo`
 - Runtime output target: `runs/`
 
 The existing solver optimization code under `generic_automation/` is preserved and
@@ -25,6 +64,8 @@ kept separate from the new `flow_control/` prototype.
 - `generic_automation/monitor/`: online monitor, parameter write-back, observation/action output records.
 - `generic_automation/rl/`: RL controller, action space, state construction, reward, safety rules.
 - `flow_control/`: first sparse-jet schedule generation, validation, mock plant, schema, and analysis modules.
+- `starccm_control/`: shared STAR-CCM+ jet/load naming contract and result mapper.
+- `starccm_runtime/`: runtime translators and helpers for STAR-CCM+ flow-control integration.
 - `scripts/`: compatibility entrypoint wrappers and operational shell pipelines.
 - `configs/`: YAML configuration files.
 - `cases/`: sweep input CSV files.
@@ -32,7 +73,6 @@ kept separate from the new `flow_control/` prototype.
 - `examples/`: small runnable examples for new workflows.
 - `tests/`: smoke tests and future regression tests.
 - `runs/`: local run outputs; generated contents are ignored by Git.
-- `article/`: reference papers and external research material.
 - `logs/`: archived local launcher/SLURM logs.
 - `results/` and `results_validation/`: generated or historical case outputs.
 - `archive/legacy/`: archived legacy project snapshots.
@@ -42,25 +82,66 @@ are kept under `scripts/entrypoints/` as compatibility wrappers.
 
 ## Available configs
 
-This repository keeps two supported configuration files:
+This repository keeps these supported configuration files:
 
 - `configs/config.yaml`: generic default configuration
 - `configs/config_rl_build_amg_match_mesh.yaml`: RL configuration aligned as closely as possible with `build_AMG.java` and `build_base_3.java`
 - `configs/maglev_sparse_jet_9w.yaml`: first sparse-jet flow-control prototype configuration
+- `configs/pilot_sparse24.yaml`: constrained 24-jet, 80-window actuation and mock-plant configuration
 
-## Run the B02 mock flow-control workflow
+## Run tests
+
+Use `python -m pytest` from the repository root so Python sees the local packages
+exactly as the examples do:
+
+```bash
+python -m pytest
+```
+
+## Run local flow-control workflows
+
+Generate the current constrained sparse actuation schedule:
+
+```bash
+python -m flow_control.schedule_generator \
+  --config configs/pilot_sparse24.yaml \
+  --output-dir runs/pilot_sparse24
+```
+
+This schedule uses 24 jet columns, 72 excitation windows, 8 reference windows,
+3 active jets per excitation window, 9 activations per jet, unique excitation
+combinations, and the configured consecutive-on limit.
+
+Run the current virtual CFD/mock plant workflow:
+
+```bash
+python -m flow_control.run_mock_demo \
+  --config configs/pilot_sparse24.yaml \
+  --output-dir runs/b04_mock_plant
+```
+
+The mock plant is fixed to 24 inputs and 6 outputs. The standard `timeseries.csv`
+uses the same load/output column names expected from the STAR-CCM+ mapper:
+`Fz_S1L`, `Fz_S1R`, `Fz_S2L`, `Fz_S2R`, `Fz_S3L`, `Fz_S3R`,
+`Fz_Total`, `Drag_Total`, `Pitch_Moment`, `Roll_Moment`,
+`Jet_Reaction_Z`, and `solver_status`.
+
+Run the older B02 baseline mock workflow:
 
 ```bash
 python examples/run_mock_flow_control.py
 ```
 
-Or generate the first schedule directly:
+Or exercise the legacy schedule branch directly:
 
 ```bash
 python -m flow_control.schedule_generator --config configs/maglev_sparse_jet_9w.yaml
 ```
 
 ## Run a single case
+
+The commands in this section require a working STAR-CCM+ installation and valid
+`.sim` paths in the selected config.
 
 ```bash
 python ga.py case --config configs/config.yaml
@@ -124,7 +205,7 @@ python ga.py sweep --config configs/config.yaml --cases cases/cases.csv
 
 ## Minimal config
 
-Update `configs/config.yaml` before running:
+Update `configs/config.yaml` before running STAR-CCM+ workflows:
 
 ```yaml
 adapter: starccm
@@ -136,6 +217,7 @@ num_cores: 128
 ## Required case fields
 
 | Field | Unit | Notes |
+| --- | --- | --- |
 | `inlet_velocity` | m/s | inlet speed |
 | `inlet_temperature` | K | inlet temperature |
 | `outlet_pressure` | Pa | outlet static pressure |

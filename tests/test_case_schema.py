@@ -2,7 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from flow_control.data_schema import CaseSchema, JET_COLUMNS, TIMESERIES_REQUIRED_COLUMNS
+from flow_control.data_schema import (
+    CaseSchema,
+    JET_COLUMNS,
+    PRESSURE_SENSOR_REQUIRED_COLUMNS,
+    TIMESERIES_REQUIRED_COLUMNS,
+)
 
 
 def _manifest() -> dict:
@@ -70,6 +75,7 @@ def test_write_and_load_case_creates_standard_bundle(isolated_runs_root):
     assert (run_dir / "timeseries.csv").exists()
     assert (run_dir / "quality_report.json").exists()
     assert (run_dir / "figures").is_dir()
+    assert (run_dir / "flow_snapshots").is_dir()
     assert (run_dir / "logs" / "case_io.log").exists()
 
     loaded = CaseSchema.load_case("case_schema_smoke")
@@ -78,6 +84,54 @@ def test_write_and_load_case_creates_standard_bundle(isolated_runs_root):
     assert list(loaded["timeseries"][0].keys())[: len(TIMESERIES_REQUIRED_COLUMNS)] == list(
         TIMESERIES_REQUIRED_COLUMNS
     )
+    assert loaded["pressure_sensors"] == []
+    assert loaded["flow_snapshots_dir"] == run_dir / "flow_snapshots"
+
+
+def test_write_and_load_case_with_future_pressure_sensor_extension(isolated_runs_root):
+    pressure_rows = [
+        {
+            "physical_time": 0.0,
+            "window_id": 0,
+            "sensor_id": "P_001",
+            "pressure": 101325.0,
+            "x": 0.1,
+            "y": 0.2,
+            "z": 0.3,
+        }
+    ]
+
+    result = CaseSchema.write_case(
+        {
+            "case_id": "case_schema_pressure",
+            "manifest": _manifest(),
+            "timeseries": _timeseries_rows(),
+            "pressure_sensors": pressure_rows,
+        }
+    )
+
+    pressure_path = result["files"]["pressure_sensors"]
+    assert pressure_path.exists()
+
+    loaded = CaseSchema.load_case("case_schema_pressure")
+    assert list(loaded["pressure_sensors"][0].keys())[: len(PRESSURE_SENSOR_REQUIRED_COLUMNS)] == list(
+        PRESSURE_SENSOR_REQUIRED_COLUMNS
+    )
+    assert loaded["pressure_sensors"][0]["sensor_id"] == "P_001"
+
+
+def test_validate_pressure_sensors_rejects_missing_required_column():
+    errors = CaseSchema.validate_pressure_sensors(
+        [
+            {
+                "physical_time": 0.0,
+                "window_id": 0,
+                "sensor_id": "P_001",
+            }
+        ]
+    )
+
+    assert any("pressure" in error for error in errors)
 
 
 def test_validate_timeseries_rejects_missing_jet_column():

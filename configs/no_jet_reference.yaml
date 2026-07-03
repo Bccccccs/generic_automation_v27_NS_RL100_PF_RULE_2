@@ -1,0 +1,10 @@
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_windows: 10
+  window_duration: 0.1
+  mass_flow_rate: 0.02
+  random_seed: 20260702
+
+output:
+  run_dir: runs/schedule_examples/no_jet_reference

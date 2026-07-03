@@ -17,7 +17,7 @@ Generate an 80-window actuation schedule for 24 jet zones:
 - exactly 9 appearances for each jet across the 72 excitation windows
 - no repeated 3-jet combination
 - no jet active for more than 2 consecutive windows
-- fixed command amplitude
+- fixed per-open-jet mass flow command
 - configurable window duration `T_w`
 - saved random seed for reproducibility
 
@@ -48,7 +48,7 @@ actuation:
   n_active_per_window: 3
   n_excitation_windows: 72
   n_reference_windows: 8
-  command_amplitude: 1.0
+  mass_flow_rate: 1.0
   window_duration: 1.0
   max_consecutive_on: 2
   equal_activation_count: true
@@ -116,15 +116,19 @@ Generated files:
 The main CSV format is:
 
 ```text
-window_id, t_start, t_end, JET_01, JET_02, ..., JET_24
+physical_time, window_id, t_start, t_end, JET_01, JET_02, ..., JET_24
 ```
 
 Jet values use:
 
 ```text
-0 = off
-1 = on
+0 = off, with strict zero mass flow
+mass_flow_rate = on, using the configured per-jet mass flow
 ```
+
+`physical_time`, `t_start`, and `t_end` are physical time in seconds. They are
+not STAR-CCM+ nonlinear iteration numbers; a single physical control window may
+contain many solver iterations internally.
 
 ## Automatic Validation
 

@@ -1,13 +1,16 @@
-from pathlib import Path
+import csv
 from itertools import groupby
+from pathlib import Path
 
+from flow_control.excitation_patterns.common import ActuationConfig, generate_pattern_table
 from flow_control.schedule_generator import (
-    ActuationConfig,
     activation_counts,
     generate_actuation_matrix,
+    run_from_yaml,
     validate_actuation_matrix,
     write_actuation_outputs,
 )
+from flow_control.schedule_validator import validate_actuation_schedule_csv
 
 
 def _config(seed: int = 20260618) -> ActuationConfig:
@@ -16,12 +19,13 @@ def _config(seed: int = 20260618) -> ActuationConfig:
         n_active_per_window=3,
         n_excitation_windows=72,
         n_reference_windows=8,
-        command_amplitude=1.0,
+        mass_flow_rate=1.0,
         window_duration=1.0,
         max_consecutive_on=2,
         equal_activation_count=True,
         random_seed=seed,
         output_dir=Path("runs/test_sparse24"),
+        mode="sparse_random_groups",
     )
 
 
@@ -57,11 +61,12 @@ def test_actuation_schedule_constraints_and_reproducibility():
 def test_actuation_outputs_are_written(tmp_path):
     config = ActuationConfig(
         n_jets=24,
+        mode="sparse_random_groups",
         n_active_per_window=3,
         n_excitation_windows=72,
         n_reference_windows=8,
-        command_amplitude=1.0,
-        window_duration=1.0,
+        mass_flow_rate=0.02,
+        window_duration=0.1,
         max_consecutive_on=2,
         equal_activation_count=True,
         random_seed=20260618,
@@ -74,24 +79,129 @@ def test_actuation_outputs_are_written(tmp_path):
     expected_files = {
         "actuation_schedule.csv",
         "actuation_heatmap.svg",
-        "activation_counts.csv",
-        "pairwise_cooccurrence.csv",
-        "input_correlation_matrix.csv",
-        "mass_flow.csv",
-        "total_load_curve.csv",
-        "total_load_curve.svg",
-        "spatial_nonuniformity_curve.csv",
-        "spatial_nonuniformity_curve.svg",
-        "case_manifest.yaml",
-        "timeseries.csv",
-        "quality_report.json",
+        "total_mass_flow.csv",
+        "total_mass_flow_curve.svg",
         "config_summary.yaml",
         "validation_report.json",
     }
     assert expected_files <= {path.name for path in tmp_path.iterdir()}
-    assert (tmp_path / "logs" / "case_io.log").exists()
-    assert {
-        "actuation_heatmap.svg",
-        "total_load_curve.svg",
-        "spatial_nonuniformity_curve.svg",
-    } <= {path.name for path in (tmp_path / "figures").iterdir()}
+
+    with (tmp_path / "actuation_schedule.csv").open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+
+    assert float(rows[0]["physical_time"]) == 0.0
+    assert list(rows[0]) == [
+        "physical_time",
+        "window_id",
+        "t_start",
+        "t_end",
+        *(f"JET_{idx:02d}" for idx in range(1, 25)),
+        *(f"cmd_massflow_{idx:02d}" for idx in range(1, 25)),
+    ]
+    assert float(rows[1]["physical_time"]) == 0.1
+    assert float(rows[1]["t_start"]) == 0.1
+    assert float(rows[1]["t_end"]) == 0.2
+    for row in rows:
+        jet_values = [int(float(row[f"JET_{idx:02d}"])) for idx in range(1, 25)]
+        massflow_values = [float(row[f"cmd_massflow_{idx:02d}"]) for idx in range(1, 25)]
+        active_values = [value for value in jet_values if value != 0]
+        if int(row["window_id"]) < config.n_excitation_windows:
+            assert len(active_values) == config.n_active_per_window
+        else:
+            assert active_values == []
+        for jet_value, massflow_value in zip(jet_values, massflow_values):
+            if jet_value == 0:
+                assert massflow_value == 0.0
+            else:
+                assert massflow_value == config.mass_flow_rate
+    assert validate_actuation_schedule_csv(tmp_path / "actuation_schedule.csv") == []
+
+
+def test_pulse_and_step_patterns_use_physical_time():
+    pulse = ActuationConfig(
+        mode="pulse_singlejet",
+        total_windows=4,
+        window_duration=0.1,
+        mass_flow_rate=0.02,
+        jet_ids=(3,),
+        pulse_windows=(1,),
+    )
+    pulse_table, _, errors = generate_pattern_table(pulse)
+    assert errors == []
+    assert [row[2] for row in pulse_table.switches] == [0, 1, 0, 0]
+    assert [row[2] for row in pulse_table.massflows] == [0.0, 0.02, 0.0, 0.0]
+
+    step = ActuationConfig(
+        mode="step_singlejet",
+        total_windows=10,
+        window_duration=0.1,
+        mass_flow_rate=0.02,
+        jet_ids=(3,),
+        step_start_window=1,
+        step_end_window=8,
+    )
+    step_table, _, errors = generate_pattern_table(step)
+    assert errors == []
+    assert [row[2] for row in step_table.switches] == [0, 1, 1, 1, 1, 1, 1, 1, 0, 0]
+
+
+def test_prbs_reproducibility_and_seed_change():
+    base = ActuationConfig(
+        mode="prbs_demo",
+        total_windows=40,
+        window_duration=0.05,
+        mass_flow_rate=0.02,
+        random_seed=1234,
+        max_active_jets=4,
+        max_total_mass_flow=0.08,
+    )
+    same = ActuationConfig(
+        mode="prbs_demo",
+        total_windows=40,
+        window_duration=0.05,
+        mass_flow_rate=0.02,
+        random_seed=1234,
+        max_active_jets=4,
+        max_total_mass_flow=0.08,
+    )
+    changed = ActuationConfig(
+        mode="prbs_demo",
+        total_windows=40,
+        window_duration=0.05,
+        mass_flow_rate=0.02,
+        random_seed=1235,
+        max_active_jets=4,
+        max_total_mass_flow=0.08,
+    )
+
+    base_table, _, _ = generate_pattern_table(base)
+    same_table, _, _ = generate_pattern_table(same)
+    changed_table, _, _ = generate_pattern_table(changed)
+    assert base_table.switches == same_table.switches
+    assert base_table.switches != changed_table.switches
+    assert all(sum(row) <= 4 for row in base_table.switches)
+    assert all(sum(row) <= 0.08 + 1e-12 for row in base_table.massflows)
+
+
+def test_config_driven_generation_writes_examples(tmp_path):
+    config_path = tmp_path / "pulse.yaml"
+    config_path.write_text(
+        """
+actuation:
+  mode: pulse_singlejet
+  n_jets: 24
+  total_windows: 4
+  window_duration: 0.1
+  mass_flow_rate: 0.02
+  jet_ids: [3]
+  pulse_windows: [1]
+  random_seed: 99
+output:
+  run_dir: ignored
+""",
+        encoding="utf-8",
+    )
+    run_from_yaml(config_path, output_dir=tmp_path / "pulse_singlejet")
+    schedule_path = tmp_path / "pulse_singlejet" / "actuation_schedule.csv"
+    assert schedule_path.exists()
+    assert validate_actuation_schedule_csv(schedule_path) == []

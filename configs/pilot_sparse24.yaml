@@ -1,13 +1,14 @@
 actuation:
+  mode: sparse_random_groups
   n_jets: 24
   n_active_per_window: 3
   n_excitation_windows: 72
   n_reference_windows: 8
-  command_amplitude: 1.0
-  window_duration: 1.0
+  mass_flow_rate: 1.0
+  window_duration: 0.1
   max_consecutive_on: 2
   equal_activation_count: true
   random_seed: 20260618
 
 output:
-  run_dir: runs/pilot_sparse24
+  run_dir: runs/schedule_examples/sparse24
