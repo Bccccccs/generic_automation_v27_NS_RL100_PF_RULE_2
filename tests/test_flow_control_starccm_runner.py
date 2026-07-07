@@ -1,9 +1,11 @@
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
     build_flow_control_macro,
+    _run_starccm_command,
 )
 from flow_control.excitation_patterns.common import ActuationConfig, write_pattern_outputs
 from flow_control.excitation_patterns.pulse import generate as generate_pulse
@@ -68,3 +70,20 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     assert result.returncode is None
     assert result.command[:3] == ("/path/to/starccm+", "-np", "4")
     assert str(sim_path.resolve()) == result.command[-1]
+
+
+def test_run_starccm_command_wraps_windows_batch_launchers(tmp_path):
+    log_file = Mock()
+    completed = Mock(returncode=0)
+    with patch("flow_control.adapters.starccm_runner.subprocess.run", return_value=completed) as run:
+        result = _run_starccm_command(
+            ["C:/Program Files/Siemens/STAR-CCM+/starccm+.bat", "-batch", "macro.java", "case.sim"],
+            log_file=log_file,
+            cwd=tmp_path,
+        )
+
+    assert result is completed
+    command = run.call_args.args[0]
+    assert command.startswith('cmd /c "')
+    assert "starccm+.bat" in command
+    assert run.call_args.kwargs["cwd"] == tmp_path

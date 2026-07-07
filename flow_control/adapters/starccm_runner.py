@@ -113,12 +113,7 @@ class FlowControlStarCCMRunner:
             )
 
         with log_path.open("w", encoding="utf-8") as log_file:
-            proc = subprocess.run(
-                command,
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                cwd=output_dir,
-            )
+            proc = _run_starccm_command(command, log_file=log_file, cwd=output_dir)
 
         if proc.returncode != 0:
             tail = _tail_text(log_path)
@@ -354,6 +349,29 @@ def _build_starccm_command(
         command += ["-podkey", pod_key]
     command += ["-batch", str(macro_path), str(sim_path)]
     return command
+
+
+def _run_starccm_command(
+    command: list[str],
+    *,
+    log_file: Any,
+    cwd: Path,
+) -> subprocess.CompletedProcess[Any]:
+    launcher = command[0].lower()
+    if launcher.endswith((".bat", ".cmd")):
+        inner = subprocess.list2cmdline(command)
+        return subprocess.run(
+            f'cmd /c "{inner}"',
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            cwd=cwd,
+        )
+    return subprocess.run(
+        command,
+        stdout=log_file,
+        stderr=subprocess.STDOUT,
+        cwd=cwd,
+    )
 
 
 def _float_field(row: dict[str, Any], name: str) -> float:
