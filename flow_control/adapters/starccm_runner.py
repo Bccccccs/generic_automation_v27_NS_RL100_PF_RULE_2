@@ -166,6 +166,7 @@ public class FlowControlRunMacro extends StarMacro {{
     static final int[] WINDOW_IDS = new int[] {{{", ".join(str(w.window_id) for w in windows)}}};
     static final double[] T_START = new double[] {{{", ".join(_java_float(w.t_start) for w in windows)}}};
     static final double[] T_END = new double[] {{{", ".join(_java_float(w.t_end) for w in windows)}}};
+    static final boolean[] ACTIVE_JETS = new boolean[] {{{_java_active_jet_flags(windows)}}};
     static final double[][] MASSFLOW = new double[][] {{
 {_java_massflow_rows(windows)}
     }};
@@ -184,6 +185,7 @@ public class FlowControlRunMacro extends StarMacro {{
             }}
             setTransientTimeStep(sim, step);
             for (int jet = 0; jet < BOUNDARY_NAMES.length; jet++) {{
+                if (!ACTIVE_JETS[jet]) continue;
                 applyMassFlow(sim, BOUNDARY_NAMES[jet], MASSFLOW[window][jet]);
             }}
             int steps = Math.max(1, (int) Math.round(duration / step));
@@ -461,6 +463,14 @@ def _java_massflow_rows(windows: list[_ScheduleWindow]) -> str:
         values = ", ".join(_java_float(value) for value in window.massflows)
         lines.append(f"        new double[] {{{values}}}")
     return ",\n".join(lines)
+
+
+def _java_active_jet_flags(windows: list[_ScheduleWindow]) -> str:
+    flags = [
+        any(abs(window.massflows[idx]) > 1.0e-15 for window in windows)
+        for idx in range(len(JET_COLUMNS))
+    ]
+    return ", ".join("true" if flag else "false" for flag in flags)
 
 
 def _java_float(value: float) -> str:

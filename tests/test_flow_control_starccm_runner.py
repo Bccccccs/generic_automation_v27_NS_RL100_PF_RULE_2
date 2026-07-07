@@ -35,6 +35,9 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert "0.025" in macro
     assert '"drag"' in macro
     assert "MassFlowRateProfile" in macro
+    assert "static final boolean[] ACTIVE_JETS" in macro
+    assert "false, false, true, false" in macro
+    assert "if (!ACTIVE_JETS[jet]) continue;" in macro
     assert "normalizeStarPath(RESULT_SIM_PATH)" in macro
     assert macro.index('"J" + digits') < macro.index('"JET" + digits')
     assert '"JET" + digits' in macro
