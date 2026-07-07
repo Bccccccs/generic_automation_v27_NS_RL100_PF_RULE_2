@@ -200,9 +200,12 @@ public class FlowControlRunMacro extends StarMacro {{
     }}
 
     private void applyMassFlow(Simulation sim, String boundaryName, double value) {{
+        boolean requiresBoundary = Math.abs(value) > 1.0e-15;
         Boundary boundary = findBoundary(sim, boundaryName);
         if (boundary == null) {{
-            String message = "Boundary '" + boundaryName + "' not found.";
+            if (!requiresBoundary) return;
+            String message = "Boundary '" + boundaryName + "' not found for nonzero mass flow "
+                + value + ". Available boundaries: " + availableBoundaryNames(sim);
             if (STRICT_BOUNDARIES) throw new RuntimeException(message);
             sim.println("WARNING: " + message + " Skipping mass-flow update.");
             return;
@@ -223,18 +226,47 @@ public class FlowControlRunMacro extends StarMacro {{
         if (REGION_NAME != null && !REGION_NAME.trim().isEmpty()) {{
             try {{
                 Region region = sim.getRegionManager().getRegion(REGION_NAME);
-                return region.getBoundaryManager().getBoundary(boundaryName);
+                Boundary boundary = findBoundaryInRegion(region, boundaryName);
+                if (boundary != null) return boundary;
             }} catch (Exception ignored) {{}}
         }}
         for (Object obj : sim.getRegionManager().getObjects()) {{
             if (!(obj instanceof Region)) continue;
             Region region = (Region) obj;
+            Boundary boundary = findBoundaryInRegion(region, boundaryName);
+            if (boundary != null) return boundary;
+        }}
+        return null;
+    }}
+
+    private Boundary findBoundaryInRegion(Region region, String boundaryName) {{
+        try {{
+            Boundary boundary = region.getBoundaryManager().getBoundary(boundaryName);
+            if (boundary != null) return boundary;
+        }} catch (Exception ignored) {{}}
+        for (Object obj : region.getBoundaryManager().getObjects()) {{
+            if (!(obj instanceof Boundary)) continue;
+            Boundary boundary = (Boundary) obj;
             try {{
-                Boundary boundary = region.getBoundaryManager().getBoundary(boundaryName);
-                if (boundary != null) return boundary;
+                if (boundary.getPresentationName().equalsIgnoreCase(boundaryName)) return boundary;
             }} catch (Exception ignored) {{}}
         }}
         return null;
+    }}
+
+    private String availableBoundaryNames(Simulation sim) {{
+        ArrayList<String> names = new ArrayList<String>();
+        for (Object regionObj : sim.getRegionManager().getObjects()) {{
+            if (!(regionObj instanceof Region)) continue;
+            Region region = (Region) regionObj;
+            String regionName = region.getPresentationName();
+            for (Object boundaryObj : region.getBoundaryManager().getObjects()) {{
+                if (!(boundaryObj instanceof Boundary)) continue;
+                Boundary boundary = (Boundary) boundaryObj;
+                names.add(regionName + "/" + boundary.getPresentationName());
+            }}
+        }}
+        return names.toString();
     }}
 
     private void setTransientTimeStep(Simulation sim, double step) {{
