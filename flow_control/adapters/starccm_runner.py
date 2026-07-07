@@ -194,7 +194,7 @@ public class FlowControlRunMacro extends StarMacro {{
             appendRow(sim, csv, window);
         }}
         if (RESULT_SIM_PATH != null && !RESULT_SIM_PATH.trim().isEmpty()) {{
-            sim.saveState(resolvePath(RESULT_SIM_PATH));
+            sim.saveState(normalizeStarPath(RESULT_SIM_PATH));
             sim.println("[flow_control] saved result sim -> " + RESULT_SIM_PATH);
         }}
     }}
@@ -299,7 +299,7 @@ public class FlowControlRunMacro extends StarMacro {{
         return ".";
     }}
 
-    private String resolvePath(String path) {{
+    private String normalizeStarPath(String path) {{
         return path.replace("\\\\", "/");
     }}
 }}

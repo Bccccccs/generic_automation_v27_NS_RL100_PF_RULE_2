@@ -35,6 +35,8 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert "0.025" in macro
     assert '"drag"' in macro
     assert "MassFlowRateProfile" in macro
+    assert "normalizeStarPath(RESULT_SIM_PATH)" in macro
+    assert "private String resolvePath" not in macro
 
 
 def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
