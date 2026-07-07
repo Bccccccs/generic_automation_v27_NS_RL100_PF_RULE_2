@@ -244,14 +244,56 @@ public class FlowControlRunMacro extends StarMacro {{
             Boundary boundary = region.getBoundaryManager().getBoundary(boundaryName);
             if (boundary != null) return boundary;
         }} catch (Exception ignored) {{}}
+        String[] candidateNames = boundaryNameCandidates(boundaryName);
+        for (int idx = 0; idx < candidateNames.length; idx++) {{
+            try {{
+                Boundary boundary = region.getBoundaryManager().getBoundary(candidateNames[idx]);
+                if (boundary != null) return boundary;
+            }} catch (Exception ignored) {{}}
+        }}
+        for (int idx = 0; idx < candidateNames.length; idx++) {{
+            Boundary boundary = findBoundaryByPresentationName(region, candidateNames[idx]);
+            if (boundary != null) return boundary;
+        }}
+        return null;
+    }}
+
+    private Boundary findBoundaryByPresentationName(Region region, String candidateName) {{
         for (Object obj : region.getBoundaryManager().getObjects()) {{
             if (!(obj instanceof Boundary)) continue;
             Boundary boundary = (Boundary) obj;
             try {{
-                if (boundary.getPresentationName().equalsIgnoreCase(boundaryName)) return boundary;
+                String presentationName = boundary.getPresentationName();
+                if (presentationName.equalsIgnoreCase(candidateName)) return boundary;
+                if (presentationName.toLowerCase(Locale.ROOT).endsWith("." + candidateName.toLowerCase(Locale.ROOT))) {{
+                    return boundary;
+                }}
             }} catch (Exception ignored) {{}}
         }}
         return null;
+    }}
+
+    private String[] boundaryNameCandidates(String boundaryName) {{
+        String digits = trailingDigits(boundaryName);
+        if (digits.length() == 0) {{
+            return new String[] {{boundaryName}};
+        }}
+        return new String[] {{
+            boundaryName,
+            "J" + digits,
+            "J_" + digits,
+            "JET" + digits,
+            "JET_" + digits
+        }};
+    }}
+
+    private String trailingDigits(String value) {{
+        int end = value.length();
+        int start = end;
+        while (start > 0 && Character.isDigit(value.charAt(start - 1))) {{
+            start--;
+        }}
+        return value.substring(start, end);
     }}
 
     private String availableBoundaryNames(Simulation sim) {{

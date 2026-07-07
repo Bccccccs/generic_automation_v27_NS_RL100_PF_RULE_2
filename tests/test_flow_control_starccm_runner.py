@@ -36,6 +36,9 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert '"drag"' in macro
     assert "MassFlowRateProfile" in macro
     assert "normalizeStarPath(RESULT_SIM_PATH)" in macro
+    assert macro.index('"J" + digits') < macro.index('"JET" + digits')
+    assert '"JET" + digits' in macro
+    assert '"J" + digits' in macro
     assert "private String resolvePath" not in macro
 
 
