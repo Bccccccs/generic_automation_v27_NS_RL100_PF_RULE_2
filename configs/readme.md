@@ -14,5 +14,7 @@ is set. Mock dynamic configs read this value unless
 so schedules and mock outputs can be reproduced from one visible system
 parameter.
 
+The six flow-control actuation example configs live under `configs/actions/`.
+
 Set `FLOW_CONTROL_SYSTEM_CONFIG=/path/to/system.yaml` to use another shared
 system config without editing individual experiment configs.

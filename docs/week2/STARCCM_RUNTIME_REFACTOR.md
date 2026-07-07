@@ -294,7 +294,7 @@ examples/run_mock_dynamic24x6.py
 ```bash
 for name in no_jet_reference pulse_singlejet step_singlejet chirp_keyjets prbs_demo pilot_sparse24; do
   PYTHONPATH=. .venv/bin/python examples/run_mock_dynamic24x6.py \
-    --actuation-config "configs/${name}.yaml" \
+    --actuation-config "configs/actions/${name}.yaml" \
     --config configs/mock_dynamic24x6.yaml \
     --schedule-out "runs/mock_full_${name}/actuation_input" \
     --out "runs/mock_full_${name}"
@@ -367,7 +367,7 @@ mock_dynamic24x6:
 当前保留的局部覆盖：
 
 ```text
-configs/pilot_sparse24.yaml
+configs/actions/pilot_sparse24.yaml
   保留 actuation.random_seed: 20260618，避免旧 sparse24 结果变化。
 
 configs/mock_dynamic24x6.yaml
