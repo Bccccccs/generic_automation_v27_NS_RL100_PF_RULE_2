@@ -213,6 +213,7 @@ public class FlowControlRunMacro extends StarMacro {{
             return;
         }}
         try {{
+            ensureMassFlowBoundary(boundary, boundaryName);
             MassFlowRateProfile profile = boundary.getValues().get(MassFlowRateProfile.class);
             Units units = ((Units) sim.getUnitsManager().getObject("kg/s"));
             profile.getMethod(ConstantScalarProfileMethod.class)
@@ -221,6 +222,26 @@ public class FlowControlRunMacro extends StarMacro {{
             String message = "Failed to set mass flow on boundary '" + boundaryName + "': " + e.getMessage();
             if (STRICT_BOUNDARIES) throw new RuntimeException(message);
             sim.println("WARNING: " + message);
+        }}
+    }}
+
+    private void ensureMassFlowBoundary(Boundary boundary, String requestedName) {{
+        try {{
+            boundary.setBoundaryType(MassFlowBoundary.class);
+        }} catch (Exception e) {{
+            throw new RuntimeException(
+                "Failed to set boundary '" + requestedName + "' / '"
+                + boundary.getPresentationName() + "' to MassFlowBoundary from "
+                + boundaryTypeName(boundary) + ": " + e.getMessage()
+            );
+        }}
+    }}
+
+    private String boundaryTypeName(Boundary boundary) {{
+        try {{
+            return boundary.getBoundaryType().getPresentationName();
+        }} catch (Exception ignored) {{
+            return "(unknown boundary type)";
         }}
     }}
 
