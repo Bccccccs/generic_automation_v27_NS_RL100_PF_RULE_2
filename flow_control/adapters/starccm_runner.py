@@ -191,11 +191,13 @@ public class FlowControlRunMacro extends StarMacro {{
         writeHeader(csv);
         for (int window = 0; window < WINDOW_IDS.length; window++) {{
             double duration = T_END[window] - T_START[window];
-            double step = REQUESTED_TIME_STEP > 0.0 ? REQUESTED_TIME_STEP : duration;
+            double step = REQUESTED_TIME_STEP > 0.0 ? REQUESTED_TIME_STEP : getTransientTimeStep(sim);
             if (step <= 0.0) {{
                 throw new RuntimeException("Non-positive time step at window " + WINDOW_IDS[window]);
             }}
-            setTransientTimeStep(sim, step);
+            if (REQUESTED_TIME_STEP > 0.0) {{
+                setTransientTimeStep(sim, step);
+            }}
             for (int jet = 0; jet < BOUNDARY_NAMES.length; jet++) {{
                 if (!ACTIVE_JETS[jet]) continue;
                 applyMassFlow(sim, BOUNDARY_NAMES[jet], MASSFLOW[window][jet]);
@@ -358,6 +360,19 @@ public class FlowControlRunMacro extends StarMacro {{
         }} catch (Exception e) {{
             sim.println("WARNING: transient time-step update skipped: " + e.getMessage());
         }}
+    }}
+
+    private double getTransientTimeStep(Simulation sim) {{
+        try {{
+            ImplicitUnsteadySolver solver =
+                (ImplicitUnsteadySolver) sim.getSolverManager().getSolver(ImplicitUnsteadySolver.class);
+            if (solver != null) {{
+                return solver.getTimeStep().getValue();
+            }}
+        }} catch (Exception e) {{
+            sim.println("WARNING: transient time-step read failed: " + e.getMessage());
+        }}
+        throw new RuntimeException("Unable to read template transient time step.");
     }}
 
     private void writeHeader(File csv) {{

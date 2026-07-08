@@ -53,6 +53,32 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert "private String resolvePath" not in macro
 
 
+def test_build_flow_control_macro_uses_template_time_step_when_not_overridden(tmp_path):
+    windows = [
+        type("Window", (), {
+            "window_id": 0,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "massflows": tuple([0.0, 0.0, 0.025] + [0.0] * 21),
+        })()
+    ]
+
+    macro = build_flow_control_macro(
+        windows,
+        output_dir=tmp_path,
+        region_name="Region",
+        time_step=None,
+        report_names=("drag",),
+        strict_boundaries=True,
+        result_sim_path=tmp_path / "result.sim",
+    )
+
+    assert "static final double REQUESTED_TIME_STEP = 0.0;" in macro
+    assert "REQUESTED_TIME_STEP > 0.0 ? REQUESTED_TIME_STEP : getTransientTimeStep(sim)" in macro
+    assert "if (REQUESTED_TIME_STEP > 0.0)" in macro
+    assert "private double getTransientTimeStep" in macro
+
+
 def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     config = ActuationConfig(
         mode="pulse_singlejet",
