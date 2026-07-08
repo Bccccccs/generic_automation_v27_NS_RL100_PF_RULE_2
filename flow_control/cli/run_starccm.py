@@ -72,6 +72,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"macro: {result.macro_path}")
     print(f"runtime_plan: {result.runtime_plan_path}")
     print(f"log: {result.log_path}")
+    if result.timeseries_path is not None:
+        print(f"timeseries: {result.timeseries_path}")
     print("command:", " ".join(result.command))
     if result.result_sim_path is not None:
         print(f"result_sim: {result.result_sim_path}")

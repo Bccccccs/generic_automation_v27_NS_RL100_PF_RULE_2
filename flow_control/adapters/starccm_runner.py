@@ -41,6 +41,7 @@ class FlowControlStarCCMRunResult:
     command: tuple[str, ...]
     returncode: int | None = None
     result_sim_path: Path | None = None
+    timeseries_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -81,10 +82,12 @@ class FlowControlStarCCMRunner:
 
         windows = _read_schedule(copied_schedule)
         result_sim_path = output_dir / "flow_control_result.sim"
+        timeseries_path = output_dir / "flow_control_timeseries.csv"
         macro_path = output_dir / "FlowControlRunMacro.java"
         macro_path.write_text(
             build_flow_control_macro(
                 windows,
+                output_dir=output_dir,
                 region_name=config.region_name,
                 time_step=config.time_step,
                 report_names=config.report_names,
@@ -104,18 +107,22 @@ class FlowControlStarCCMRunner:
         )
         log_path = output_dir / "starccm_flow_control.log"
         if config.dry_run:
+            _print_progress("dry-run 完成，已生成宏和运行计划")
             return FlowControlStarCCMRunResult(
                 macro_path=macro_path,
                 runtime_plan_path=runtime_plan_path,
                 log_path=log_path,
                 command=tuple(command),
                 result_sim_path=result_sim_path if config.save_result_sim else None,
+                timeseries_path=timeseries_path,
             )
 
+        _print_progress(f"开始启动 STAR-CCM+，日志: {log_path}")
         with log_path.open("w", encoding="utf-8") as log_file:
             proc = _run_starccm_command(command, log_file=log_file, cwd=output_dir)
 
         if proc.returncode != 0:
+            _print_progress(f"STAR-CCM+ 失败退出，返回码 {proc.returncode}")
             tail = _tail_text(log_path)
             raise RuntimeError(
                 f"STAR-CCM+ exited with code {proc.returncode}. Log: {log_path}\n"
@@ -125,6 +132,7 @@ class FlowControlStarCCMRunner:
         if not config.keep_macro:
             macro_path.unlink(missing_ok=True)
 
+        _print_progress("STAR-CCM+ 已完成")
         return FlowControlStarCCMRunResult(
             macro_path=macro_path,
             runtime_plan_path=runtime_plan_path,
@@ -132,12 +140,14 @@ class FlowControlStarCCMRunner:
             command=tuple(command),
             returncode=proc.returncode,
             result_sim_path=result_sim_path if config.save_result_sim else None,
+            timeseries_path=timeseries_path,
         )
 
 
 def build_flow_control_macro(
     windows: list[_ScheduleWindow],
     *,
+    output_dir: Path | None = None,
     region_name: str,
     time_step: float | None,
     report_names: tuple[str, ...],
@@ -150,6 +160,7 @@ def build_flow_control_macro(
     if len(boundary_names) != len(JET_COLUMNS):
         raise ValueError(f"expected {len(JET_COLUMNS)} jet boundary names")
     effective_time_step = float(time_step or 0.0)
+    csv_output_dir = output_dir or (result_sim_path.parent if result_sim_path else Path("."))
     return f"""import star.common.*;
 import star.base.report.*;
 import star.flow.*;
@@ -160,6 +171,7 @@ public class FlowControlRunMacro extends StarMacro {{
     static final String REGION_NAME = "{_java_literal(region_name)}";
     static final boolean STRICT_BOUNDARIES = {str(strict_boundaries).lower()};
     static final double REQUESTED_TIME_STEP = {_java_float(effective_time_step)};
+    static final String OUTPUT_DIR = "{_java_literal(str(csv_output_dir.resolve()).replace(os.sep, '/'))}";
     static final String RESULT_SIM_PATH = "{_java_literal(str(result_sim_path.resolve()).replace(os.sep, '/') if result_sim_path else '')}";
     static final String[] BOUNDARY_NAMES = new String[] {{{", ".join(_quoted(name) for name in boundary_names)}}};
     static final String[] REPORT_NAMES = new String[] {{{", ".join(_quoted(name) for name in report_names)}}};
@@ -173,7 +185,7 @@ public class FlowControlRunMacro extends StarMacro {{
 
     public void execute() {{
         Simulation sim = getActiveSimulation();
-        File outDir = new File(resolveOutputDir());
+        File outDir = new File(normalizeStarPath(OUTPUT_DIR));
         outDir.mkdirs();
         File csv = new File(outDir, "flow_control_timeseries.csv");
         writeHeader(csv);
@@ -194,6 +206,8 @@ public class FlowControlRunMacro extends StarMacro {{
                 + " duration=" + duration + " step=" + step + " solverSteps=" + steps);
             sim.getSimulationIterator().run(steps);
             appendRow(sim, csv, window);
+            sim.println("[flow_control] completed window=" + WINDOW_IDS[window]
+                + " csv=" + csv.getAbsolutePath());
         }}
         if (RESULT_SIM_PATH != null && !RESULT_SIM_PATH.trim().isEmpty()) {{
             sim.saveState(normalizeStarPath(RESULT_SIM_PATH));
@@ -376,7 +390,7 @@ public class FlowControlRunMacro extends StarMacro {{
 
     private double reportValue(Simulation sim, String reportName) {{
         try {{
-            Report report = (Report) sim.getReportManager().getObject(reportName);
+            Report report = findReport(sim, reportName);
             if (report instanceof ScalarReport) {{
                 return ((ScalarReport) report).getValue();
             }}
@@ -385,6 +399,41 @@ public class FlowControlRunMacro extends StarMacro {{
             sim.println("WARNING: report '" + reportName + "' unavailable: " + e.getMessage());
             return Double.NaN;
         }}
+    }}
+
+    private Report findReport(Simulation sim, String reportName) {{
+        String[] candidateNames = reportNameCandidates(reportName);
+        for (int idx = 0; idx < candidateNames.length; idx++) {{
+            try {{
+                Report report = (Report) sim.getReportManager().getObject(candidateNames[idx]);
+                if (report != null) return report;
+            }} catch (Exception ignored) {{}}
+        }}
+        for (Object obj : sim.getReportManager().getObjects()) {{
+            if (!(obj instanceof Report)) continue;
+            Report report = (Report) obj;
+            try {{
+                String presentationName = report.getPresentationName();
+                for (int idx = 0; idx < candidateNames.length; idx++) {{
+                    if (presentationName.equalsIgnoreCase(candidateNames[idx])) return report;
+                }}
+            }} catch (Exception ignored) {{}}
+        }}
+        throw new RuntimeException("report not found: " + reportName);
+    }}
+
+    private String[] reportNameCandidates(String reportName) {{
+        if (reportName.startsWith("fc_load_")) {{
+            String shortName = reportName.substring("fc_load_".length());
+            return new String[] {{reportName, shortName}};
+        }}
+        if (reportName.equalsIgnoreCase("drag")) {{
+            return new String[] {{reportName, "Drag"}};
+        }}
+        if (reportName.equalsIgnoreCase("total")) {{
+            return new String[] {{reportName, "Fz"}};
+        }}
+        return new String[] {{reportName}};
     }}
 
     private String resolveOutputDir() {{
@@ -457,18 +506,53 @@ def _run_starccm_command(
     launcher = command[0].lower()
     if launcher.endswith((".bat", ".cmd")):
         inner = subprocess.list2cmdline(command)
-        return subprocess.run(
-            f'cmd /c "{inner}"',
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            cwd=cwd,
-        )
-    return subprocess.run(
-        command,
-        stdout=log_file,
+        popen_command: str | list[str] = f'cmd /c "{inner}"'
+    else:
+        popen_command = command
+
+    proc = subprocess.Popen(
+        popen_command,
+        stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         cwd=cwd,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
     )
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        log_file.write(line)
+        log_file.flush()
+        progress = _progress_from_starccm_line(line)
+        if progress is not None:
+            _print_progress(progress)
+    returncode = proc.wait()
+    return subprocess.CompletedProcess(command, returncode)
+
+
+def _progress_from_starccm_line(line: str) -> str | None:
+    text = line.strip()
+    if not text:
+        return None
+    if text.startswith("Loading:"):
+        return "正在加载仿真文件"
+    if text.startswith("Loading/configuring connectivity"):
+        return "正在配置并行分区"
+    if text.startswith("Configuring finished"):
+        return "并行分区配置完成"
+    if text.startswith("[flow_control] window="):
+        return "正在执行 " + text.removeprefix("[flow_control] ")
+    if text.startswith("[flow_control] completed window="):
+        return "已完成 " + text.removeprefix("[flow_control] completed ")
+    if text.startswith("[flow_control] saved result sim"):
+        return "已保存结果 sim"
+    if text.startswith("Saving:") and "flow_control_result.sim" in text:
+        return "正在保存结果 sim"
+    return None
+
+
+def _print_progress(message: str) -> None:
+    print(f"[flow_control] {message}", flush=True)
 
 
 def _float_field(row: dict[str, Any], name: str) -> float:
