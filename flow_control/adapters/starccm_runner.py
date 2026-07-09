@@ -440,15 +440,46 @@ public class FlowControlRunMacro extends StarMacro {{
     private String[] reportNameCandidates(String reportName) {{
         if (reportName.startsWith("fc_load_")) {{
             String shortName = reportName.substring("fc_load_".length());
-            return new String[] {{reportName, shortName}};
+            return new String[] {{
+                reportName,
+                shortName,
+                shortName + " Monitor",
+                reportName + " Monitor"
+            }};
         }}
         if (reportName.equalsIgnoreCase("drag")) {{
-            return new String[] {{reportName, "Drag"}};
+            return new String[] {{reportName, "Drag", "Drag Monitor"}};
         }}
         if (reportName.equalsIgnoreCase("total")) {{
-            return new String[] {{reportName, "Fz"}};
+            return new String[] {{
+                reportName,
+                "Fz",
+                "Fz Monitor",
+                "Fz Total",
+                "Fz Total Monitor"
+            }};
         }}
-        return new String[] {{reportName}};
+        if (reportName.equalsIgnoreCase("Fz_Total")) {{
+            return new String[] {{reportName, "Fz", "Fz Monitor", "Fz Total", "Fz Total Monitor"}};
+        }}
+        if (reportName.equalsIgnoreCase("Drag_Total")) {{
+            return new String[] {{reportName, "Drag", "Drag Monitor"}};
+        }}
+        if (reportName.equalsIgnoreCase("Pitch_Moment")) {{
+            return new String[] {{reportName, "Pitch_Moment Monitor", "Pitch Moment", "Pitch Moment Monitor"}};
+        }}
+        if (reportName.equalsIgnoreCase("Roll_Moment")) {{
+            return new String[] {{reportName, "Roll_Moment Monitor", "Roll Moment", "Roll Moment Monitor"}};
+        }}
+        if (reportName.equalsIgnoreCase("Jet_Reaction_Z")) {{
+            return new String[] {{
+                reportName,
+                "Jet_Reaction_Z Monitor",
+                "Jet Reaction Z",
+                "Jet Reaction Z Monitor"
+            }};
+        }}
+        return new String[] {{reportName, reportName + " Monitor"}};
     }}
 
     private String resolveOutputDir() {{

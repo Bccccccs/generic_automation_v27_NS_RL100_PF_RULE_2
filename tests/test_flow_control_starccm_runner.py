@@ -41,6 +41,12 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert 'new File(normalizeStarPath(OUTPUT_DIR))' in macro
     assert "findReport(sim, reportName)" in macro
     assert 'reportName.startsWith("fc_load_")' in macro
+    assert 'shortName + " Monitor"' in macro
+    assert '"Drag Monitor"' in macro
+    assert '"Fz Monitor"' in macro
+    assert '"Pitch_Moment Monitor"' in macro
+    assert '"Roll_Moment Monitor"' in macro
+    assert '"Jet_Reaction_Z Monitor"' in macro
     assert "static final boolean[] ACTIVE_JETS" in macro
     assert "false, false, true, false" in macro
     assert "if (!ACTIVE_JETS[jet]) continue;" in macro
