@@ -164,6 +164,7 @@ def build_flow_control_macro(
     return f"""import star.common.*;
 import star.base.report.*;
 import star.flow.*;
+import star.vis.*;
 import java.io.*;
 import java.util.*;
 
@@ -211,6 +212,7 @@ public class FlowControlRunMacro extends StarMacro {{
             sim.println("[flow_control] completed window=" + WINDOW_IDS[window]
                 + " csv=" + csv.getAbsolutePath());
         }}
+        exportRequiredMonitorPlots(sim, outDir);
         if (RESULT_SIM_PATH != null && !RESULT_SIM_PATH.trim().isEmpty()) {{
             sim.saveState(normalizeStarPath(RESULT_SIM_PATH));
             sim.println("[flow_control] saved result sim -> " + RESULT_SIM_PATH);
@@ -480,6 +482,93 @@ public class FlowControlRunMacro extends StarMacro {{
             }};
         }}
         return new String[] {{reportName, reportName + " Monitor"}};
+    }}
+
+    private void exportRequiredMonitorPlots(Simulation sim, File outDir) {{
+        exportMonitorPlot(sim, outDir,
+            new String[] {{"FZ", "FZ Plot", "FZ 绘图"}},
+            "FZ_image.csv");
+        exportMonitorPlot(sim, outDir,
+            new String[] {{"Fz Monitor", "Fz Monitor Plot", "Fz Monitor 绘图"}},
+            "Fz_Monitor_绘图_image.csv");
+        exportMonitorPlot(sim, outDir,
+            new String[] {{"Drag Monitor", "Drag Monitor Plot", "Drag Monitor 绘图"}},
+            "Drag_Monitor_绘图_image.csv");
+        exportMonitorPlot(sim, outDir,
+            new String[] {{
+                "Pitch_Moment Monitor", "Pitch_Moment Monitor Plot", "Pitch_Moment Monitor 绘图"
+            }},
+            "Pitch_Moment_Monitor_绘图_image.csv");
+        exportMonitorPlot(sim, outDir,
+            new String[] {{
+                "Roll_Moment Monitor", "Roll_Moment Monitor Plot", "Roll_Moment Monitor 绘图"
+            }},
+            "Roll_Moment_Monitor_绘图_image.csv");
+        exportMonitorPlot(sim, outDir,
+            new String[] {{
+                "Jet_Reaction_Z Monitor",
+                "Jet_Reaction_Z Monitor Plot",
+                "Jet_Reaction_Z Monitor 绘图"
+            }},
+            "Jet_Reaction_Z_Monitor_绘图_image.csv");
+    }}
+
+    private void exportMonitorPlot(
+        Simulation sim,
+        File outDir,
+        String[] candidateNames,
+        String fileName
+    ) {{
+        StarPlot plot = findPlot(sim, candidateNames);
+        if (plot == null) {{
+            sim.println(
+                "WARNING: monitor plot not found for CSV '" + fileName
+                + "'. Tried " + Arrays.toString(candidateNames)
+                + ". Available plots: " + availablePlotNames(sim)
+            );
+            return;
+        }}
+        File output = new File(outDir, fileName);
+        try {{
+            plot.export(normalizeStarPath(output.getAbsolutePath()), ",");
+            sim.println("[flow_control] exported monitor CSV -> " + output.getAbsolutePath());
+        }} catch (Exception e) {{
+            sim.println(
+                "WARNING: failed to export monitor plot '" + plot.getPresentationName()
+                + "' to '" + output.getAbsolutePath() + "': " + e.getMessage()
+            );
+        }}
+    }}
+
+    private StarPlot findPlot(Simulation sim, String[] candidateNames) {{
+        for (int idx = 0; idx < candidateNames.length; idx++) {{
+            try {{
+                StarPlot plot = sim.getPlotManager().getPlot(candidateNames[idx]);
+                if (plot != null) return plot;
+            }} catch (Exception ignored) {{}}
+        }}
+        for (Object obj : sim.getPlotManager().getObjects()) {{
+            if (!(obj instanceof StarPlot)) continue;
+            StarPlot plot = (StarPlot) obj;
+            try {{
+                String presentationName = plot.getPresentationName();
+                for (int idx = 0; idx < candidateNames.length; idx++) {{
+                    if (presentationName.equalsIgnoreCase(candidateNames[idx])) return plot;
+                }}
+            }} catch (Exception ignored) {{}}
+        }}
+        return null;
+    }}
+
+    private String availablePlotNames(Simulation sim) {{
+        ArrayList<String> names = new ArrayList<String>();
+        for (Object obj : sim.getPlotManager().getObjects()) {{
+            if (!(obj instanceof StarPlot)) continue;
+            try {{
+                names.add(((StarPlot) obj).getPresentationName());
+            }} catch (Exception ignored) {{}}
+        }}
+        return names.toString();
     }}
 
     private String resolveOutputDir() {{

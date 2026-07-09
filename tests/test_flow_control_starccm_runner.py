@@ -47,6 +47,15 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert '"Pitch_Moment Monitor"' in macro
     assert '"Roll_Moment Monitor"' in macro
     assert '"Jet_Reaction_Z Monitor"' in macro
+    assert "import star.vis.*;" in macro
+    assert "exportRequiredMonitorPlots(sim, outDir);" in macro
+    assert 'plot.export(normalizeStarPath(output.getAbsolutePath()), ",");' in macro
+    assert '"FZ_image.csv"' in macro
+    assert '"Fz_Monitor_绘图_image.csv"' in macro
+    assert '"Drag_Monitor_绘图_image.csv"' in macro
+    assert '"Pitch_Moment_Monitor_绘图_image.csv"' in macro
+    assert '"Roll_Moment_Monitor_绘图_image.csv"' in macro
+    assert '"Jet_Reaction_Z_Monitor_绘图_image.csv"' in macro
     assert "static final boolean[] ACTIVE_JETS" in macro
     assert "false, false, true, false" in macro
     assert "if (!ACTIVE_JETS[jet]) continue;" in macro
