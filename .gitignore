@@ -13,8 +13,13 @@ runs/*
 archive/legacy/*
 !archive/legacy/.gitkeep
 
+单喷气/
+无喷气(1)/
+
 *.sim
 *.sim~
 *.log
 *.csv.tmp
+*.pdf
+*.key
 ~$*
