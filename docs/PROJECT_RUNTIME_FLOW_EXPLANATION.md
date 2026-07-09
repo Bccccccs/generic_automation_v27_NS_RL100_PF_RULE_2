@@ -379,15 +379,15 @@ mock 数据和未来真实 CFD 数据如何统一保存
 启动命令：
 
 ```bash
-python -m flow_control.schedule_generator --config configs/pilot_sparse24.yaml
+python -m flow_control.workflow.schedule_generator --config configs/actions/pilot_sparse24.yaml
 ```
 
 使用模块：
 
 | 顺序 | 模块 | 作用 |
 |---:|---|---|
-| 1 | `flow_control/schedule_generator.py` | CLI 入口与调度生成主逻辑 |
-| 2 | `ActuationConfig.from_yaml()` | 读取 `configs/pilot_sparse24.yaml` |
+| 1 | `flow_control/workflow/schedule_generator.py` | CLI 入口与调度生成主逻辑 |
+| 2 | `ActuationConfig.from_yaml()` | 读取 `configs/actions/pilot_sparse24.yaml` |
 | 3 | `generate_actuation_matrix()` | 生成 24 路喷气矩阵 |
 | 4 | `validate_actuation_matrix()` | 校验稀疏、均衡、无重复、连续开启约束 |
 | 5 | `write_actuation_outputs()` | 写出调度、热图、统计和报告 |
@@ -433,20 +433,20 @@ quality_report.json
 启动命令：
 
 ```bash
-python -m flow_control.run_mock_demo --config configs/pilot_sparse24.yaml
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
 ```
 
 使用模块：
 
 | 顺序 | 模块 | 作用 |
 |---:|---|---|
-| 1 | `flow_control/run_mock_demo.py` | mock demo 入口 |
+| 1 | `examples/run_mock_dynamic24x6.py` | mock demo 入口 |
 | 2 | `ActuationConfig.from_mapping()` | 读取喷气调度配置 |
 | 3 | `generate_actuation_matrix()` | 生成 24 路输入矩阵 |
-| 4 | `flow_control/mock_plant.py` | 创建虚拟 CFD plant |
-| 5 | `MockPlant.reset(seed)` | 初始化虚拟动力系统 |
-| 6 | `MockPlant.step(u)` | 每个窗口输入 24 维喷气向量，输出 6 维响应 |
-| 7 | `run_mock_demo.py` | 写输入热图、输出曲线、相关性、影响力排序 |
+| 4 | `flow_control/mock/mock_plant.py` | 创建虚拟 CFD plant |
+| 5 | `MockDynamicPlant24x6.simulate(schedule_rows)` | 初始化虚拟动力系统 |
+| 6 | `MockDynamicPlant24x6.simulate(schedule_rows)` | 每个窗口输入 24 维喷气向量，输出 6 维响应 |
+| 7 | `examples/run_mock_dynamic24x6.py` | 写输入热图、输出曲线、总升力、空间不均匀度和总流量图 |
 | 8 | `CaseSchema.write_case()` | 写标准 case 文件 |
 
 B04 的核心数据链路：
@@ -454,7 +454,7 @@ B04 的核心数据链路：
 ```text
 24 路喷气输入 u(t)
   ↓
-MockPlant
+MockDynamic24x6
   ↓
 6 路输出 y(t)
 ```
@@ -473,19 +473,18 @@ Fz_S3R
 输出目录：
 
 ```text
-runs/b04_mock_plant/
+runs/mock_dynamic24x6_demo/
 ```
 
 主要输出：
 
 ```text
-mock_input_heatmap.svg
-mock_output_timeseries.svg
-mock_inputs.csv
-mock_outputs.csv
-mock_input_output_correlations.csv
-mock_hidden_jet_influence_ranking.csv
-mock_demo_summary.json
+figures/input_heatmap.svg
+figures/fz_regions.svg
+figures/fz_total.svg
+figures/spatial_nonuniformity.svg
+figures/total_massflow.svg
+mock_dynamic24x6_summary.json
 case_manifest.yaml
 actuation_schedule.csv
 timeseries.csv

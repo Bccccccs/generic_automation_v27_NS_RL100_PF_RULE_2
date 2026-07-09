@@ -20,7 +20,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--actuation-config",
-        default="configs/pilot_sparse24.yaml",
+        default="configs/actions/pilot_sparse24.yaml",
         help="Existing actuation YAML config used to generate actuation_schedule.csv.",
     )
     parser.add_argument(

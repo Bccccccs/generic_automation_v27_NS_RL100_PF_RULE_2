@@ -97,21 +97,21 @@ physical_time、t_start、t_end 都是物理时间秒，不是求解器迭代步
 
 ## 4. 六种激励动作
 
-当前支持 6 种动作，配置文件都在 `configs/`：
+当前支持 6 种动作，配置文件都在 `configs/actions/`：
 
 | 动作 | 配置文件 | 作用 |
 |---|---|---|
-| 无喷气参考段 | `configs/no_jet_reference.yaml` | 所有喷口关闭，作为无喷气基准 |
-| 单喷气区脉冲 | `configs/pulse_singlejet.yaml` | 一个喷口短时间打开，观察瞬时响应和延迟 |
-| 单喷气区阶跃 | `configs/step_singlejet.yaml` | 一个喷口持续打开一段时间，观察平均影响 |
-| 关键喷气区扫频 | `configs/chirp_keyjets.yaml` | 几个喷口的喷气量按越来越快的节奏变化 |
-| PRBS 伪随机开关 | `configs/prbs_demo.yaml` | 可复现随机开关，为 ROM/动态辨识提供输入 |
-| 稀疏随机分组 | `configs/pilot_sparse24.yaml` | 每个主窗口开 3 个喷口，公平筛查 24 个喷气区 |
+| 无喷气参考段 | `configs/actions/no_jet_reference.yaml` | 所有喷口关闭，作为无喷气基准 |
+| 单喷气区脉冲 | `configs/actions/pulse_singlejet.yaml` | 一个喷口短时间打开，观察瞬时响应和延迟 |
+| 单喷气区阶跃 | `configs/actions/step_singlejet.yaml` | 一个喷口持续打开一段时间，观察平均影响 |
+| 关键喷气区扫频 | `configs/actions/chirp_keyjets.yaml` | 几个喷口的喷气量按越来越快的节奏变化 |
+| PRBS 伪随机开关 | `configs/actions/prbs_demo.yaml` | 可复现随机开关，为 ROM/动态辨识提供输入 |
+| 稀疏随机分组 | `configs/actions/pilot_sparse24.yaml` | 每个主窗口开 3 个喷口，公平筛查 24 个喷气区 |
 
 生成某一种动作表：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator --config configs/pulse_singlejet.yaml
+.venv/bin/python -m flow_control.workflow.schedule_generator --config configs/actions/pulse_singlejet.yaml
 ```
 
 生成结果默认写到：
@@ -150,7 +150,7 @@ flow_control/workflow/schedule_generator.py
 调用链：
 
 ```text
-configs/*.yaml
+configs/actions/*.yaml
   -> schedule_generator.py
   -> excitation_patterns/common.py 读取统一配置
   -> 根据 actuation.mode 分发到具体生成器
@@ -181,13 +181,13 @@ examples/run_mock_dynamic24x6.py
 示例：
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
 ```
 
 调用链：
 
 ```text
-configs/*.yaml
+configs/actions/*.yaml
   -> examples/run_mock_dynamic24x6.py
   -> workflow/schedule_generator.py 生成 actuation_schedule.csv
   -> mock_plant.py 运行 MockDynamic24x6

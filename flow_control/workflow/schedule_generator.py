@@ -93,7 +93,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate physical-time sparse-jet actuation schedules."
     )
-    parser.add_argument("--config", default="configs/pilot_sparse24.yaml")
+    parser.add_argument("--config", default="configs/actions/pilot_sparse24.yaml")
     parser.add_argument("--output-dir", help="Override output.run_dir from the config file.")
     args = parser.parse_args()
 

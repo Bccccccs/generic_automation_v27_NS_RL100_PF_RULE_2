@@ -9,7 +9,7 @@ B04 实现了一个用于 RL 控制验证的本地虚拟 CFD 动力系统。它�
 真实流程中，RL 控制器需要把 24 路喷气控制量发送给 STAR-CCM+，再从求解器中读取 6 路响应量。真实求解器运行成本高、调试慢，因此 B04 先提供一个 mock plant：
 
 ```text
-24 路喷气输入 u(t) -> MockPlant -> 6 路输出 y(t)
+24 路喷气输入 u(t) -> MockDynamic24x6 -> 6 路输出 y(t)
 ```
 
 它用于验证：
@@ -24,14 +24,14 @@ B04 实现了一个用于 RL 控制验证的本地虚拟 CFD 动力系统。它�
 核心文件：
 
 ```text
-flow_control/mock_plant.py
-flow_control/run_mock_demo.py
+flow_control/mock/mock_plant.py
+examples/run_mock_dynamic24x6.py
 ```
 
-`MockPlant` 提供两个主要接口：
+`MockDynamic24x6` 提供两个主要接口：
 
 ```python
-plant = MockPlant()
+plant = MockDynamic24x6()
 plant.reset(seed=123)
 y = plant.step(u)
 ```
@@ -55,28 +55,19 @@ B04 的 mock plant 包含以下特性：
 - 高斯噪声：输出端叠加协方差噪声。
 - 稳定性保护：状态矩阵谱半径缩放、状态和输出裁剪，避免发散。
 
-内部存在隐藏关键喷气口，这些喷气口对输出影响更强，但不会通过 `MockPlant` 的公开接口显式返回。demo 通过 influence ranking 验证这些关键变量是否能被数据学习出来。
 
 ## 运行方式
 
 在项目根目录运行：
 
 ```bash
-python -m flow_control.run_mock_demo --config configs/pilot_sparse24.yaml
-```
-
-如果本地虚拟环境缺少 `numpy`，可以使用当前机器验证过的命令：
-
-```bash
-env PYTHONPATH=/Library/Frameworks/Python.framework/Versions/3.14/lib/python3.14/site-packages .venv/bin/python -m flow_control.run_mock_demo --config configs/pilot_sparse24.yaml
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
 ```
 
 成功运行后会看到类似输出：
 
 ```text
-MockPlant demo complete: runs/b04_mock_plant
-Stable: True max_abs_y=2.6438
-Top influence jets: J03, J14, J07, J18, J22
+MockDynamic24x6 complete: runs/mock_dynamic24x6_demo
 ```
 
 ## 输出结果
@@ -84,19 +75,18 @@ Top influence jets: J03, J14, J07, J18, J22
 B04 输出目录：
 
 ```text
-runs/b04_mock_plant/
+runs/mock_dynamic24x6_demo/
 ```
 
 主要结果文件：
 
 ```text
-mock_input_heatmap.svg
-mock_output_timeseries.svg
-mock_input_output_correlations.csv
-mock_hidden_jet_influence_ranking.csv
-mock_demo_summary.json
-mock_inputs.csv
-mock_outputs.csv
+figures/input_heatmap.svg
+figures/fz_regions.svg
+figures/fz_total.svg
+figures/spatial_nonuniformity.svg
+figures/total_massflow.svg
+mock_dynamic24x6_summary.json
 ```
 
 当前版本也会生成标准 case schema 文件：
@@ -111,15 +101,17 @@ logs/case_io.log
 
 ## 图和文件解释
 
-`mock_input_heatmap.svg` 显示 24 路喷气输入随时间窗口变化的稀疏激励热图。它复用 B03 的 `pilot_sparse24` 调度配置。
+`figures/input_heatmap.svg` 显示 24 路喷气输入随时间窗口变化的稀疏激励热图。它来自 workflow 生成的 `actuation_schedule.csv`。
 
-`mock_output_timeseries.svg` 显示 6 路 mock plant 输出时间序列。合理结果应该有动态波动、惯性响应和噪声，但不能发散。
+`figures/fz_regions.svg` 显示 6 路 mock plant 输出时间序列。合理结果应该有动态波动、惯性响应和噪声，但不能发散。
 
-`mock_input_output_correlations.csv` 给出每个喷气口与每个输出之间的最佳滞后相关性，用于检查输入输出是否存在可学习关系。
+`figures/fz_total.svg` 显示总升力时程。
 
-`mock_hidden_jet_influence_ranking.csv` 给出 24 个喷气口的影响力排序，用于验证隐藏关键变量是否能从系统响应中被识别。
+`figures/spatial_nonuniformity.svg` 显示空间不均匀度曲线。
 
-`mock_demo_summary.json` 汇总运行配置、稳定性检查、输出文件位置和 hidden jet learning check。
+`figures/total_massflow.svg` 显示总质量流量曲线。
+
+`mock_dynamic24x6_summary.json` 汇总运行配置、输出文件位置和质量报告。
 
 ## 与 B03 的关系
 
@@ -132,21 +124,20 @@ runs/pilot_sparse24/
 B04 负责把 B03 风格的 24 路输入送入虚拟 CFD 动力系统，并生成 6 路输出响应：
 
 ```text
-runs/b04_mock_plant/
+runs/mock_dynamic24x6_demo/
 ```
 
-两者不要混在同一个输出目录中。B03 的热图、总载荷曲线、空间不均匀度曲线描述的是调度本身；B04 的输入热图、6 输出曲线、相关性和影响力排序描述的是 mock plant 响应。
+两者不要混在同一个输出目录中。workflow 输出的热图和总流量曲线描述的是调度本身；B04 输出的输入热图、6 输出曲线、总升力、空间不均匀度和总流量图描述的是 mock plant 响应。
 
 ## 验收要点
 
 可以从以下几个方面判断 B04 是否完成：
 
-- `MockPlant` 能接受 24 维输入并返回 6 维输出。
+- `MockDynamic24x6` 能接受 24 维输入并返回 6 维输出。
 - 输出包含非线性、时延、惯性、稀疏结构和噪声。
 - 系统稳定，不出现 NaN、Inf 或持续发散。
-- demo 能生成输入热图、6 输出曲线、相关性分析和影响力排序。
-- `mock_demo_summary.json` 中 `stability.stable` 为 `true`。
-- `hidden_jet_learning_check.passes` 为 `true`。
+- demo 能生成输入热图、6 输出曲线、总升力曲线、空间不均匀度曲线和总质量流量曲线。
+- `quality_report.json` 中 `run_success_flag` 为 `true`。
 
 ## 汇报表述
 
