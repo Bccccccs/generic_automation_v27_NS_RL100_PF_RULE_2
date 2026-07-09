@@ -50,6 +50,8 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert "import star.vis.*;" in macro
     assert "exportRequiredMonitorPlots(sim, outDir);" in macro
     assert 'plot.export(normalizeStarPath(output.getAbsolutePath()), ",");' in macro
+    assert 'presentationName.startsWith(candidate + " ")' in macro
+    assert "presentationName.toLowerCase(Locale.ROOT).startsWith(" in macro
     assert '"FZ_image.csv"' in macro
     assert '"Fz_Monitor_绘图_image.csv"' in macro
     assert '"Drag_Monitor_绘图_image.csv"' in macro

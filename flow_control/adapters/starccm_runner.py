@@ -547,13 +547,37 @@ public class FlowControlRunMacro extends StarMacro {{
                 if (plot != null) return plot;
             }} catch (Exception ignored) {{}}
         }}
+        // Prefer a case-sensitive English prefix before falling back to
+        // case-insensitive matching.  Localized STAR installations can expose
+        // the translated "Plot" suffix as mojibake in batch mode, while the
+        // report/monitor prefix remains stable.
         for (Object obj : sim.getPlotManager().getObjects()) {{
             if (!(obj instanceof StarPlot)) continue;
             StarPlot plot = (StarPlot) obj;
             try {{
                 String presentationName = plot.getPresentationName();
                 for (int idx = 0; idx < candidateNames.length; idx++) {{
-                    if (presentationName.equalsIgnoreCase(candidateNames[idx])) return plot;
+                    String candidate = candidateNames[idx];
+                    if (presentationName.equals(candidate)
+                        || presentationName.startsWith(candidate + " ")) {{
+                        return plot;
+                    }}
+                }}
+            }} catch (Exception ignored) {{}}
+        }}
+        for (Object obj : sim.getPlotManager().getObjects()) {{
+            if (!(obj instanceof StarPlot)) continue;
+            StarPlot plot = (StarPlot) obj;
+            try {{
+                String presentationName = plot.getPresentationName();
+                for (int idx = 0; idx < candidateNames.length; idx++) {{
+                    String candidate = candidateNames[idx];
+                    if (presentationName.equalsIgnoreCase(candidate)
+                        || presentationName.toLowerCase(Locale.ROOT).startsWith(
+                            candidate.toLowerCase(Locale.ROOT) + " "
+                        )) {{
+                        return plot;
+                    }}
                 }}
             }} catch (Exception ignored) {{}}
         }}
