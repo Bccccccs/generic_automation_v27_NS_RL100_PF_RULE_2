@@ -34,8 +34,8 @@ The equal activation count follows from:
 
 ## Main Files
 
-- `configs/pilot_sparse24.yaml`: B03 actuation configuration.
-- `flow_control/schedule_generator.py`: constrained random generator, diagnostics, and CLI.
+- `configs/actions/pilot_sparse24.yaml`: B03 actuation configuration.
+- `flow_control/workflow/schedule_generator.py`: constrained random generator, diagnostics, and CLI.
 - `tests/test_actuation_schedule_generator.py`: regression tests for constraints and outputs.
 
 ## Configuration
@@ -85,13 +85,13 @@ The final 8 reference windows are all-zero windows.
 From the repository root:
 
 ```bash
-.venv/bin/python -m flow_control.schedule_generator --config configs/pilot_sparse24.yaml
+.venv/bin/python -m flow_control.workflow.schedule_generator --config configs/actions/pilot_sparse24.yaml
 ```
 
 If the active environment exposes `python`, the shorter form also works:
 
 ```bash
-python -m flow_control.schedule_generator --config configs/pilot_sparse24.yaml
+python -m flow_control.workflow.schedule_generator --config configs/actions/pilot_sparse24.yaml
 ```
 
 ## Outputs

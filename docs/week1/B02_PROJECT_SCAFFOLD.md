@@ -10,11 +10,10 @@ leaving the existing solver optimization modules intact.
 ## New module boundary
 
 - `flow_control/data_schema.py`: shared config, schedule, action, and observation data structures.
-- `flow_control/schedule_generator.py`: first deterministic schedule generator.
-- `flow_control/schedule_validator.py`: schedule consistency checks.
-- `flow_control/mock_plant.py`: deterministic mock plant for local workflow tests.
-- `flow_control/result_analyzer.py`: compact result summary helpers.
-
+- `flow_control/workflow/schedule_generator.py`: first deterministic schedule generator.
+- `flow_control/workflow/schedule_validator.py`: schedule consistency checks.
+- `flow_control/mock/mock_plant.py`: deterministic mock plant for local workflow tests.
+- `
 ## First config
 
 - `configs/maglev_sparse_jet_9w.yaml`
