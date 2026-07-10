@@ -1,6 +1,4 @@
 mock_dynamic24x6:
-  random_seed: 20260703
-
   # Spatial coupling from 24 jets to 6 load regions. Jets are grouped by fours:
   # 01-04 -> S1L, 05-08 -> S1R, 09-12 -> S2L, 13-16 -> S2R,
   # 17-20 -> S3L, 21-24 -> S3R.

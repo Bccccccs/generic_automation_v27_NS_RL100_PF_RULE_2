@@ -8,7 +8,6 @@ actuation:
   window_duration: 0.1
   max_consecutive_on: 2
   equal_activation_count: true
-  random_seed: 20260618
 
 output:
   run_dir: runs/schedule_examples/sparse24

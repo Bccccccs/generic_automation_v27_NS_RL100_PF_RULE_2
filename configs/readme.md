@@ -5,7 +5,7 @@ Shared run-level parameters live in `configs/system.yaml`. Use
 
 ```yaml
 system:
-  random_seed: 20260702
+  random_seed: 20260618
 ```
 
 Flow-control actuation configs read this value unless `actuation.random_seed`
@@ -13,6 +13,10 @@ is set. Mock dynamic configs read this value unless
 `mock_dynamic24x6.random_seed` is set. Prefer the shared file for normal runs
 so schedules and mock outputs can be reproduced from one visible system
 parameter.
+
+For batch dataset generation, use `system.random_seed` as the single source of
+truth and derive each case seed from that value. Schedule generation and mock
+dynamics should receive the same per-case seed.
 
 The six flow-control actuation example configs live under `configs/actions/`.
 
