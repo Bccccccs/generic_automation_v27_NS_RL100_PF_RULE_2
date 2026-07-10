@@ -1,0 +1,42 @@
+"""Validate an already trained ARX ROM on case data."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from flow_control.rom import validate_arx_rom
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Validate an existing ARX ROM snapshot.")
+    parser.add_argument("--model", required=True, help="Path to arx_model.json.")
+    parser.add_argument("--out", required=True, help="Output validation directory.")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--dataset-dir", help="Dataset directory containing index.csv and many cases.")
+    source.add_argument("--case-dir", help="Single case directory.")
+    parser.add_argument("--case-start", type=int, default=0, help="First dataset case index to validate.")
+    parser.add_argument("--case-count", type=int, default=None, help="Number of dataset cases to validate.")
+    args = parser.parse_args(argv)
+
+    result = validate_arx_rom(
+        model_path=args.model,
+        out_dir=args.out,
+        dataset_dir=args.dataset_dir,
+        case_dir=args.case_dir,
+        case_start=args.case_start,
+        case_count=args.case_count,
+    )
+
+    print(f"ARX ROM validation complete: {Path(result.out_dir)}")
+    print(f"cases: {result.case_count}, rows: {result.validation_rows}")
+    print(f"metrics: {result.metrics_path}")
+    print(f"prediction CSV: {result.prediction_csv_path}")
+    print(f"prediction plot: {result.prediction_plot_path}")
+    print(f"error plot: {result.error_plot_path}")
+    print(f"RMSE plot: {result.rmse_plot_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
