@@ -39,7 +39,7 @@ generic_automation/
   原 STAR-CCM+ 自动化主线：case、sweep、monitor、RL 调求解器参数
 
 flow_control/
-  喷气流控原型：激励动作表、mock plant、数据 schema、STAR 命令翻译
+  喷气流控原型：激励动作表、mock plant、ROM、数据 schema、STAR 命令翻译
 
 starccm/
   control/：24 个喷气区、6 个载荷点、report 名称和结果映射的共用契约
@@ -49,7 +49,7 @@ configs/
   YAML 配置文件
 
 docs/
-  项目说明、B02/B03/B04/B05 文档、week2 说明
+  项目说明、B02/B03/B04/B05/B06 文档、week2 说明
 
 tests/
   自动测试
@@ -306,6 +306,12 @@ docs/B04_MOCK_PLANT.md
 
 docs/B05_CASE_SCHEMA.md
   标准 case bundle / timeseries schema
+
+docs/week2/B06_ARX_ROM变量和公式说明.md
+  ARX ROM 输入输出、数据生成、训练/验证入口和当前 mock 验证指标说明
+
+docs/FLOW_CONTROL_MODULE_STARTUP_GUIDE.md
+  schedule、mock、STAR-CCM+、数据导入/分析和 ARX 各模块启动方式
 
 docs/week2/STARCCM_RUNTIME_REFACTOR.md
   STAR-CCM+ runtime 分层和翻译层说明
