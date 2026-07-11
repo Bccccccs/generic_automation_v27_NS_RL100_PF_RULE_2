@@ -28,7 +28,10 @@ import yaml
 from flow_control.config import load_config_with_system_defaults
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.star_ingest.case_data_loader import write_quality_report
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
+
+ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
 
 
 @dataclass(frozen=True)
@@ -141,7 +144,15 @@ class MockDynamicPlant24x6:
             outputs[row_idx] = state + noise
 
         totals = self._derived_outputs(outputs, effective_input)
-        rows = self._timeseries_rows(physical_time, window_id, switches, outputs, totals)
+        rows = self._timeseries_rows(
+            physical_time,
+            window_id,
+            switches,
+            massflows,
+            effective_input,
+            outputs,
+            totals,
+        )
         return {
             "timeseries": rows,
             "schedule": schedule_rows,
@@ -277,6 +288,8 @@ class MockDynamicPlant24x6:
         physical_time: np.ndarray,
         window_id: np.ndarray,
         switches: np.ndarray,
+        massflows: np.ndarray,
+        actual_massflows: np.ndarray,
         outputs: np.ndarray,
         totals: dict[str, np.ndarray],
     ) -> list[dict[str, Any]]:
@@ -293,6 +306,10 @@ class MockDynamicPlant24x6:
             }
             for jet_idx, column in enumerate(JET_COLUMNS):
                 record[column] = float(switches[row_idx, jet_idx])
+            for jet_idx, column in enumerate(MASSFLOW_COLUMNS):
+                record[column] = float(massflows[row_idx, jet_idx])
+            for jet_idx, column in enumerate(ACTUAL_MASSFLOW_COLUMNS):
+                record[column] = float(actual_massflows[row_idx, jet_idx])
             for output_idx, column in enumerate(LOAD_COLUMNS):
                 record[column] = float(outputs[row_idx, output_idx])
             for column in (
@@ -366,6 +383,7 @@ def write_mock_dynamic_case(
         "window_duration": _manifest_time_step(schedule_rows),
         "random_seed": config.random_seed,
         "case_stage": "mock_dynamic24x6",
+        "check_mode": "mock",
     }
     quality_report = {
         "run_success_flag": True,
@@ -396,7 +414,11 @@ def write_mock_dynamic_case(
         yaml.safe_dump(raw_config, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
-    _write_demo_summary(schema_result["run_dir"], schema_result, quality_report)
+    schema_result["quality_report"] = write_quality_report(
+        schema_result["run_dir"],
+        check_mode="mock",
+    )
+    _write_demo_summary(schema_result["run_dir"], schema_result, schema_result["quality_report"])
     return schema_result
 
 
