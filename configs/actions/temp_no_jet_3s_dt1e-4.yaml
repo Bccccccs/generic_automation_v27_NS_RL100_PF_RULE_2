@@ -1,0 +1,9 @@
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_windows: 30000
+  window_duration: 1.0e-4
+  mass_flow_rate: 0.0
+
+output:
+  run_dir: runs/schedule_examples/temp_no_jet_3s_dt1e-4
