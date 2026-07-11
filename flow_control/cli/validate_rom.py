@@ -1,4 +1,12 @@
-"""Validate an already trained ARX ROM on case data."""
+"""/validate_rom CLI：在验证数据上评估已训练的 ARX ROM 性能。
+
+验证方式（互斥）：
+  --case-id/--case-dir: 在单个 case 上验证
+  --dataset-dir:         在 dataset 的多个 case 上验证（可指定起止索引）
+
+输出指标包括每列的 RMSE、NRMSE、相关系数、平均误差和最大绝对误差。
+同时生成预测对比图、误差图和 RMSE 柱状图。
+"""
 
 from __future__ import annotations
 
@@ -13,11 +21,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate an existing ARX ROM snapshot.")
     parser.add_argument("--model", required=True, help="Path to arx_model.json.")
     parser.add_argument("--out", required=True, help="Output validation directory.")
+    # --- 数据源（三选一） ---
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--dataset-dir", help="Dataset directory containing index.csv and many cases.")
     source.add_argument("--case-id", help="Single case id under --runs-root.")
     source.add_argument("--case-dir", help="Single case directory.")
     parser.add_argument("--runs-root", default="runs", help="Root for --case-id inputs.")
+    # --- dataset 模式下可选择验证范围 ---
     parser.add_argument("--case-start", type=int, default=0, help="First dataset case index to validate.")
     parser.add_argument("--case-count", type=int, default=None, help="Number of dataset cases to validate.")
     args = parser.parse_args(argv)

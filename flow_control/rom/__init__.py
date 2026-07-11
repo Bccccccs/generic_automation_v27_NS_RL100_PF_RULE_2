@@ -1,4 +1,19 @@
-"""Reduced-order modeling utilities for flow-control response prediction."""
+"""降阶模型（ROM）包 —— 喷气-载荷响应的 ARX 线性建模。
+
+核心模型：
+  ARXModel — 自回归带外生输入模型，多输入多输出（MIMO）。
+
+工作流组件：
+  - training:    在单个 case 或数据集上训练 ARX 模型
+  - inference:   用已训练的模型对新 case 进行递推预测
+  - validation:  在验证数据上评估模型性能（RMSE、相关系数等）
+  - identifier:  数据加载、指标计算、SVG 绘图工具
+  - generate_arx_dataset: 使用 Mock Plant 批量生成训练/验证数据集
+
+数学公式：
+  y[t] = c + A_1*y[t-1] + ... + A_na*y[t-na]
+           + B_0*u[t] + ... + B_nb*u[t-nb+1]
+"""
 
 from .arx_model import ARXModel
 from .identifier import (

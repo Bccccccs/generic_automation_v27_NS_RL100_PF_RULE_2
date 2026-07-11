@@ -1,4 +1,17 @@
-"""Validation workflow for already trained ARX ROM snapshots."""
+"""Validation workflow for already trained ARX ROM snapshots.
+
+已训练 ARX 降阶模型（ROM）快照的验证工作流模块。
+本模块对训练好的 ARX 模型执行验证：在指定案例或数据集上运行递归预测，
+计算各项指标（RMSE、NRMSE、相关系数等），并生成预测对比图、误差图和 RMSE 柱状图。
+
+验证流程：
+1. 加载训练好的 ARX 模型
+2. 加载一个或多个验证案例数据
+3. 对每个案例执行递归预测（前 max_lag 行用于初始化历史，后续行进行预测）
+4. 拼接所有案例的预测结果和真实值
+5. 计算验证指标并写入 JSON
+6. 生成 CSV 预测表和 SVG 可视化图表
+"""
 
 from __future__ import annotations
 
@@ -26,36 +39,42 @@ from .identifier import (
 )
 
 
+# ARX 验证结果的数据类（冻结 = 不可变）
+# 记录验证产出的文件路径、统计信息和指标
 @dataclass(frozen=True)
 class ARXValidationResult:
     """Paths and metrics produced by validating an existing ARX ROM."""
 
-    out_dir: Path
-    metrics_path: Path
-    prediction_csv_path: Path
-    prediction_plot_path: Path
-    error_plot_path: Path
-    rmse_plot_path: Path
-    case_count: int
-    validation_rows: int
-    metrics: dict[str, dict[str, float]]
+    out_dir: Path                                     # 输出目录
+    metrics_path: Path                                # 验证指标 JSON 路径
+    prediction_csv_path: Path                         # 预测结果 CSV 路径（包含 true/pred/error 列）
+    prediction_plot_path: Path                        # 预测对比图 SVG 路径
+    error_plot_path: Path                             # 误差图 SVG 路径
+    rmse_plot_path: Path                              # RMSE 柱状图 SVG 路径
+    case_count: int                                   # 验证案例数
+    validation_rows: int                              # 验证行数（剔除 warmup 行后的总行数）
+    metrics: dict[str, dict[str, float]]              # 各输出列的指标字典
 
 
+# 验证已训练 ARX ROM 模型的主函数
+# 对单个案例或数据集中的所有案例执行递归预测，并计算验证指标
 def validate_arx_rom(
     *,
-    model_path: str | Path,
-    out_dir: str | Path,
-    dataset_dir: str | Path | None = None,
-    case_dir: str | Path | None = None,
-    case_start: int = 0,
-    case_count: int | None = None,
+    model_path: str | Path,                # 训练好的模型 JSON 文件路径
+    out_dir: str | Path,                   # 验证输出目录
+    dataset_dir: str | Path | None = None, # 数据集目录（与 case_dir 二选一）
+    case_dir: str | Path | None = None,    # 单个案例目录（与 dataset_dir 二选一）
+    case_start: int = 0,                   # 数据集起始案例索引
+    case_count: int | None = None,         # 数据集案例数量（None = 全部）
 ) -> ARXValidationResult:
     """Validate a trained ARX ROM on one case or a case dataset."""
 
+    # 确保且仅提供一种验证源
     if (dataset_dir is None) == (case_dir is None):
         raise ValueError("provide exactly one of dataset_dir or case_dir")
 
     model = _load_model(model_path)
+    # 根据参数选择加载单个案例或数据集中的多个案例
     sequences = (
         [_load_rom_sequence(case_dir)]
         if case_dir is not None
@@ -64,16 +83,19 @@ def validate_arx_rom(
     if not sequences:
         raise ValueError("no validation cases selected")
 
-    prediction_parts: list[np.ndarray] = []
-    truth_parts: list[np.ndarray] = []
-    prediction_rows: list[dict[str, Any]] = []
+    prediction_parts: list[np.ndarray] = []   # 各案例的预测结果矩阵
+    truth_parts: list[np.ndarray] = []         # 各案例的真实值矩阵
+    prediction_rows: list[dict[str, Any]] = [] # 用于输出 CSV 的行数据
+    # 对每个验证案例执行递归预测
     for sequence in sequences:
         inputs = sequence["inputs"]
         outputs = sequence["outputs"]
         if len(inputs) <= model.max_lag:
             raise ValueError(f"case {sequence['case_id']} is too short for max_lag={model.max_lag}")
+        # 递归预测：前 max_lag 行作为历史初始化，之后递归预测
+        # 这是关键步骤——模型不依赖任何未来的真实观测值
         prediction = model.predict_recursive(inputs, outputs, start_index=model.max_lag)
-        truth = outputs[model.max_lag :]
+        truth = outputs[model.max_lag :]       # 与预测对齐的真实值（剔除 warmup 行）
         prediction_parts.append(prediction)
         truth_parts.append(truth)
         _extend_prediction_rows(
@@ -84,10 +106,12 @@ def validate_arx_rom(
             prediction=prediction,
         )
 
+    # 拼接所有案例的预测和真实数据
     prediction_all = np.vstack(prediction_parts)
     truth_all = np.vstack(truth_parts)
     metrics = compute_metrics(truth_all, prediction_all, ROM_OUTPUT_COLUMNS)
 
+    # 设置输出路径
     output_path = Path(out_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     metrics_path = output_path / "metrics.json"
@@ -96,6 +120,7 @@ def validate_arx_rom(
     error_plot_path = output_path / "error_6_load_cells.svg"
     rmse_plot_path = output_path / "rmse_bar.svg"
 
+    # 写入验证指标 JSON，包含详细的验证策略描述和误差解释指南
     write_json(
         metrics_path,
         {
@@ -115,6 +140,7 @@ def validate_arx_rom(
                 "all explicitly selected validation cases are evaluated; the first max_lag rows of each "
                 "case initialize ARX history, then recursive prediction uses no measured outputs and no fitting"
             ),
+            # 误差解释：为分析人员提供常见误差模式的可能原因
             "error_interpretation": {
                 "delay": "Shifted peaks can indicate insufficient input/output lags or an unmodeled transport delay.",
                 "noise": "Irregular high-frequency residuals are expected when the source data contains output noise.",
@@ -124,10 +150,12 @@ def validate_arx_rom(
             },
         },
     )
+    # 写入预测时间序列 CSV
     _write_prediction_csv(prediction_csv_path, prediction_rows)
 
+    # 生成可视化图表（仅对区域载荷列作图）
     regional_count = len(REGIONAL_OUTPUT_COLUMNS)
-    validation_axis = np.arange(len(truth_all), dtype=float)
+    validation_axis = np.arange(len(truth_all), dtype=float)  # 使用整数索引作为 X 轴
     write_prediction_svg(
         prediction_plot_path,
         validation_axis,
@@ -157,22 +185,29 @@ def validate_arx_rom(
     )
 
 
+# 从 JSON 文件中加载训练好的 ARXModel
 def _load_model(path: str | Path) -> ARXModel:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     return ARXModel.from_dict(payload)
 
 
+# 从数据集索引中加载一批验证案例的序列数据
+# 支持按起始索引和数量选择子集
 def _load_dataset_sequences(
-    dataset_dir: Path,
+    dataset_dir: Path,            # 数据集目录
     *,
-    case_start: int,
-    case_count: int | None,
+    case_start: int,              # 起始案例索引（从 0 开始计数）
+    case_count: int | None,       # 加载的案例数量（None = 加载到末尾）
 ) -> list[dict[str, Any]]:
     records = _read_dataset_index(dataset_dir)
+    # 根据 case_start 和 case_count 切片选择案例
     selected = records[case_start:] if case_count is None else records[case_start : case_start + case_count]
     return [_load_rom_sequence(record["case_dir"]) for record in selected]
 
 
+# 读取数据集索引文件 index.csv，按 case_index 排序返回
+# 注：此函数与 training.py 中的 _read_dataset_index 功能相似，但实现略有不同
+# （training 版本使用 records 长度作为默认 case_index，validation 版本默认 0）
 def _read_dataset_index(dataset_dir: Path) -> list[dict[str, Any]]:
     index_path = dataset_dir / "index.csv"
     if not index_path.exists():
@@ -185,23 +220,27 @@ def _read_dataset_index(dataset_dir: Path) -> list[dict[str, Any]]:
     return sorted(records, key=lambda record: record["case_index"])
 
 
+# 加载单个案例的 ROM 序列数据（含时间值）
+# 与 training.py 的版本相比，额外返回 time_values 用于 CSV 输出中的时间轴
 def _load_rom_sequence(case_dir: str | Path) -> dict[str, Any]:
     rows = load_case_table(case_dir)
     return {
-        "case_id": Path(case_dir).name,
-        "time_values": time_values_from_rows(rows),
-        "inputs": matrix_from_rows(rows, ROM_INPUT_COLUMNS),
-        "outputs": matrix_from_rows(rows, ROM_OUTPUT_COLUMNS),
+        "case_id": Path(case_dir).name,                  # 案例 ID = 目录名
+        "time_values": time_values_from_rows(rows),      # 时间值（用于输出 CSV）
+        "inputs": matrix_from_rows(rows, ROM_INPUT_COLUMNS),    # 输入矩阵
+        "outputs": matrix_from_rows(rows, ROM_OUTPUT_COLUMNS),  # 输出矩阵
     }
 
 
+# 将单个案例的预测结果行扩展到全局预测行列表中
+# 每行包含 case_id、physical_time、各输出列的 true/pred/error 三个字段
 def _extend_prediction_rows(
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, Any]],       # 目标列表（会被原地修改）
     *,
-    case_id: str,
-    time_values: np.ndarray,
-    truth: np.ndarray,
-    prediction: np.ndarray,
+    case_id: str,                     # 当前案例 ID
+    time_values: np.ndarray,          # 时间值数组
+    truth: np.ndarray,                # 真实值矩阵
+    prediction: np.ndarray,           # 预测值矩阵
 ) -> None:
     for row_idx, time_value in enumerate(time_values):
         record: dict[str, Any] = {
@@ -215,6 +254,8 @@ def _extend_prediction_rows(
         rows.append(record)
 
 
+# 将预测行数据写入 CSV 文件
+# CSV 列结构：case_id, physical_time, (column_true, column_pred, column_error) 对于每个输出列
 def _write_prediction_csv(path: str | Path, rows: list[dict[str, Any]]) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     fieldnames = ["case_id", "physical_time"]
