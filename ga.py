@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Unified project launcher for common automation commands."""
+"""统一的项目启动器 —— 将 generic_automation 子命令聚合到一个入口。
+
+使用方法：
+    python ga.py <command> [command arguments]
+
+支持的命令：
+    case          运行一个 STAR-CCM+ 自动化 case
+    sweep         运行一个 CSV 驱动的参数扫描
+    monitor       仅运行外部监视器
+    replay        从已有性能数据回放 RL 决策
+    force-update  写入一个手动参数更新
+"""
 
 from __future__ import annotations
 
@@ -13,9 +24,10 @@ from generic_automation.cli import run_monitor_only
 from generic_automation.cli import run_sweep
 
 
+# 命令主函数类型
 CommandMain = Callable[[], int | None]
 
-
+# 注册的命令字典：{命令名: (描述, 主函数)}
 COMMANDS: dict[str, tuple[str, CommandMain]] = {
     "case": ("Run one STAR-CCM+ automation case.", run_case.main),
     "sweep": ("Run a CSV-driven parameter sweep.", run_sweep.main),
@@ -39,6 +51,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
         return 0
 
+    # 解析命令名，其余参数透传给子命令
     args = parser.parse_args(args_list[:1])
     command_args = args_list[1:]
 
@@ -46,6 +59,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     original_argv = None
     try:
         original_argv = sys.argv
+        # 模拟子命令的 argv，方便子命令使用 argparse
         sys.argv = [f"ga.py {args.command}", *command_args]
         result = command_main()
     finally:

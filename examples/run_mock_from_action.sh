@@ -1,6 +1,20 @@
 #!/usr/bin/env bash
+# ==============================================================================
+# run_mock_from_action.sh — 选择一种激励模式 → 生成计划 → 运行 Mock 模拟。
+#
+# 与 run_ccm_from_action.sh 的区别：
+#   本脚本使用 MockDynamic24x6（模拟 plant）而不是真实的 STAR-CCM+，
+#   因此无需 CCM 许可证，适合算法快速开发和验证。
+#
+# 工作流程：
+#   1. 列出 6 种激励模式供用户选择（输入 1-6）
+#   2. 生成激励计划
+#   3. 通过 MockDynamicPlant24x6 模拟喷气-载荷响应
+#   4. 输出标准 case 目录到 runs/mock_<模式名>/
+# ==============================================================================
 set -euo pipefail
 
+# 获取脚本所在目录和项目根目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PROJECT_ROOT}/.venv/bin/python"
@@ -11,6 +25,7 @@ fi
 
 cd "${PROJECT_ROOT}"
 
+# 6 种激励模式的名称列表
 ACTION_NAMES=(
   "no_jet_reference"
   "pulse_singlejet"
@@ -20,6 +35,7 @@ ACTION_NAMES=(
   "pilot_sparse24"
 )
 
+# 带中文说明的选项标签
 ACTION_LABELS=(
   "1) no_jet_reference  - 无喷气参考段"
   "2) pulse_singlejet   - 单喷气脉冲"
@@ -29,6 +45,7 @@ ACTION_LABELS=(
   "6) pilot_sparse24    - 稀疏随机分组"
 )
 
+# 用户交互：选择要运行的激励模式
 echo "请选择要生成并运行 mock 的动作，输入数字 1-6："
 printf '%s\n' "${ACTION_LABELS[@]}"
 printf "动作编号: "
@@ -48,6 +65,7 @@ output_dir="runs/mock_${action_name}"
 
 echo
 echo "Generating schedule and running mock: ${action_name} -> ${output_dir}"
+# 一步式命令：生成激励计划 + 运行 MockDynamicPlant24x6 + 输出标准 case
 "${PYTHON_BIN}" -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config "${config_path}" \
   --config configs/mock_dynamic24x6.yaml \
