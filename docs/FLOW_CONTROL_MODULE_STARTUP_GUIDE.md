@@ -74,7 +74,7 @@ cmd_massflow_01 ... cmd_massflow_24
 ### 1.2 代码位置
 
 ```text
-flow_control/workflow/schedule_generator.py
+flow_control/generator/schedule_generator.py
 flow_control/excitation_patterns/common.py
 flow_control/excitation_patterns/reference.py
 flow_control/excitation_patterns/pulse.py
@@ -113,31 +113,33 @@ pilot_sparse24.yaml    24 喷口稀疏随机分组
 生成默认 sparse24 schedule：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator \
-  --config configs/actions/pilot_sparse24.yaml
+.venv/bin/python -m flow_control.generator.schedule_generator \
+  --config configs/actions/pilot_sparse24.yaml \
+  --output-dir runs/sparse24
 ```
 
 生成单喷口脉冲 schedule：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator \
-  --config configs/actions/pulse_singlejet.yaml
+.venv/bin/python -m flow_control.generator.schedule_generator \
+  --config configs/actions/pulse_singlejet.yaml \
+  --output-dir runs/pulse_singlejet
 ```
 
-覆盖输出目录：
+指定输出根目录：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator \
+.venv/bin/python -m flow_control.generator.schedule_generator \
   --config configs/actions/prbs_demo.yaml \
   --output-dir runs/schedule_examples/prbs_demo_custom
 ```
 
 ### 1.5 输出文件
 
-默认输出位置由配置里的 `output.run_dir` 决定，常见是：
+输出位置由命令的 `--output-dir` 决定，生成器固定写入其 `input/` 子目录：
 
 ```text
-runs/schedule_examples/<动作名>/
+runs/<输出目录>/input/
 ```
 
 输出内容通常包括：
@@ -155,7 +157,7 @@ total_mass_flow_curve.svg    总质量流量曲线
 
 ```text
 configs/actions/*.yaml
-  -> flow_control.workflow.schedule_generator.run_from_yaml()
+  -> flow_control.generator.schedule_generator.generate_from_yaml()
   -> flow_control.excitation_patterns.common.ActuationConfig
   -> generate_pattern_table()
   -> 具体模式生成器 pulse / step / chirp / prbs / sparse_groups / reference
@@ -183,7 +185,7 @@ mock 模块用本地虚拟模型模拟：
 
 ```text
 examples/run_mock_dynamic24x6.py
-flow_control/workflow/mock_pipeline.py
+flow_control/mock/pipeline.py
 flow_control/mock/mock_plant.py
 flow_control/mock/__init__.py
 ```
@@ -204,7 +206,6 @@ configs/mock_dynamic24x6.yaml
 .venv/bin/python examples/run_mock_dynamic24x6.py \
   --actuation-config configs/actions/pilot_sparse24.yaml \
   --config configs/mock_dynamic24x6.yaml \
-  --schedule-out runs/mock_dynamic24x6_demo/actuation_input \
   --out runs/mock_dynamic24x6_demo
 ```
 
@@ -221,7 +222,7 @@ configs/mock_dynamic24x6.yaml
 
 ```bash
 .venv/bin/python examples/run_mock_dynamic24x6.py \
-  --schedule runs/schedule_examples/prbs_demo/actuation_schedule.csv \
+  --schedule runs/prbs_demo/input/actuation_schedule.csv \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_from_existing_schedule
 ```
@@ -255,8 +256,8 @@ quality_report.json     数据质量和 schema 检查结果
 
 ```text
 examples/run_mock_dynamic24x6.py
-  -> flow_control.workflow.run_actuation_to_mock()
-  -> flow_control.workflow.schedule_generator.run_from_yaml()
+  -> flow_control.mock.pipeline.run_actuation_to_mock()
+  -> flow_control.generator.schedule_generator.generate_from_yaml()
   -> flow_control.mock.write_mock_dynamic_case()
   -> MockDynamicPlant24x6.simulate()
   -> CaseSchema.write_case()
@@ -324,8 +325,9 @@ starccm/control/control_spec.py
 先准备一个 schedule：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator \
-  --config configs/actions/pulse_singlejet.yaml
+.venv/bin/python -m flow_control.generator.schedule_generator \
+  --config configs/actions/pulse_singlejet.yaml \
+  --output-dir runs/pulse_singlejet
 ```
 
 然后 dry-run，只生成宏和运行计划，不真正启动 STAR：
@@ -597,7 +599,9 @@ flow_control/rom/training.py
 flow_control/rom/validation.py
 flow_control/cli/train_rom.py
 flow_control/cli/validate_rom.py
+flow_control/cli/summarize_single_jet.py
 examples/train_rom_mock.py
+examples/validate_rom_mock.py
 ```
 
 兼容旧路径：
@@ -642,21 +646,21 @@ Fz_Total
 
 ### 5.5 训练入口
 
-训练入口只负责拟合模型，不负责验证。
+训练入口只负责拟合模型，不负责验证，也没有内部切分参数。必须显式提供 `--dataset-dir` 或 `--case-dir`，程序会使用所指定训练集中的全部可用行。
 
 训练 `runs/arx_test` 中的 100 个 case：
 
 ```bash
 .venv/bin/python -m flow_control.cli.train_rom \
   --dataset-dir runs/arx_test \
-  --out runs/arx_test/arx_train_all
+  --out runs/rom_mock_demo/model
 ```
 
 训练输出：
 
 ```text
-runs/arx_test/arx_train_all/arx_model.json
-runs/arx_test/arx_train_all/metrics.json
+runs/rom_mock_demo/model/arx_model.json
+runs/rom_mock_demo/model/training_summary.json
 ```
 
 单个 case 兼容入口：
@@ -664,8 +668,10 @@ runs/arx_test/arx_train_all/metrics.json
 ```bash
 .venv/bin/python -m flow_control.cli.train_rom \
   --case-dir runs/mock_full_prbs_demo \
-  --out runs/rom_mock_demo
+  --out runs/rom_mock_demo/model
 ```
+
+单个 case 也会全部用于训练，不会在内部做 70/30 切分。验证必须另行指定其他 case 或 dataset。
 
 示例包装脚本：
 
@@ -773,28 +779,36 @@ runs/arx_validate/sparse24_seed_20260727/
 
 ```bash
 .venv/bin/python -m flow_control.cli.validate_rom \
-  --model runs/arx_test/arx_train_all/arx_model.json \
+  --model runs/rom_mock_demo/model/arx_model.json \
   --dataset-dir runs/arx_validate \
-  --out runs/arx_result
+  --out runs/rom_mock_demo
 ```
 
 验证输出：
 
 ```text
-runs/arx_result/metrics.json
-runs/arx_result/prediction_timeseries.csv
-runs/arx_result/prediction_6_load_cells.svg
-runs/arx_result/error_6_load_cells.svg
-runs/arx_result/rmse_bar.svg
+runs/rom_mock_demo/metrics.json
+runs/rom_mock_demo/prediction_timeseries.csv
+runs/rom_mock_demo/prediction_6_load_cells.svg
+runs/rom_mock_demo/error_6_load_cells.svg
+runs/rom_mock_demo/rmse_bar.svg
+```
+
+单喷气响应摘要是独立数据分析命令，不会在训练时顺带执行：
+
+```bash
+.venv/bin/python -m flow_control.cli.summarize_single_jet \
+  --case-dir runs/mock_full_step_singlejet \
+  --out B06_single_jet_response_summary.csv
 ```
 
 也可以只验证 dataset 中的一部分 case：
 
 ```bash
 .venv/bin/python -m flow_control.cli.validate_rom \
-  --model runs/arx_test/arx_train_all/arx_model.json \
+  --model runs/rom_mock_demo/model/arx_model.json \
   --dataset-dir runs/arx_validate \
-  --out runs/arx_result_subset \
+  --out runs/rom_mock_demo_subset \
   --case-start 0 \
   --case-count 3
 ```
@@ -802,16 +816,16 @@ runs/arx_result/rmse_bar.svg
 ### 5.9 训练输出文件
 
 ```text
-runs/arx_test/arx_train_all/
-  metrics.json
+runs/rom_mock_demo/model/
   arx_model.json
+  training_summary.json
 ```
 
 ### 5.10 训练过程
 
 ARX 训练不是神经网络训练，而是 ridge 正则化最小二乘拟合。
 
-dataset 训练时，`index.csv` 中列出的每个 case 都独立构造滞后特征，历史不会跨 case 边界。当前 `runs/arx_test` 的 100 个 case 全部用于训练：
+dataset 训练时，`index.csv` 中列出的每个 case 都独立构造滞后特征，历史不会跨 case 边界。所有列出的 case 和全部可用行都会训练，不保留内部验证段。当前 `runs/arx_test` 的 100 个 case 全部用于训练：
 
 ```text
 100 个 case -> train_rom -> arx_model.json
@@ -837,8 +851,8 @@ nb    input_lags
 验证时使用递推预测：
 
 ```text
-验证段开始前：使用真实历史输出作为初值
-验证段内部：只使用过去预测输出，不偷看当前真实输出
+每个验证 case 前 max_lag 行：只作为 ARX 历史初值，不拟合
+后续验证行：只使用过去预测输出，不偷看当前真实输出
 ```
 
 ### 5.11 当前 mock 验证结果
@@ -872,7 +886,7 @@ flow_control.cli.train_rom
   -> train_arx_rom_from_dataset()
   -> load_case_table()
   -> matrix_from_rows()
-  -> ARXModel.fit()
+  -> 使用全部显式训练 case 拟合系数
 
 flow_control.cli.validate_rom
   -> validate_arx_rom()
@@ -898,39 +912,38 @@ mock case       可以用于流程验证
 ### 6.1 本地 mock 闭环
 
 ```bash
-# 1. 生成 PRBS schedule
-.venv/bin/python -m flow_control.workflow.schedule_generator \
-  --config configs/actions/prbs_demo.yaml \
-  --output-dir runs/mock_full_prbs_demo/actuation_input
+# 1. 生成明确的训练集
+.venv/bin/python -m flow_control.rom.generate_arx_dataset \
+  --out runs/arx_test \
+  --count 100 \
+  --overwrite
 
-# 2. 用这个 schedule 跑 mock
-.venv/bin/python examples/run_mock_dynamic24x6.py \
-  --schedule runs/mock_full_prbs_demo/actuation_input/actuation_schedule.csv \
-  --config configs/mock_dynamic24x6.yaml \
-  --out runs/mock_full_prbs_demo
+# 2. 用不同 seed 生成明确的验证集
+.venv/bin/python -m flow_control.rom.generate_arx_dataset \
+  --out runs/arx_validate \
+  --count 10 \
+  --start-seed 20260718 \
+  --overwrite
 
-# 3. 用 mock case 训练单 case ARX 示例
+# 3. 只在训练集上拟合模型
 .venv/bin/python -m flow_control.cli.train_rom \
-  --case-dir runs/mock_full_prbs_demo \
+  --dataset-dir runs/arx_test \
+  --out runs/rom_mock_demo/model
+
+# 4. 只在验证集上评估并输出最终结果
+.venv/bin/python -m flow_control.cli.validate_rom \
+  --model runs/rom_mock_demo/model/arx_model.json \
+  --dataset-dir runs/arx_validate \
   --out runs/rom_mock_demo
-```
-
-也可以一步生成 schedule 并跑 mock：
-
-```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py \
-  --actuation-config configs/actions/prbs_demo.yaml \
-  --config configs/mock_dynamic24x6.yaml \
-  --schedule-out runs/mock_full_prbs_demo/actuation_input \
-  --out runs/mock_full_prbs_demo
 ```
 
 ### 6.2 真实 STAR 流程
 
 ```bash
 # 1. 生成 schedule
-.venv/bin/python -m flow_control.workflow.schedule_generator \
-  --config configs/actions/pulse_singlejet.yaml
+.venv/bin/python -m flow_control.generator.schedule_generator \
+  --config configs/actions/pulse_singlejet.yaml \
+  --output-dir runs/starccm_pulse_singlejet
 
 # 2. dry-run 检查 STAR 宏和 runtime plan
 .venv/bin/python -m flow_control.cli.run_starccm \
@@ -956,10 +969,16 @@ mock case       可以用于流程验证
   --jet \
   --case-type jet_on
 
-# 5. 数据完整后训练 ARX
+# 5. 数据完整后，用明确的训练 case 训练 ARX
 .venv/bin/python -m flow_control.cli.train_rom \
-  --case-dir runs/my_star_case \
-  --out runs/rom_star_case
+  --case-dir runs/my_star_train_case \
+  --out runs/rom_star_demo/model
+
+# 6. 用另一个明确的验证 case 输出验证结果
+.venv/bin/python -m flow_control.cli.validate_rom \
+  --model runs/rom_star_demo/model/arx_model.json \
+  --case-dir runs/my_star_validation_case \
+  --out runs/rom_star_demo
 ```
 
 ## 7. 快速检查命令
@@ -967,7 +986,7 @@ mock case       可以用于流程验证
 查看 schedule 入口是否可用：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator --help
+.venv/bin/python -m flow_control.generator.schedule_generator --help
 ```
 
 查看 STAR runner：

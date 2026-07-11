@@ -10,6 +10,7 @@ from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
 )
+from flow_control.generator import generate_from_yaml
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC
 
 
@@ -17,7 +18,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Generate a STAR-CCM+ macro from actuation_schedule.csv and launch the simulation."
     )
-    parser.add_argument("--schedule", required=True, help="Path to actuation_schedule.csv.")
+    schedule_source = parser.add_mutually_exclusive_group(required=True)
+    schedule_source.add_argument("--schedule", help="Existing actuation_schedule.csv path.")
+    schedule_source.add_argument(
+        "--actuation-config",
+        help="Actuation YAML to generate into <out>/input before starting STAR-CCM+.",
+    )
     parser.add_argument("--sim", required=True, help="Input STAR-CCM+ .sim file.")
     parser.add_argument("--out", required=True, help="Output directory for macro, logs, and results.")
     parser.add_argument(
@@ -53,11 +59,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true", help="Generate files and print command without launching CCM.")
     args = parser.parse_args(argv)
 
+    output_dir = Path(args.out)
+    schedule_path = (
+        Path(args.schedule)
+        if args.schedule
+        else generate_from_yaml(
+            args.actuation_config,
+            output_dir=output_dir,
+        ).output_dir
+        / "actuation_schedule.csv"
+    )
+
     result = FlowControlStarCCMRunner().run(
         FlowControlStarCCMRunConfig(
-            schedule_path=Path(args.schedule),
+            schedule_path=schedule_path,
             sim_path=Path(args.sim),
-            output_dir=Path(args.out),
+            output_dir=output_dir,
             starccm_path=args.starccm_path,
             num_cores=args.np,
             pod_key=args.podkey,

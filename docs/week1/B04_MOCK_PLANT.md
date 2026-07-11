@@ -61,7 +61,7 @@ B04 的 mock plant 包含以下特性：
 在项目根目录运行：
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --out runs/mock_dynamic24x6_demo
 ```
 
 成功运行后会看到类似输出：

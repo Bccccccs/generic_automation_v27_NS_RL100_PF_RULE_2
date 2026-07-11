@@ -13,11 +13,7 @@ from typing import Any
 import yaml
 
 from flow_control.config import load_config_with_system_defaults, load_system_config
-from flow_control.excitation_patterns import (
-    ActuationConfig,
-    generate_pattern_table,
-    write_pattern_outputs,
-)
+from flow_control.generator import generate_from_mapping
 from flow_control.mock import write_mock_dynamic_case
 
 
@@ -127,13 +123,12 @@ def generate_arx_sparse24_dataset(
         global_seed = first_seed + idx
         case_id = f"{case_prefix}_{global_seed}"
         case_dir = dataset_dir / case_id
-        schedule_dir = case_dir / "actuation_input"
         mock_config_used = case_dir / "mock_config_used.yaml"
 
         _generate_schedule_case(
             base_config=base_actuation,
             global_seed=global_seed,
-            schedule_dir=schedule_dir,
+            output_dir=case_dir,
         )
         _write_mock_config(
             base_config=base_mock,
@@ -141,7 +136,7 @@ def generate_arx_sparse24_dataset(
             path=mock_config_used,
         )
         result = write_mock_dynamic_case(
-            schedule_path=schedule_dir / "actuation_schedule.csv",
+            schedule_path=case_dir / "input" / "actuation_schedule.csv",
             config_path=mock_config_used,
             output_dir=case_dir,
         )
@@ -153,8 +148,9 @@ def generate_arx_sparse24_dataset(
             "schedule_seed": global_seed,
             "mock_seed": global_seed,
             "case_dir": str(case_dir),
-            "schedule_dir": str(schedule_dir),
-            "schedule_path": str(schedule_dir / "actuation_schedule.csv"),
+            "schedule_dir": str(case_dir / "input"),
+            "schedule_path": str(case_dir / "input" / "actuation_schedule.csv"),
+            "input_schedule_path": str(case_dir / "input" / "actuation_schedule.csv"),
             "case_schedule_path": str(case_dir / "actuation_schedule.csv"),
             "timeseries_path": str(case_dir / "timeseries.csv"),
             "quality_report_path": str(case_dir / "quality_report.json"),
@@ -185,19 +181,16 @@ def _generate_schedule_case(
     *,
     base_config: dict[str, Any],
     global_seed: int,
-    schedule_dir: Path,
+    output_dir: Path,
 ) -> None:
     config_data = deepcopy(base_config)
     config_data.setdefault("system", {})["random_seed"] = int(global_seed)
     config_data.setdefault("actuation", {}).pop("random_seed", None)
-    config_data.setdefault("output", {})["run_dir"] = str(schedule_dir)
-    config = ActuationConfig.from_mapping(config_data)
-    if config.mode != "sparse_random_groups":
+    if config_data.get("actuation", {}).get("mode") != "sparse_random_groups":
         raise ValueError(
             "ARX sparse24 dataset generation requires actuation.mode=sparse_random_groups"
         )
-    table, extra, errors = generate_pattern_table(config)
-    write_pattern_outputs(config, table, validation_errors=errors, extra=extra)
+    generate_from_mapping(config_data, output_dir=output_dir)
 
 
 def _write_mock_config(

@@ -10,8 +10,8 @@ leaving the existing solver optimization modules intact.
 ## New module boundary
 
 - `flow_control/data_schema.py`: shared config, schedule, action, and observation data structures.
-- `flow_control/workflow/schedule_generator.py`: first deterministic schedule generator.
-- `flow_control/workflow/schedule_validator.py`: schedule consistency checks.
+- `flow_control/generator/schedule_generator.py`: deterministic six-pattern schedule generator.
+- `flow_control/generator/schedule_validator.py`: generated CSV consistency checks.
 - `flow_control/mock/mock_plant.py`: deterministic mock plant for local workflow tests.
 - `
 ## First config

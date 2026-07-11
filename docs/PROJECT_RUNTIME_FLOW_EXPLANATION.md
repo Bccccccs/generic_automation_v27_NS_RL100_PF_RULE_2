@@ -379,18 +379,18 @@ mock 数据和未来真实 CFD 数据如何统一保存
 启动命令：
 
 ```bash
-python -m flow_control.workflow.schedule_generator --config configs/actions/pilot_sparse24.yaml
+python -m flow_control.generator.schedule_generator --config configs/actions/pilot_sparse24.yaml --output-dir runs/sparse24
 ```
 
 使用模块：
 
 | 顺序 | 模块 | 作用 |
 |---:|---|---|
-| 1 | `flow_control/workflow/schedule_generator.py` | CLI 入口与调度生成主逻辑 |
+| 1 | `flow_control/generator/schedule_generator.py` | CLI 入口与调度生成主逻辑 |
 | 2 | `ActuationConfig.from_yaml()` | 读取 `configs/actions/pilot_sparse24.yaml` |
 | 3 | `generate_actuation_matrix()` | 生成 24 路喷气矩阵 |
-| 4 | `validate_actuation_matrix()` | 校验稀疏、均衡、无重复、连续开启约束 |
-| 5 | `write_actuation_outputs()` | 写出调度、热图、统计和报告 |
+| 4 | `validate_sparse_matrix()` | 校验稀疏、均衡、无重复、连续开启约束 |
+| 5 | `write_pattern_outputs()` | 写出调度、热图、统计和报告 |
 | 6 | `flow_control/data_schema.py` | 同步写标准 case schema |
 
 B03 的目标：
@@ -433,7 +433,7 @@ quality_report.json
 启动命令：
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --out runs/mock_dynamic24x6_demo
 ```
 
 使用模块：

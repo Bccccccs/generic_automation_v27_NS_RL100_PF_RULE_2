@@ -293,21 +293,20 @@ examples/run_mock_dynamic24x6.py
 
 ```bash
 for name in no_jet_reference pulse_singlejet step_singlejet chirp_keyjets prbs_demo pilot_sparse24; do
-  PYTHONPATH=. .venv/bin/python examples/run_mock_dynamic24x6.py \
-    --actuation-config "configs/actions/${name}.yaml" \
-    --config configs/mock_dynamic24x6.yaml \
-    --schedule-out "runs/mock_full_${name}/actuation_input" \
-    --out "runs/mock_full_${name}"
+PYTHONPATH=. .venv/bin/python examples/run_mock_dynamic24x6.py \
+  --actuation-config "configs/actions/${name}.yaml" \
+  --config configs/mock_dynamic24x6.yaml \
+  --out "runs/mock_full_${name}"
 done
 ```
 
 说明：
 
 ```text
-actuation_input/actuation_heatmap.svg
+input/actuation_heatmap.svg
   画的是 JET_01..24 开关状态。
 
-actuation_input/total_mass_flow_curve.svg
+input/total_mass_flow_curve.svg
   画的是总质量流量。
 
 figures/input_heatmap.svg

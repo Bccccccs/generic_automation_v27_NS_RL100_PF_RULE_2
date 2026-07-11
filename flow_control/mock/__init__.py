@@ -7,6 +7,7 @@ from .mock_plant import (
     spatial_nonuniformity,
     write_mock_dynamic_case,
 )
+from .pipeline import run_actuation_to_mock
 
 __all__ = [
     "MockDynamic24x6Config",
@@ -14,4 +15,5 @@ __all__ = [
     "read_actuation_schedule",
     "spatial_nonuniformity",
     "write_mock_dynamic_case",
+    "run_actuation_to_mock",
 ]

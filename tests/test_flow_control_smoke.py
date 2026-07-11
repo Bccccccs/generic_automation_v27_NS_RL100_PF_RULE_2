@@ -1,11 +1,10 @@
 from flow_control.data_schema import CaseSchema
-from flow_control.workflow import run_actuation_to_mock
+from flow_control.mock import run_actuation_to_mock
 
 
 def test_schedule_to_mock_timeseries_pipeline_smoke(tmp_path):
     schedule_config = tmp_path / "schedule.yaml"
     mock_config = tmp_path / "mock_dynamic24x6.yaml"
-    schedule_dir = tmp_path / "schedule_case"
     run_dir = tmp_path / "mock_case"
 
     schedule_config.write_text(
@@ -20,7 +19,7 @@ def test_schedule_to_mock_timeseries_pipeline_smoke(tmp_path):
         "  mass_flow_rate: 0.5\n"
         "  window_duration: 0.1\n"
         "output:\n"
-        f"  run_dir: {schedule_dir}\n",
+        "  run_dir: ignored\n",
         encoding="utf-8",
     )
     mock_config.write_text(
@@ -36,11 +35,10 @@ def test_schedule_to_mock_timeseries_pipeline_smoke(tmp_path):
     result = run_actuation_to_mock(
         actuation_config_path=schedule_config,
         mock_config_path=mock_config,
-        schedule_output_dir=schedule_dir,
-        mock_output_dir=run_dir,
+        output_dir=run_dir,
     )
 
-    assert (schedule_dir / "actuation_schedule.csv").exists()
+    assert (run_dir / "input" / "actuation_schedule.csv").exists()
     assert result["files"]["timeseries"].exists()
     old_root = CaseSchema.runs_root
     CaseSchema.runs_root = tmp_path

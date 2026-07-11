@@ -384,11 +384,11 @@ PYTHONPATH=. .venv/bin/pytest tests/test_actuation_schedule_generator.py tests/t
 
 B05 schema 已接入以下本地流程：
 
-- B03 actuation schedule generation：`flow_control/workflow/schedule_generator.py`
+- B03 actuation schedule generation：`flow_control/generator/schedule_generator.py`
   在写入调度、统计 CSV 和 SVG 时，同时生成标准 case 文件：
   `case_manifest.yaml`、`actuation_schedule.csv`、`timeseries.csv`、
   `quality_report.json`、`figures/` 和 `logs/`。
-- B04 mock plant rollout：`examples/run_mock_dynamic24x6.py` 先由 workflow 写入 actuation_schedule.csv，再由 mock 生成 timeseries.csv 和验收图，同时把 24 输入、6 输出映射到 B05 标准
+- B04 mock plant rollout：`examples/run_mock_dynamic24x6.py` 先由 generator 写入 `input/actuation_schedule.csv`，再由 mock 生成 timeseries.csv 和验收图，同时把 24 输入、6 输出映射到 B05 标准
   `timeseries.csv`，并生成标准 manifest、quality report、figures 和日志。
 - B02 flow-control package boundary：`flow_control/__init__.py` 已导出
   `CaseSchema` 和核心 schema 常量，后续模块可以通过统一入口复用。

@@ -2,15 +2,18 @@ import csv
 from itertools import groupby
 from pathlib import Path
 
-from flow_control.excitation_patterns.common import ActuationConfig, generate_pattern_table
-from flow_control.workflow.schedule_generator import (
+from flow_control.excitation_patterns.common import (
+    ActuationConfig,
+    generate_pattern_table,
+    write_pattern_outputs,
+)
+from flow_control.excitation_patterns.sparse_groups import (
     activation_counts,
     generate_actuation_matrix,
-    run_from_yaml,
-    validate_actuation_matrix,
-    write_actuation_outputs,
+    validate_sparse_matrix,
 )
-from flow_control.workflow.schedule_validator import validate_actuation_schedule_csv
+from flow_control.generator import generate_from_yaml
+from flow_control.generator.schedule_validator import validate_actuation_schedule_csv
 
 
 def _config(seed: int = 20260618) -> ActuationConfig:
@@ -53,7 +56,7 @@ def test_actuation_schedule_constraints_and_reproducibility():
     assert activation_counts(config, matrix) == [9] * 24
     assert len(set(combinations)) == len(combinations)
     assert max(max_consecutive_by_jet) <= config.max_consecutive_on
-    assert validate_actuation_matrix(config, matrix) == []
+    assert validate_sparse_matrix(config, matrix) == []
     assert matrix == generate_actuation_matrix(config)
     assert matrix != generate_actuation_matrix(_config(seed=config.random_seed + 1))
 
@@ -74,7 +77,9 @@ def test_actuation_outputs_are_written(tmp_path):
     )
     matrix = generate_actuation_matrix(config)
 
-    write_actuation_outputs(config, matrix)
+    table, _, errors = generate_pattern_table(config)
+    assert errors == []
+    write_pattern_outputs(config, table)
 
     expected_files = {
         "actuation_schedule.csv",
@@ -201,8 +206,8 @@ output:
 """,
         encoding="utf-8",
     )
-    run_from_yaml(config_path, output_dir=tmp_path / "pulse_singlejet")
-    schedule_path = tmp_path / "pulse_singlejet" / "actuation_schedule.csv"
+    generate_from_yaml(config_path, output_dir=tmp_path / "pulse_singlejet")
+    schedule_path = tmp_path / "pulse_singlejet" / "input" / "actuation_schedule.csv"
     assert schedule_path.exists()
     assert validate_actuation_schedule_csv(schedule_path) == []
 
@@ -234,7 +239,7 @@ def test_system_random_seed_drives_actuation_config():
     assert override.random_seed == 5678
 
 
-def test_run_from_yaml_uses_shared_system_config(tmp_path, monkeypatch):
+def test_generate_from_yaml_uses_shared_system_config(tmp_path, monkeypatch):
     system_config = tmp_path / "system.yaml"
     config_path = tmp_path / "prbs.yaml"
     output_dir = tmp_path / "prbs_out"
@@ -252,7 +257,7 @@ def test_run_from_yaml_uses_shared_system_config(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("FLOW_CONTROL_SYSTEM_CONFIG", str(system_config))
 
-    config = run_from_yaml(config_path, output_dir=output_dir)
+    config = generate_from_yaml(config_path, output_dir=output_dir)
 
     assert config.random_seed == 777
-    assert (output_dir / "actuation_schedule.csv").exists()
+    assert (output_dir / "input" / "actuation_schedule.csv").exists()

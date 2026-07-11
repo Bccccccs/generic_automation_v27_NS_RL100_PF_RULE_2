@@ -36,8 +36,8 @@ def test_importing_flow_control_does_not_load_solver_optimization_modules():
             sys.modules.pop(module_name)
 
     importlib.import_module("flow_control.data_schema")
-    importlib.import_module("flow_control.workflow.schedule_generator")
-    importlib.import_module("flow_control.workflow.schedule_validator")
+    importlib.import_module("flow_control.generator.schedule_generator")
+    importlib.import_module("flow_control.generator.schedule_validator")
     importlib.import_module("flow_control.mock")
     importlib.import_module("starccm.control")
 

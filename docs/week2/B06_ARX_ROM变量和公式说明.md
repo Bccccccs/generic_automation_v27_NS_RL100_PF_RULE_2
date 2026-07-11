@@ -19,7 +19,9 @@ B06 做的是一个最小输入-输出 ARX ROM。它不是强化学习控制器�
 - `flow_control/rom/validation.py`：只负责加载已有模型并递推验证。
 - `flow_control/cli/train_rom.py`：训练命令行入口。
 - `flow_control/cli/validate_rom.py`：验证命令行入口。
-- `examples/train_rom_mock.py`：最小命令行示例，内部调用 `flow_control.rom.train_arx_rom_from_case()`。
+- `flow_control/cli/summarize_single_jet.py`：独立生成单喷气响应摘要，不参与训练。
+- `examples/train_rom_mock.py`：显式训练集训练示例，只拟合模型。
+- `examples/validate_rom_mock.py`：显式验证集验证示例，只输出验证结果。
 
 ## 2. 输入变量
 
@@ -72,25 +74,29 @@ theta = argmin ||X theta - Y||^2 + lambda ||theta||^2
 
 默认 `lambda = 1.0`，只是为了避免小样本和相关输入导致矩阵病态。当前 Mock 演示只有 80 个时间点，输入又包含 `JET_*` 和与之强相关的 `cmd_massflow_*`，所以这里使用偏保守的正则。
 
-## 5. 训练和验证边界
+## 5. 训练和验证完全分离
 
-当前训练和验证已经拆开：
+训练和验证是两个独立命令，不存在内部比例切分：
 
 ```text
 训练入口 train_rom：
-  只读取指定 case/dataset，拟合 ARX 系数，保存 arx_model.json。
+  必须显式指定训练 case/dataset。
+  使用其中全部可用数据拟合 ARX 系数。
+  只保存 arx_model.json 和 training_summary.json。
 
 验证入口 validate_rom：
-  只读取已有 arx_model.json，在指定 case/dataset 上递推预测，保存指标和图。
+  必须显式指定另一个验证 case/dataset。
+  只读取已有 arx_model.json，不重新拟合。
+  保存 metrics.json、预测数据和图。
 ```
 
-dataset 训练时按 `index.csv` 中列出的 case 逐个读取。每个 case 内部独立构造滞后特征，历史不会跨 case 边界。当前 `runs/arx_test` 的 100 个 case 全部用于训练，不做验证切分。
+dataset 训练时按 `index.csv` 中列出的 case 逐个读取，并使用全部 case。每个 case 内部独立构造滞后特征，历史不会跨 case 边界。训练模块没有 `train_fraction` 参数，也不会保留任何行或 case 进行内部验证。
 
 验证采用递推预测：
 
-1. 验证段开始前的真实输出只作为历史初值。
-2. 进入验证段后，预测 `y[t]` 时只使用当前/过去输入和过去预测输出。
-3. 不使用未来输入以外的未来输出，也不使用验证段当前真实输出去预测当前真实输出。
+1. 每个验证 case 最前面的 `max_lag` 行只用于初始化 ARX 历史，不参与拟合，也不是数据切分。
+2. 进入正式评估行后，预测 `y[t]` 时只使用当前/过去输入和过去预测输出。
+3. 不使用未来输出，也不使用当前真实输出预测当前值。
 
 因此验证比“一步预测”更接近后续控制器调用 ROM 的方式。
 
@@ -122,17 +128,17 @@ runs/arx_test/sparse24_seed_20260717/
 ```bash
 .venv/bin/python -m flow_control.cli.train_rom \
   --dataset-dir runs/arx_test \
-  --out runs/arx_test/arx_train_all
+  --out runs/rom_mock_demo/model
 ```
 
 训练输出：
 
 ```text
-runs/arx_test/arx_train_all/arx_model.json
-runs/arx_test/arx_train_all/metrics.json
+runs/rom_mock_demo/model/arx_model.json
+runs/rom_mock_demo/model/training_summary.json
 ```
 
-本次 mock 训练使用 100 个 case、7700 行训练样本。
+训练摘要明确记录 `validation_performed: false`。本次 mock 训练使用 100 个 case、8000 行源数据，其中扣除每个 case 的滞后初始化后有 7700 行用于拟合。
 
 ### 6.3 生成验证数据
 
@@ -158,19 +164,34 @@ runs/arx_validate/sparse24_seed_20260727/
 
 ```bash
 .venv/bin/python -m flow_control.cli.validate_rom \
-  --model runs/arx_test/arx_train_all/arx_model.json \
+  --model runs/rom_mock_demo/model/arx_model.json \
   --dataset-dir runs/arx_validate \
-  --out runs/arx_result
+  --out runs/rom_mock_demo
 ```
 
 验证输出：
 
 ```text
-runs/arx_result/metrics.json
-runs/arx_result/prediction_timeseries.csv
-runs/arx_result/prediction_6_load_cells.svg
-runs/arx_result/error_6_load_cells.svg
-runs/arx_result/rmse_bar.svg
+runs/rom_mock_demo/metrics.json
+runs/rom_mock_demo/prediction_timeseries.csv
+runs/rom_mock_demo/prediction_6_load_cells.svg
+runs/rom_mock_demo/error_6_load_cells.svg
+runs/rom_mock_demo/rmse_bar.svg
+```
+
+等价的示例脚本：
+
+```bash
+.venv/bin/python examples/train_rom_mock.py
+.venv/bin/python examples/validate_rom_mock.py
+```
+
+单喷气响应摘要也独立运行，不挂在训练命令上：
+
+```bash
+.venv/bin/python -m flow_control.cli.summarize_single_jet \
+  --case-dir runs/mock_full_step_singlejet \
+  --out B06_single_jet_response_summary.csv
 ```
 
 ### 6.5 单 case 兼容示例
@@ -180,8 +201,10 @@ runs/arx_result/rmse_bar.svg
 ```bash
 .venv/bin/python -m flow_control.cli.train_rom \
   --case-dir runs/mock_full_prbs_demo \
-  --out runs/rom_mock_demo
+  --out runs/rom_mock_demo/model
 ```
+
+这会使用该 case 的全部可用行训练，不在 case 内部切分。验证仍必须另行运行 `validate_rom` 并显式提供验证 case 或 dataset。
 
 旧的 `models.ARXModel` 和顶层 `rom_identifier` 路径保留了薄兼容层；新代码建议统一从 `flow_control.rom` 导入。
 
@@ -203,14 +226,14 @@ runs/arx_result/rmse_bar.svg
 - 噪声：Mock 输出有随机噪声，ARX 只能拟合平均动态，不能完全重构噪声。
 - 模型阶数：阶数太低会欠拟合，一阶惯性和延迟响应学不全；阶数太高会在小样本下不稳定。
 - 输入相关性：PRBS 示例中多个喷口可能同时打开，单个喷口贡献不容易完全分离。
-- 数据量不足：默认演示只有 80 个时间点，训练段约 56 行，只适合流程验收，不适合做最终模型。
+- 数据量不足：单个默认演示只有 80 个时间点，即使全部用于训练也只适合流程验收，不适合做最终模型。
 
 ## 9. 当前 mock 验证结果
 
 当前模型：
 
 ```text
-runs/arx_test/arx_train_all/arx_model.json
+runs/rom_mock_demo/model/arx_model.json
 ```
 
 验证数据：

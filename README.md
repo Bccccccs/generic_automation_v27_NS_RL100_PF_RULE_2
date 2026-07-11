@@ -111,21 +111,21 @@ physical_time、t_start、t_end 都是物理时间秒，不是求解器迭代步
 生成某一种动作表：
 
 ```bash
-.venv/bin/python -m flow_control.workflow.schedule_generator --config configs/actions/pulse_singlejet.yaml
+.venv/bin/python -m flow_control.generator.schedule_generator --config configs/actions/pulse_singlejet.yaml --output-dir runs/pulse_singlejet
 ```
 
-生成结果默认写到：
+生成结果固定写到指定输出根目录下的 `input/`：
 
 ```text
-runs/schedule_examples/<动作名>/
+runs/<输出目录>/input/
 ```
 
 例如：
 
 ```text
-runs/schedule_examples/pulse_singlejet/actuation_schedule.csv
-runs/schedule_examples/prbs_demo/actuation_schedule.csv
-runs/schedule_examples/sparse24/actuation_schedule.csv
+runs/pulse_singlejet/input/actuation_schedule.csv
+runs/prbs_demo/input/actuation_schedule.csv
+runs/sparse24/input/actuation_schedule.csv
 ```
 
 每个示例目录通常包含：
@@ -141,10 +141,12 @@ total_mass_flow_curve.svg    总质量流量曲线
 
 ## 5. flow_control 代码逻辑
 
+完整的六种动作命令见 [Generator 命令说明](flow_control/generator/COMMANDS.md)。
+
 只生成动作表时，入口是：
 
 ```text
-flow_control/workflow/schedule_generator.py
+flow_control/generator/schedule_generator.py
 ```
 
 调用链：
@@ -181,7 +183,7 @@ examples/run_mock_dynamic24x6.py
 示例：
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --schedule-out runs/mock_dynamic24x6_demo/actuation_input --out runs/mock_dynamic24x6_demo
+.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --out runs/mock_dynamic24x6_demo
 ```
 
 调用链：
@@ -189,7 +191,7 @@ examples/run_mock_dynamic24x6.py
 ```text
 configs/actions/*.yaml
   -> examples/run_mock_dynamic24x6.py
-  -> workflow/schedule_generator.py 生成 actuation_schedule.csv
+  -> generator/schedule_generator.py 写入 input/actuation_schedule.csv
   -> mock_plant.py 运行 MockDynamic24x6
   -> mock_plant.py 写 timeseries 和验收图
 ```
