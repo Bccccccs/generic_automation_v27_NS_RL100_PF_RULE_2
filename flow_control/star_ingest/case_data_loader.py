@@ -7,7 +7,10 @@ Standard case directory layout::
         actuation_schedule.csv   —  jet actuation commands per window
         timeseries.csv           —  force/moment sensor readings + jet states
         quality_report.json      —  pre-computed quality metrics
+        input/                   —  actuation inputs used by the backend
         figures/                 —  auto-generated diagnostic plots
+        logs/                    —  solver/runtime logs, if available
+        flow_snapshots/           —  flow-field snapshots, if available
         notes.md                 —  human-readable notes (optional)
 
 This module extends ``flow_control.data_schema.CaseSchema`` with additional
@@ -25,6 +28,7 @@ from typing import Any
 import yaml
 
 from .star_export_reader import (
+    discover_star_export_csvs,
     read_star_export_csv,
     read_star_export_bundle,
     compute_fz_total,
@@ -41,6 +45,7 @@ logger = logging.getLogger("case_data_loader")
 # The 6 Fz sensor columns + 5 global columns that every case must have
 REQUIRED_TIMESERIES_COLUMNS = (
     "physical_time",
+    "window_id",
     "Fz_S1L",
     "Fz_S1R",
     "Fz_S2L",
@@ -52,6 +57,7 @@ REQUIRED_TIMESERIES_COLUMNS = (
     "Pitch_Moment",
     "Roll_Moment",
     "Jet_Reaction_Z",
+    "solver_status",
 )
 
 JET_REQUIRED_EXTRA_COLUMNS = (
@@ -68,13 +74,14 @@ CASE_REQUIRED_FILES = (
 )
 
 CASE_OPTIONAL_FILES = ("notes.md",)
-CASE_REQUIRED_DIRS = ("figures",)
+CASE_REQUIRED_DIRS = ("input", "figures", "logs", "flow_snapshots")
 
 
 def load_case(
     case_dir: str | Path,
     *,
     require_complete_schema: bool | None = None,
+    check_mode: str | None = None,
 ) -> dict[str, Any]:
     """Load a complete case from a standard ``case_id/`` directory.
 
@@ -114,6 +121,7 @@ def load_case(
         "figures_dir": case_dir / "figures",
         "has_jet_data": False,
         "require_complete_schema": True,
+        "check_mode": check_mode or "star_ingest",
         "errors": [],
         "warnings": [],
     }
@@ -130,6 +138,9 @@ def load_case(
     with (case_dir / "case_manifest.yaml").open("r", encoding="utf-8") as f:
         manifest = yaml.safe_load(f) or {}
     result["manifest"] = manifest
+    if check_mode is None:
+        check_mode = str(manifest.get("check_mode", manifest.get("case_stage", "star_ingest")))
+    result["check_mode"] = check_mode
     if require_complete_schema is None:
         validation_mode = str(manifest.get("validation_mode", "full_case")).lower()
         require_complete_schema = validation_mode != "partial_timeseries"
@@ -187,7 +198,10 @@ def load_case(
         result["errors"].extend(jet_mf_errs)
 
         # 4f. cmd vs actual massflow separation
-        mf_sep_errs = checker.check_massflow_separation(result["timeseries"])
+        mf_sep_errs = checker.check_massflow_separation(
+            result["timeseries"],
+            allow_identical_actual=check_mode in {"mock", "arx_use", "ccm"},
+        )
         result["errors"].extend(mf_sep_errs)
 
         # 4g. Jet_Reaction_Z in jet case should be present
@@ -230,6 +244,8 @@ def ingest_star_export(
     notes: str | None = None,
     overwrite: bool = False,
     require_complete_schema: bool = True,
+    check_mode: str = "star_ingest",
+    write_final_quality_report: bool = True,
 ) -> dict[str, Any]:
     """Ingest raw STAR-CCM+ export file(s) into a standard case directory.
 
@@ -278,6 +294,10 @@ def ingest_star_export(
     # 2. Compute Fz_Total if all six bottom-force sensors are present.
     # Missing STAR exports stay missing so quality checks can report them.
     compute_fz_total(rows)
+    _add_common_timeseries_fields(
+        rows,
+        case_type=str((manifest or {}).get("case_type", "unknown")),
+    )
 
     # Re-compute column ordering after derived columns are added.
     present_cols = _ordered_columns_from_rows(rows) if rows else data["columns"]
@@ -285,13 +305,16 @@ def ingest_star_export(
     # 3. Write timeseries.csv
     _write_csv_rows(case_path / "timeseries.csv", present_cols, rows)
 
-    # 4. Write actuation_schedule.csv
+    # 4. Write actuation_schedule.csv.  The root copy is the standard case
+    # schema; input/ keeps the backend command source for traceability.
     if actuation_schedule is not None:
         sch_cols = list(actuation_schedule[0].keys()) if actuation_schedule else ["physical_time"]
         _write_csv_rows(case_path / "actuation_schedule.csv", sch_cols, actuation_schedule)
+        _write_csv_rows(case_path / "input" / "actuation_schedule.csv", sch_cols, actuation_schedule)
     else:
         # Write an empty schedule with just the header
         _write_csv_rows(case_path / "actuation_schedule.csv", ["physical_time"], [])
+        _write_csv_rows(case_path / "input" / "actuation_schedule.csv", ["physical_time"], [])
 
     # 5. Write case_manifest.yaml
     manifest_data = manifest or {}
@@ -304,25 +327,48 @@ def ingest_star_export(
     manifest_data.setdefault("window_duration", 0.0)
     manifest_data.setdefault("random_seed", 0)
     manifest_data.setdefault("case_type", "unknown")
+    manifest_data["check_mode"] = check_mode
     manifest_data["validation_mode"] = (
         "full_case" if require_complete_schema else "partial_timeseries"
     )
     with (case_path / "case_manifest.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(manifest_data, f, sort_keys=False, allow_unicode=True)
 
-    # 6. Create figures directory
-    (case_path / "figures").mkdir(exist_ok=True)
+    # 6. Create standard case directories
+    for directory_name in CASE_REQUIRED_DIRS:
+        (case_path / directory_name).mkdir(exist_ok=True)
 
     # 7. Write notes.md
     if notes:
         (case_path / "notes.md").write_text(notes, encoding="utf-8")
 
-    # 8. Seed, then write the final quality report. load_case validates the
-    # standard directory layout, which includes quality_report.json.
+    report_seed = {
+        "status": "generated_timeseries_only",
+        "check_mode": check_mode,
+        "source_files": data["source_files"],
+        "star_column_mapping": data["mapping"],
+        "detected_units": data["units"],
+        "num_timeseries_rows": len(rows),
+        "num_timeseries_columns": len(present_cols),
+    }
     with (case_path / "quality_report.json").open("w", encoding="utf-8") as f:
-        json.dump({}, f)
+        json.dump(report_seed, f, indent=2, ensure_ascii=False)
 
-    result = load_case(case_path, require_complete_schema=require_complete_schema)
+    if not write_final_quality_report:
+        return {
+            "case_id": case_path.name,
+            "case_dir": case_path,
+            "timeseries": rows,
+            "quality_report": report_seed,
+            "errors": [],
+            "warnings": [],
+        }
+
+    result = load_case(
+        case_path,
+        require_complete_schema=require_complete_schema,
+        check_mode=check_mode,
+    )
     quality_report = _build_quality_report(result)
     quality_report["source_files"] = data["source_files"]
     quality_report["star_column_mapping"] = data["mapping"]
@@ -331,8 +377,117 @@ def ingest_star_export(
         json.dump(quality_report, f, indent=2, ensure_ascii=False)
 
     # Reload with updated quality report
-    result = load_case(case_path, require_complete_schema=require_complete_schema)
+    result = load_case(
+        case_path,
+        require_complete_schema=require_complete_schema,
+        check_mode=check_mode,
+    )
     return result
+
+
+def write_quality_report(
+    case_dir: str | Path,
+    *,
+    require_complete_schema: bool | None = None,
+    check_mode: str | None = None,
+) -> dict[str, Any]:
+    """Validate an existing standard case directory and write quality_report.json.
+
+    This is the standalone "check" step for the three-stage workflow:
+
+    1. generate ``timeseries.csv`` and package files;
+    2. validate the case and write ``quality_report.json``;
+    3. generate diagnostic figures.
+    """
+    case_path = Path(case_dir)
+    existing: dict[str, Any] = {}
+    report_path = case_path / "quality_report.json"
+    if report_path.exists():
+        try:
+            existing = json.loads(report_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            existing = {}
+
+    result = load_case(
+        case_path,
+        require_complete_schema=require_complete_schema,
+        check_mode=check_mode,
+    )
+    quality_report = _build_quality_report(result)
+    for key in ("source_files", "star_column_mapping", "detected_units", "figures"):
+        if key in existing:
+            quality_report[key] = existing[key]
+    report_path.write_text(
+        json.dumps(quality_report, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return quality_report
+
+
+def ingest_star_product_dir(
+    product_dir: str | Path,
+    *,
+    case_dir: str | Path,
+    case_type: str = "unknown",
+    manifest: dict[str, Any] | None = None,
+    overwrite: bool = False,
+    require_complete_schema: bool = True,
+    generate_no_jet_schedule: bool = True,
+    check_mode: str = "star_ingest",
+    write_final_quality_report: bool = True,
+) -> dict[str, Any]:
+    """Ingest a STAR-CCM+ result folder into a standard case directory.
+
+    The current product folder convention is a set of monitor CSV exports such
+    as ``FZ_image_30000.csv``, ``Drag_Monitor_...csv``,
+    ``Pitch_Moment_Monitor_...csv`` and similar files.  The folder does not
+    contain ``timeseries.csv``; this function discovers recognized monitor CSVs,
+    merges them on ``physical_time``, and writes the standard case package.
+    """
+    product_path = Path(product_dir)
+    star_files = discover_star_export_csvs(product_path)
+    if not star_files:
+        raise ValueError(f"no recognized STAR monitor CSVs found in {product_path}")
+
+    manifest_data = dict(manifest or {})
+    manifest_data.setdefault("case_type", case_type)
+    manifest_data.setdefault("source_product_dir", str(product_path.resolve()))
+    manifest_data.setdefault("units", {"force": "N", "moment": "N-m", "massflow": "kg/s"})
+    manifest_data.setdefault(
+        "sign_convention",
+        (
+            "positive Fz = STAR monitor convention; "
+            "positive Drag = STAR drag monitor convention; "
+            "positive Pitch/Roll = STAR moment monitor convention"
+        ),
+    )
+
+    actuation_schedule = None
+    if generate_no_jet_schedule and str(case_type).lower() in {"no_jet", "passive", "reference"}:
+        data = read_star_export_bundle(star_files)
+        actuation_schedule = _build_no_jet_actuation_schedule(data["rows"])
+
+    notes = (
+        "## STAR Product Directory Ingestion\n\n"
+        f"- Source product directory: `{product_path.resolve()}`\n"
+        "- Ingested monitor CSV files:\n"
+        + "\n".join(f"  - `{path.name}`" for path in star_files)
+        + "\n\n"
+        "The standard `timeseries.csv` was generated by merging these STAR "
+        "monitor exports on `physical_time`.\n"
+    )
+
+    return ingest_star_export(
+        star_files,
+        case_dir=case_dir,
+        manifest=manifest_data,
+        actuation_schedule=actuation_schedule,
+        notes=notes,
+        overwrite=overwrite,
+        require_complete_schema=require_complete_schema,
+        check_mode=check_mode,
+        write_final_quality_report=write_final_quality_report,
+    )
 
 
 def _check_files(case_dir: Path) -> list[str]:
@@ -366,6 +521,45 @@ def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
         return rows
 
 
+def _build_no_jet_actuation_schedule(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    schedule: list[dict[str, Any]] = []
+    times = [row.get("physical_time") for row in rows]
+    numeric_times = [float(t) for t in times if isinstance(t, (int, float))]
+    default_dt = (
+        numeric_times[1] - numeric_times[0]
+        if len(numeric_times) >= 2
+        else 0.0
+    )
+    for idx, row in enumerate(rows):
+        t = row.get("physical_time")
+        next_t = rows[idx + 1].get("physical_time") if idx + 1 < len(rows) else None
+        t_end = next_t if next_t is not None else (
+            float(t) + default_dt if isinstance(t, (int, float)) else t
+        )
+        record: dict[str, Any] = {
+            "physical_time": t,
+            "window_id": idx,
+            "t_start": t,
+            "t_end": t_end,
+        }
+        for column in JET_COLUMNS:
+            record[column] = 0
+        for column in CMD_MASSFLOW_COLUMNS:
+            record[column] = 0.0
+        schedule.append(record)
+    return schedule
+
+
+def _add_common_timeseries_fields(rows: list[dict[str, Any]], *, case_type: str) -> None:
+    for idx, row in enumerate(rows):
+        row.setdefault("window_id", idx)
+        row.setdefault("solver_status", "success")
+        row.setdefault("case_stage", "starccm_ingest")
+        if str(case_type).lower() in {"no_jet", "passive", "reference"}:
+            for column in JET_COLUMNS:
+                row.setdefault(column, 0)
+
+
 def _is_jet_case(manifest: dict[str, Any], ts_columns: list[str]) -> bool:
     case_type = str(manifest.get("case_type", "")).strip().lower()
     if case_type in {"jet", "jet_on", "with_jet", "active_jet"}:
@@ -383,11 +577,14 @@ def _is_jet_case(manifest: dict[str, Any], ts_columns: list[str]) -> bool:
 def _ordered_columns_from_rows(rows: list[dict[str, Any]]) -> list[str]:
     priority = (
         "physical_time",
+        "window_id",
         *FZ_SENSOR_COLUMNS,
         *GLOBAL_COLUMNS,
+        "solver_status",
         *JET_COLUMNS,
         *CMD_MASSFLOW_COLUMNS,
         *ACTUAL_MASSFLOW_COLUMNS,
+        "case_stage",
     )
     present: set[str] = set()
     first_seen: list[str] = []
@@ -419,6 +616,7 @@ def _build_quality_report(result: dict[str, Any]) -> dict[str, Any]:
         "errors": result["errors"],
         "warnings": result["warnings"],
         "has_jet_data": result["has_jet_data"],
+        "check_mode": result.get("check_mode", "star_ingest"),
         "validation_mode": (
             "full_case" if result.get("require_complete_schema") else "partial_timeseries"
         ),

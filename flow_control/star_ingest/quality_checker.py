@@ -231,7 +231,11 @@ class QualityChecker:
     # ── Check 6: cmd vs actual massflow separation ────────────────────
 
     @staticmethod
-    def check_massflow_separation(rows: list[dict[str, Any]]) -> list[str]:
+    def check_massflow_separation(
+        rows: list[dict[str, Any]],
+        *,
+        allow_identical_actual: bool = False,
+    ) -> list[str]:
         """Return ERROR if ``cmd_massflow_NN`` and ``actual_massflow_NN``
         are not stored as separate columns.
 
@@ -276,7 +280,11 @@ class QualityChecker:
                         if abs(cmd_v - actual_v) < 1e-12:
                             identical_count += 1
 
-        if identical_count > 0 and identical_count == len(rows) * 24:
+        if (
+            identical_count > 0
+            and identical_count == len(rows) * 24
+            and not allow_identical_actual
+        ):
             _warnings.warn(
                 "cmd_massflow and actual_massflow are identical for all rows — "
                 "actual massflow may not have been recorded separately"
@@ -336,6 +344,7 @@ class QualityChecker:
         manifest: dict[str, Any],
         *,
         has_jet_data: bool | None = None,
+        check_mode: str = "star_ingest",
     ) -> dict[str, list[str]]:
         """Run all applicable checks and return ``{"errors": [...], "warnings": [...]}``."""
         if has_jet_data is None:
@@ -351,7 +360,12 @@ class QualityChecker:
 
         if has_jet_data:
             errors.extend(cls.check_jet_massflow_consistency(rows))
-            errors.extend(cls.check_massflow_separation(rows))
+            errors.extend(
+                cls.check_massflow_separation(
+                    rows,
+                    allow_identical_actual=check_mode in {"mock", "arx_use", "ccm"},
+                )
+            )
         else:
             warnings.extend(cls.check_no_jet_jrz(rows))
 

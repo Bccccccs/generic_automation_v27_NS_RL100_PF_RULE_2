@@ -11,6 +11,7 @@ from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunner,
 )
 from flow_control.generator import generate_from_yaml
+from flow_control.star_ingest import package_ccm_run_case
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC
 
 
@@ -91,6 +92,16 @@ def main(argv: list[str] | None = None) -> int:
     print(f"log: {result.log_path}")
     if result.timeseries_path is not None:
         print(f"timeseries: {result.timeseries_path}")
+        if result.timeseries_path.exists():
+            checked_case = package_ccm_run_case(
+                ccm_timeseries_path=result.timeseries_path,
+                schedule_path=schedule_path,
+                case_dir=output_dir,
+                require_complete_schema=True,
+            )
+            print(f"standard_timeseries: {checked_case['timeseries_path']}")
+            print(f"quality_report: {checked_case['quality_report_path']}")
+            print(f"run_success_flag: {checked_case['quality_report'].get('run_success_flag')}")
     print("command:", " ".join(result.command))
     if result.result_sim_path is not None:
         print(f"result_sim: {result.result_sim_path}")

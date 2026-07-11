@@ -314,6 +314,12 @@ docs/B05_CASE_SCHEMA.md
 docs/week2/B06_ARX_ROM变量和公式说明.md
   ARX ROM 输入输出、数据生成、训练/验证入口和当前 mock 验证指标说明
 
+flow_control/star_ingest/COMMANDS.md
+  STAR ingest 模块命令说明，一步完成和三步执行入口都在模块内
+
+flow_control/rom/COMMANDS.md
+  ROM 模块命令说明，约定训练数据集在 runs/arx/arx_training，验证数据集在 runs/arx/arx_valid
+
 docs/FLOW_CONTROL_MODULE_STARTUP_GUIDE.md
   schedule、mock、STAR-CCM+、数据导入/分析和 ARX 各模块启动方式
 

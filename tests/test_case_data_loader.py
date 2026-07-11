@@ -45,6 +45,7 @@ def _good_rows(n: int = 5, *, jet: bool = False) -> list[dict]:
     for i in range(n):
         row = {
             "physical_time": i * 0.01,
+            "window_id": i,
             "Fz_S1L": 10.0 + i,
             "Fz_S1R": 10.1 + i,
             "Fz_S2L": 10.2 + i,
@@ -56,6 +57,8 @@ def _good_rows(n: int = 5, *, jet: bool = False) -> list[dict]:
             "Pitch_Moment": 0.05 + i * 0.001,
             "Roll_Moment": 0.02 + i * 0.001,
             "Jet_Reaction_Z": 0.2 + i * 0.001,
+            "solver_status": "success",
+            "case_stage": "test_fixture",
         }
         if jet:
             for idx in range(1, 25):
@@ -84,7 +87,8 @@ def _write_case(tmp_path: Path, case_id: str, rows: list[dict], *,
                 jet: bool = False) -> Path:
     case_dir = tmp_path / case_id
     case_dir.mkdir(parents=True, exist_ok=True)
-    (case_dir / "figures").mkdir(exist_ok=True)
+    for directory_name in ("input", "figures", "logs", "flow_snapshots"):
+        (case_dir / directory_name).mkdir(exist_ok=True)
 
     # manifest
     m = manifest or _minimal_manifest()
@@ -456,7 +460,10 @@ class TestStarExportReader:
         """Missing required files produce file-completeness error."""
         case_dir = tmp_path / "incomplete_case"
         case_dir.mkdir()
+        (case_dir / "input").mkdir()
         (case_dir / "figures").mkdir()
+        (case_dir / "logs").mkdir()
+        (case_dir / "flow_snapshots").mkdir()
         (case_dir / "case_manifest.yaml").write_text("key: value\n")
         # No timeseries.csv, actuation_schedule.csv, or quality_report.json
         result = load_case(case_dir)

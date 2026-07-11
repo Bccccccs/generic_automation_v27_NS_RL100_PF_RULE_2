@@ -62,6 +62,38 @@ JET_COLUMNS = tuple(f"JET_{idx:02d}" for idx in range(1, 25))
 CMD_MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{idx:02d}" for idx in range(1, 25))
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
 
+IGNORED_PRODUCT_NAME_PATTERNS = (
+    "报告",
+    "pressure",
+)
+
+
+def discover_star_export_csvs(product_dir: str | Path) -> list[Path]:
+    """Return STAR monitor CSVs in a product directory that map to timeseries columns.
+
+    STAR result folders may contain plotting/report CSVs that are useful later
+    but do not currently belong in the unified force/moment ``timeseries.csv``.
+    This helper keeps files with at least one recognized data column in addition
+    to ``physical_time`` and skips known report/pressure exports for now.
+    """
+    root = Path(product_dir)
+    if not root.is_dir():
+        raise NotADirectoryError(f"STAR product directory not found: {root}")
+
+    selected: list[Path] = []
+    for path in sorted(root.glob("*.csv")):
+        if any(pattern.lower() in path.name.lower() for pattern in IGNORED_PRODUCT_NAME_PATTERNS):
+            continue
+        try:
+            with path.open("r", encoding="utf-8-sig", newline="") as handle:
+                headers = next(csv.reader(handle))
+            mapping = detect_star_column_mapping(headers)
+        except (StopIteration, ValueError):
+            continue
+        if any(column != "physical_time" for column in mapping):
+            selected.append(path)
+    return selected
+
 
 def detect_star_column_mapping(headers: list[str]) -> dict[str, str]:
     """Match STAR-CCM+ export header names to standard column names.

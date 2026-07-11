@@ -47,7 +47,7 @@ MANIFEST_REQUIRED_FIELDS = (
     "git_commit",
     "created_time",
 )
-CASE_DIRECTORIES = ("figures", "logs", "flow_snapshots")
+CASE_DIRECTORIES = ("input", "figures", "logs", "flow_snapshots")
 
 
 def _is_nan_like(value: Any) -> bool:
@@ -302,6 +302,7 @@ class CaseSchema:
             yaml.safe_dump(manifest, handle, sort_keys=False, allow_unicode=True)
         _write_csv_rows(run_dir / "timeseries.csv", ts_columns, ts_rows)
         _write_csv_rows(run_dir / "actuation_schedule.csv", schedule_columns, schedule_rows)
+        _write_csv_rows(run_dir / "input" / "actuation_schedule.csv", schedule_columns, schedule_rows)
         if pressure_sensor_rows is not None and pressure_sensor_columns is not None:
             _write_csv_rows(run_dir / "pressure_sensors.csv", pressure_sensor_columns, pressure_sensor_rows)
         with (run_dir / "quality_report.json").open("w", encoding="utf-8") as handle:
@@ -313,6 +314,7 @@ class CaseSchema:
             "run_dir": run_dir,
             "files": {
                 "manifest": run_dir / "case_manifest.yaml",
+                "input_actuation_schedule": run_dir / "input" / "actuation_schedule.csv",
                 "actuation_schedule": run_dir / "actuation_schedule.csv",
                 "timeseries": run_dir / "timeseries.csv",
                 "pressure_sensors": run_dir / "pressure_sensors.csv",
