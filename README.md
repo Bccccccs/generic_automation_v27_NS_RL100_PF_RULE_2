@@ -180,6 +180,8 @@ flow_control/excitation_patterns/common.py          共用配置、表格、校�
 examples/run_mock_dynamic24x6.py
 ```
 
+完整命令见 [Mock 命令说明](flow_control/mock/COMMANDS.md)。
+
 示例：
 
 ```bash
