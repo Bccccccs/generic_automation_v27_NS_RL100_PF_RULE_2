@@ -492,7 +492,7 @@ flow_control/data_schema.py
 
 ```bash
 .venv/bin/python examples/build_real_star_ingest_demo.py \
-  --source-dir 单喷气/Excel兼容_UTF8_BOM \
+  --source-dir starccm_single/Excel兼容_UTF8_BOM \
   --case-dir runs/real_star_ingest_demo \
   --case-type jet_on
 ```

@@ -13,8 +13,8 @@ runs/*
 archive/legacy/*
 !archive/legacy/.gitkeep
 
-单喷气/
-无喷气(1)/
+runs/starccm_single/
+runs/starccm_no/
 
 *.sim
 *.sim~
