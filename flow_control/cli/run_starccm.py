@@ -1,4 +1,16 @@
-"""Run a flow-control actuation schedule in STAR-CCM+."""
+"""/run_starccm CLI：将激励计划在 STAR-CCM+ 中执行并打包结果。
+
+工作流程：
+  1. 通过 --schedule 传入已生成的 actuation_schedule.csv，
+     或通过 --actuation-config 实时生成
+  2. 连接 STAR-CCM+ 运行仿真
+  3. 提取结果打包为标准 case 目录
+  4. 执行质量检查
+
+数据流：
+  schedule CSV → FlowControlStarCCMRunner → STAR-CCM+ macro → timeseries
+    → package_ccm_run_case → 标准 case 目录 + quality_report
+"""
 
 from __future__ import annotations
 
@@ -19,12 +31,15 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Generate a STAR-CCM+ macro from actuation_schedule.csv and launch the simulation."
     )
+    # --- 激励来源：已有 CSV 或实时生成 ---
+    # 这两者互斥，用户必须指定其一
     schedule_source = parser.add_mutually_exclusive_group(required=True)
     schedule_source.add_argument("--schedule", help="Existing actuation_schedule.csv path.")
     schedule_source.add_argument(
         "--actuation-config",
         help="Actuation YAML to generate into <out>/input before starting STAR-CCM+.",
     )
+    # --- STAR-CCM+ 参数 ---
     parser.add_argument("--sim", required=True, help="Input STAR-CCM+ .sim file.")
     parser.add_argument("--out", required=True, help="Output directory for macro, logs, and results.")
     parser.add_argument(
@@ -47,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         default=[],
         help="Report name to sample after each window. Can be repeated.",
     )
+    # --- 行为控制 ---
     parser.add_argument(
         "--non-strict-boundaries",
         action="store_true",
@@ -61,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     output_dir = Path(args.out)
+    # 确定激励计划 CSV 的路径：来自已有文件或实时生成
     schedule_path = (
         Path(args.schedule)
         if args.schedule
@@ -71,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         / "actuation_schedule.csv"
     )
 
+    # 运行 STAR-CCM+ 仿真，生成宏、运行计划和结果
     result = FlowControlStarCCMRunner().run(
         FlowControlStarCCMRunConfig(
             schedule_path=schedule_path,
@@ -87,9 +105,11 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
         )
     )
+    # --- 输出报告 ---
     print(f"macro: {result.macro_path}")
     print(f"runtime_plan: {result.runtime_plan_path}")
     print(f"log: {result.log_path}")
+    # 如果生成了 timeseries，进行 case 打包和质量检查
     if result.timeseries_path is not None:
         print(f"timeseries: {result.timeseries_path}")
         if result.timeseries_path.exists():
