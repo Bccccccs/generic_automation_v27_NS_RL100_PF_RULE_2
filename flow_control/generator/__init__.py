@@ -1,4 +1,11 @@
-"""Generate and validate physical-time jet actuation schedules."""
+"""激励计划的生成与验证入口包。
+
+延迟导入（lazy import）设计，避免循环依赖：
+  - generate_from_mapping:     从配置字典生成激励计划
+  - generate_from_yaml:        从 YAML 文件加载配置并生成
+  - resolve_input_dir:         返回 output_dir/input/ 路径
+  - validate_actuation_schedule_csv: 验证生成的 CSV 格式
+"""
 
 __all__ = [
     "generate_from_mapping",

@@ -1,4 +1,17 @@
-"""Generate one physical-time jet actuation schedule from a configured pattern."""
+"""激励计划生成器：从配置模式生成物理时间激励计划。
+
+工作流：
+  YAML 配置 → 合并系统默认值 → ActuationConfig → 模式生成器
+    → ScheduleTable → 写入 output/input/actuation_schedule.csv 及相关文件
+
+生成的输出文件（均在 <output_dir>/input/ 下）：
+  - actuation_schedule.csv:  主激励计划表
+  - total_mass_flow.csv:     每窗口总质量流量
+  - actuation_heatmap.svg:   喷口激活热图
+  - total_mass_flow_curve.svg: 质量流量曲线
+  - config_summary.yaml:     配置摘要
+  - validation_report.json:  验证报告
+"""
 
 from __future__ import annotations
 
@@ -14,8 +27,7 @@ INPUT_DIRNAME = "input"
 
 
 def resolve_input_dir(output_dir: str | Path) -> Path:
-    """Return the fixed generated-input directory for one output root."""
-
+    """返回 output_dir/input/ 固定输入目录路径。"""
     return Path(output_dir) / INPUT_DIRNAME
 
 
@@ -24,13 +36,19 @@ def generate_from_mapping(
     *,
     output_dir: str | Path,
 ) -> ActuationConfig:
-    """Generate one configured pattern and write it to ``output_dir``.
+    """从配置字典生成激励计划并写入输出目录。
 
-    The pattern mode selects one of the six generators in
-    :mod:`flow_control.excitation_patterns`.  Callers own directory policy;
-    this module only writes the generated schedule and its companion files.
+    调用 excitation_patterns 中对应 mode 的生成器，
+    然后写 CSV、SVG 和验证报告到 <output_dir>/input/。
+
+    Args:
+        config_data: 从 YAML 解析的配置字典。
+        output_dir: 输出根目录。
+
+    Returns:
+        实际的 ActuationConfig（output_dir 已指向 <根>/input/）。
     """
-
+    # 将 output_dir 重定向为 <output_dir>/input/
     config = replace(
         ActuationConfig.from_mapping(config_data),
         output_dir=resolve_input_dir(output_dir),
@@ -45,8 +63,7 @@ def generate_from_yaml(
     *,
     output_dir: str | Path,
 ) -> ActuationConfig:
-    """Load a pattern YAML and write its generated schedule to ``output_dir``."""
-
+    """从 YAML 文件加载配置并生成激励计划。"""
     return generate_from_mapping(
         load_config_with_system_defaults(config_path),
         output_dir=output_dir,

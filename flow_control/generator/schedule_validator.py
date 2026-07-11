@@ -1,4 +1,17 @@
-"""Validation helpers for generated physical-time jet schedule files."""
+"""生成的物理时间激励计划 CSV 文件的验证工具。
+
+验证规则：
+  1. 列顺序必须与 B02 统一格式一致
+  2. 至少包含一个窗口
+  3. window_id 必须连续递增（步长 1）
+  4. physical_time 必须等于 t_start
+  5. t_end 必须大于 t_start
+  6. 时间窗口必须连续（t_start 等于上一行的 t_end）
+  7. JET_NN 值只能是 0 或 1
+  8. JET=0 时对应的 massflow 必须为 0
+  9. JET=1 时对应的 massflow 必须 > 0
+  10. 活跃喷口数和总质量流量不超过上限
+"""
 
 from __future__ import annotations
 
@@ -16,8 +29,17 @@ def validate_actuation_schedule_csv(
     max_active_jets: int | None = None,
     max_total_mass_flow: float | None = None,
 ) -> list[str]:
-    """Validate the unified physical-time actuation_schedule.csv format."""
+    """验证统一格式的 actuation_schedule.csv。
 
+    Args:
+        path: CSV 文件路径。
+        n_jets: 喷口数量（默认 24）。
+        max_active_jets: 每窗口最大允许活跃喷口数。
+        max_total_mass_flow: 每窗口最大允许总质量流量。
+
+    Returns:
+        错误字符串列表，空列表表示验证通过。
+    """
     csv_path = Path(path)
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
