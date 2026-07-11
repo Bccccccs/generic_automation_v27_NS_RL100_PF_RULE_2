@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import html
 import json
-import math
 from pathlib import Path
 from typing import Any
 
@@ -80,18 +79,6 @@ def time_values_from_rows(rows: list[dict[str, str]]) -> np.ndarray:
     if rows and "physical_time" in rows[0]:
         return matrix_from_rows(rows, ["physical_time"]).ravel()
     return np.arange(len(rows), dtype=float)
-
-
-def chronological_split_index(row_count: int, train_fraction: float, min_train_rows: int) -> int:
-    """Return an integer split index without shuffling time points."""
-    if not 0.2 <= train_fraction <= 0.9:
-        raise ValueError("train_fraction should be between 0.2 and 0.9")
-    split = int(math.floor(row_count * train_fraction))
-    split = max(split, min_train_rows)
-    split = min(split, row_count - 1)
-    if split <= 0 or split >= row_count:
-        raise ValueError("not enough rows for chronological train/validation split")
-    return split
 
 
 def compute_metrics(

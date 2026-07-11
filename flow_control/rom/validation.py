@@ -99,16 +99,29 @@ def validate_arx_rom(
     write_json(
         metrics_path,
         {
+            "phase": "validation",
+            "training_performed": False,
             "model_path": str(model_path),
             "dataset_dir": str(dataset_dir) if dataset_dir is not None else None,
             "case_dir": str(case_dir) if case_dir is not None else None,
             "case_count": len(sequences),
             "validation_rows": int(len(truth_all)),
+            "warmup_rows_per_case": model.max_lag,
             "case_ids": [sequence["case_id"] for sequence in sequences],
             "input_columns": list(ROM_INPUT_COLUMNS),
             "output_columns": list(ROM_OUTPUT_COLUMNS),
             "metrics": metrics,
-            "validation_policy": "recursive prediction per case; no measured outputs used after max_lag warm start",
+            "validation_policy": (
+                "all explicitly selected validation cases are evaluated; the first max_lag rows of each "
+                "case initialize ARX history, then recursive prediction uses no measured outputs and no fitting"
+            ),
+            "error_interpretation": {
+                "delay": "Shifted peaks can indicate insufficient input/output lags or an unmodeled transport delay.",
+                "noise": "Irregular high-frequency residuals are expected when the source data contains output noise.",
+                "model_order": "Too few lags underfit slow dynamics; too many lags can be fragile for limited data.",
+                "input_correlation": "Jets activated together can make individual input coefficients correlated.",
+                "data_amount": "Short or weakly excited datasets limit identification quality.",
+            },
         },
     )
     _write_prediction_csv(prediction_csv_path, prediction_rows)

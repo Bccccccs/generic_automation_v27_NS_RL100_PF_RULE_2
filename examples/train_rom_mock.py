@@ -1,12 +1,12 @@
-"""Example wrapper for training the minimal B06 ARX ROM on mock data.
+"""Train the minimal B06 ARX ROM on an explicit mock training dataset.
 
 Default run:
 
     python3 examples/train_rom_mock.py
 
-The script uses a chronological split.  It never shuffles time points and the
-validation forecast feeds back only previous predictions, not future measured
-outputs.
+Every case listed in ``runs/arx_test/index.csv`` is used for fitting.  This
+script performs no validation and creates no validation metrics or plots; run
+``examples/validate_rom_mock.py`` with a separate dataset for those outputs.
 """
 
 import sys
@@ -21,12 +21,10 @@ if __name__ == "__main__":
     raise SystemExit(
         main(
             [
-                "--case-dir",
-                "runs/mock_full_prbs_demo",
+                "--dataset-dir",
+                "runs/arx_test",
                 "--out",
-                "runs/rom_mock_demo",
-                "--single-jet-case-dir",
-                "runs/mock_full_step_singlejet",
+                "runs/rom_mock_demo/model",
             ]
             + sys.argv[1:]
         )

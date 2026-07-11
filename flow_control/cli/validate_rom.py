@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 
 from flow_control.rom import validate_arx_rom
+from flow_control.case_paths import resolve_case_dir
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -14,16 +15,23 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, help="Output validation directory.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--dataset-dir", help="Dataset directory containing index.csv and many cases.")
+    source.add_argument("--case-id", help="Single case id under --runs-root.")
     source.add_argument("--case-dir", help="Single case directory.")
+    parser.add_argument("--runs-root", default="runs", help="Root for --case-id inputs.")
     parser.add_argument("--case-start", type=int, default=0, help="First dataset case index to validate.")
     parser.add_argument("--case-count", type=int, default=None, help="Number of dataset cases to validate.")
     args = parser.parse_args(argv)
 
+    case_dir = (
+        resolve_case_dir(case_id=args.case_id, runs_root=args.runs_root)
+        if args.case_id
+        else args.case_dir
+    )
     result = validate_arx_rom(
         model_path=args.model,
         out_dir=args.out,
         dataset_dir=args.dataset_dir,
-        case_dir=args.case_dir,
+        case_dir=case_dir,
         case_start=args.case_start,
         case_count=args.case_count,
     )

@@ -1,4 +1,5 @@
 import csv
+import json
 
 from flow_control.rom import (
     MASSFLOW_COLUMNS,
@@ -7,12 +8,13 @@ from flow_control.rom import (
     ARXModel,
     train_arx_rom_from_dataset,
     train_arx_rom_from_case,
+    use_arx_rom_on_case,
     validate_arx_rom,
 )
 from flow_control.rom.generate_arx_dataset import generate_arx_sparse24_dataset
 
 
-def test_train_arx_rom_from_case_writes_outputs(tmp_path):
+def test_train_arx_rom_from_case_uses_all_rows_and_writes_training_only_outputs(tmp_path):
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     out_dir = tmp_path / "rom"
@@ -22,20 +24,24 @@ def test_train_arx_rom_from_case_writes_outputs(tmp_path):
     result = train_arx_rom_from_case(
         case_dir=case_dir,
         out_dir=out_dir,
-        train_fraction=0.70,
         input_lags=2,
         output_lags=2,
         ridge_alpha=1.0,
     )
 
-    assert result.train_rows > result.validation_rows
+    assert result.train_cases == 1
+    assert result.source_rows == 24
+    assert result.fit_rows == 22
     assert result.model_path.exists()
-    assert result.metrics_path.exists()
-    assert result.prediction_csv_path.exists()
-    assert result.prediction_plot_path.exists()
-    assert result.error_plot_path.exists()
-    assert result.rmse_plot_path.exists()
-    assert set(result.metrics) == set(ROM_OUTPUT_COLUMNS)
+    assert result.training_summary_path.exists()
+    assert not (out_dir / "metrics.json").exists()
+    assert not (out_dir / "prediction_timeseries.csv").exists()
+    assert not (out_dir / "prediction_6_load_cells.svg").exists()
+    summary = json.loads(result.training_summary_path.read_text(encoding="utf-8"))
+    assert summary["validation_performed"] is False
+    assert summary["source_rows"] == 24
+    assert summary["fit_rows"] == 22
+    assert summary["fit_policy"].endswith("no internal split")
 
 
 def test_legacy_arx_import_points_to_flow_control_rom():
@@ -61,7 +67,7 @@ def test_generate_arx_sparse24_dataset_runs_schedule_and_mock(tmp_path):
     assert (out_dir / "index.json").exists()
     for record in records:
         case_dir = out_dir / record["case_id"]
-        assert (case_dir / "actuation_input" / "actuation_schedule.csv").exists()
+        assert (case_dir / "input" / "actuation_schedule.csv").exists()
         assert (case_dir / "actuation_schedule.csv").exists()
         assert (case_dir / "timeseries.csv").exists()
         assert (case_dir / "quality_report.json").exists()
@@ -110,35 +116,102 @@ def test_generate_arx_sparse24_dataset_reads_seed_from_system_config(tmp_path):
 
 
 def test_train_dataset_and_validate_existing_model_are_separate(tmp_path):
-    dataset_dir = tmp_path / "arx_dataset"
+    train_dataset_dir = tmp_path / "arx_train_dataset"
+    validation_dataset_dir = tmp_path / "arx_validation_dataset"
     generate_arx_sparse24_dataset(
         actuation_config_path="configs/actions/pilot_sparse24.yaml",
         mock_config_path="configs/mock_dynamic24x6.yaml",
-        output_dir=dataset_dir,
+        output_dir=train_dataset_dir,
         count=2,
         start_seed=401,
     )
+    generate_arx_sparse24_dataset(
+        actuation_config_path="configs/actions/pilot_sparse24.yaml",
+        mock_config_path="configs/mock_dynamic24x6.yaml",
+        output_dir=validation_dataset_dir,
+        count=1,
+        start_seed=501,
+    )
 
     train_result = train_arx_rom_from_dataset(
-        dataset_dir=dataset_dir,
+        dataset_dir=train_dataset_dir,
         out_dir=tmp_path / "train",
         input_lags=2,
         output_lags=2,
     )
     validate_result = validate_arx_rom(
         model_path=train_result.model_path,
-        dataset_dir=dataset_dir,
+        dataset_dir=validation_dataset_dir,
         out_dir=tmp_path / "validate",
-        case_start=1,
-        case_count=1,
     )
 
     assert train_result.train_cases == 2
-    assert train_result.validation_cases == 0
+    assert train_result.source_rows == 160
+    assert train_result.fit_rows == 156
     assert train_result.model_path.exists()
+    assert train_result.training_summary_path.exists()
     assert validate_result.case_count == 1
+    assert validate_result.validation_rows == 78
     assert validate_result.metrics_path.exists()
     assert validate_result.prediction_csv_path.exists()
+    metrics = json.loads(validate_result.metrics_path.read_text(encoding="utf-8"))
+    assert metrics["training_performed"] is False
+    assert metrics["case_ids"] == ["sparse24_seed_501"]
+    assert set(metrics["metrics"]) == set(ROM_OUTPUT_COLUMNS)
+
+
+def test_use_arx_rom_writes_checked_prediction_case(tmp_path):
+    dataset_dir = tmp_path / "arx_dataset"
+    generate_arx_sparse24_dataset(
+        actuation_config_path="configs/actions/pilot_sparse24.yaml",
+        mock_config_path="configs/mock_dynamic24x6.yaml",
+        output_dir=dataset_dir,
+        count=1,
+        start_seed=551,
+    )
+    train_result = train_arx_rom_from_dataset(
+        dataset_dir=dataset_dir,
+        out_dir=tmp_path / "model",
+        input_lags=2,
+        output_lags=2,
+    )
+
+    result = use_arx_rom_on_case(
+        model_path=train_result.model_path,
+        case_dir=dataset_dir / "sparse24_seed_551",
+        out_dir=tmp_path / "prediction_case",
+    )
+
+    assert result.prediction_timeseries_path.exists()
+    assert result.quality_report_path.exists()
+    assert result.warmup_rows == 2
+    assert result.predicted_rows == 78
+    report = json.loads(result.quality_report_path.read_text(encoding="utf-8"))
+    assert report["check_mode"] == "arx_use"
+    assert report["run_success_flag"] is True
+
+
+def test_train_dataset_accepts_one_explicit_case_without_reserving_validation_data(tmp_path):
+    dataset_dir = tmp_path / "one_case_dataset"
+    generate_arx_sparse24_dataset(
+        actuation_config_path="configs/actions/pilot_sparse24.yaml",
+        mock_config_path="configs/mock_dynamic24x6.yaml",
+        output_dir=dataset_dir,
+        count=1,
+        start_seed=601,
+    )
+
+    result = train_arx_rom_from_dataset(
+        dataset_dir=dataset_dir,
+        out_dir=tmp_path / "train",
+        input_lags=2,
+        output_lags=2,
+    )
+
+    assert result.train_cases == 1
+    assert result.case_ids == ("sparse24_seed_601",)
+    assert result.source_rows == 80
+    assert result.fit_rows == 78
 
 
 def _write_minimal_case(case_dir, row_count: int) -> None:

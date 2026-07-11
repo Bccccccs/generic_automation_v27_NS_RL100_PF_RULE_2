@@ -50,29 +50,24 @@ class ARXModel:
         inputs: np.ndarray,
         outputs: np.ndarray,
         *,
-        end_index: int | None = None,
         input_names: list[str] | tuple[str, ...] | None = None,
         output_names: list[str] | tuple[str, ...] | None = None,
     ) -> "ARXModel":
-        """Fit on rows ``max_lag <= t < end_index``.
-
-        ``end_index`` is the chronological split boundary.  Rows at and after
-        that index are not used for fitting.
-        """
+        """Fit on every usable row of the explicitly supplied arrays."""
         inputs = _as_2d_float(inputs, "inputs")
         outputs = _as_2d_float(outputs, "outputs")
         if inputs.shape[0] != outputs.shape[0]:
             raise ValueError("inputs and outputs must have the same row count")
 
-        end = inputs.shape[0] if end_index is None else int(end_index)
-        if end <= self.max_lag:
+        if inputs.shape[0] <= self.max_lag:
             raise ValueError(
-                f"training segment is too short: need more than max_lag={self.max_lag}, got {end}"
+                "training data is too short: "
+                f"need more than max_lag={self.max_lag}, got {inputs.shape[0]}"
             )
 
         self.input_names_ = list(input_names or [f"u{idx}" for idx in range(inputs.shape[1])])
         self.output_names_ = list(output_names or [f"y{idx}" for idx in range(outputs.shape[1])])
-        x_train, y_train = self._design_matrix(inputs, outputs, self.max_lag, end)
+        x_train, y_train = self._design_matrix(inputs, outputs, self.max_lag, inputs.shape[0])
         penalty = self.ridge_alpha * np.eye(x_train.shape[1], dtype=float)
         penalty[0, 0] = 0.0
         lhs = x_train.T @ x_train + penalty
