@@ -108,16 +108,32 @@ physical_time、t_start、t_end 都是物理时间秒，不是求解器迭代步
 | PRBS 伪随机开关 | `configs/actions/prbs_demo.yaml` | 可复现随机开关，为 ROM/动态辨识提供输入 |
 | 稀疏随机分组 | `configs/actions/pilot_sparse24.yaml` | 每个主窗口开 3 个喷口，公平筛查 24 个喷气区 |
 
-生成某一种动作表：
+推荐通过 `examples` 中的启动脚本生成动作表。
+
+选择一种动作，生成计划表并运行 mock：
 
 ```bash
-.venv/bin/python -m flow_control.generator.schedule_generator --config configs/actions/pulse_singlejet.yaml --output-dir runs/pulse_singlejet
+bash examples/run_one_action.sh
 ```
 
-生成结果固定写到指定输出根目录下的 `input/`：
+脚本会提示选择动作，输入数字 `1` 到 `6` 即可。
+
+输出写到：
 
 ```text
-runs/<输出目录>/input/
+runs/mock_<动作名称>/
+```
+
+一次生成全部六种动作：
+
+```bash
+bash examples/run_all_actions.sh
+```
+
+生成结果固定写到 `runs/<动作名称>/input/`：
+
+```text
+runs/<动作名称>/input/
 ```
 
 例如：
@@ -125,7 +141,7 @@ runs/<输出目录>/input/
 ```text
 runs/pulse_singlejet/input/actuation_schedule.csv
 runs/prbs_demo/input/actuation_schedule.csv
-runs/sparse24/input/actuation_schedule.csv
+runs/pilot_sparse24/input/actuation_schedule.csv
 ```
 
 每个示例目录通常包含：
@@ -172,48 +188,53 @@ flow_control/excitation_patterns/sparse_groups.py   稀疏随机分组
 flow_control/excitation_patterns/common.py          共用配置、表格、校验和输出
 ```
 
-## 6. 生成动作并运行 mock plant
+## 6. examples 启动脚本
 
-如果想生成动作后立刻送入本地 mock plant，入口是：
-
-```text
-examples/run_mock_dynamic24x6.py
-```
-
-完整命令见 [Mock 命令说明](flow_control/mock/COMMANDS.md)。
-
-示例：
-
-```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py --actuation-config configs/actions/pilot_sparse24.yaml --config configs/mock_dynamic24x6.yaml --out runs/mock_dynamic24x6_demo
-```
-
-调用链：
+所有面向用户直接运行的动作启动脚本都放在 `examples/`：
 
 ```text
-configs/actions/*.yaml
-  -> examples/run_mock_dynamic24x6.py
-  -> generator/schedule_generator.py 写入 input/actuation_schedule.csv
-  -> mock_plant.py 运行 MockDynamic24x6
-  -> mock_plant.py 写 timeseries 和验收图
+examples/run_one_action.sh   选择 1-6 中的一个动作，生成计划表并运行 mock
+examples/run_all_actions.sh  一次生成全部 6 个动作
+examples/run_mock_from_action.sh        选择 1-6 中的一个动作，生成计划表并运行 mock
+examples/run_mock_from_existing_dir.sh  选择 runs 下已有目录，直接在原目录运行 mock
+examples/run_rom_train.sh     生成训练集 runs/arx/training 并训练 ROM
+examples/run_rom_validate.sh  生成验证集 runs/arx/vaild 并验证 ROM
+examples/run_rom_use.sh       罗列当前可用 case 目录，选择一个目录使用 ROM
+examples/run_ccm_from_action.sh        选择 1-6 中的一个动作，生成计划表并启动 CCM，输出到 runs/starccm_<动作名>
+examples/run_ccm_from_existing_dir.sh  选择 runs 下已有目录，直接在原目录启动 CCM
+examples/run_ccm_ingest_step1_timeseries.sh  从 CCM 输出生成标准 timeseries.csv
+examples/run_ccm_ingest_step2_check.sh       对标准 case 做数据检查
+examples/run_ccm_ingest_step3_figures.sh     生成诊断图片
 ```
 
-mock 输出通常包括：
+CCM 启动脚本固定读取：
 
 ```text
-actuation_schedule.csv
-figures/input_heatmap.svg
-figures/fz_regions.svg
-figures/fz_total.svg
-figures/spatial_nonuniformity.svg
-figures/total_massflow.svg
+configs/ccm_runtime.yaml
+```
+
+其中 `ccm.sim_path` 和 `ccm.starccm_path` 必须提前填写；配置缺失或为空会直接报错退出。
+
+`run_one_action.sh` 和 `run_mock_from_action.sh` 都会把 mock 输出写到：
+
+```text
+runs/mock_<动作名称>/
+```
+
+其中包含：
+
+```text
+input/actuation_schedule.csv
 timeseries.csv
-case_manifest.yaml
 quality_report.json
-mock_dynamic24x6_summary.json
+figures/
 ```
 
-注意：mock plant 是本地虚拟模型，用于验证数据链路，不代表真实 STAR-CCM+ 结果。
+已有目录运行 mock 时，结果直接写回所选目录：
+
+```text
+runs/<已有目录>/
+```
 
 ## 7. 运行测试
 
@@ -318,7 +339,7 @@ flow_control/star_ingest/COMMANDS.md
   STAR ingest 模块命令说明，一步完成和三步执行入口都在模块内
 
 flow_control/rom/COMMANDS.md
-  ROM 模块命令说明，约定训练数据集在 runs/arx/arx_training，验证数据集在 runs/arx/arx_valid
+  ROM 模块命令说明，约定训练数据集在 runs/arx/training，验证数据集在 runs/arx/vaild
 
 docs/FLOW_CONTROL_MODULE_STARTUP_GUIDE.md
   schedule、mock、STAR-CCM+、数据导入/分析和 ARX 各模块启动方式

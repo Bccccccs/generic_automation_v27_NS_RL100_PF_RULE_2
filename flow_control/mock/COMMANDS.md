@@ -5,15 +5,21 @@
 Mock 入口：
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py
+bash examples/run_mock_from_action.sh
+bash examples/run_mock_from_existing_dir.sh
 ```
 
-每次都必须指定：
+交互式脚本会负责提示动作或已有目录，并自动设置输出目录。
+
+底层 CLI 也可以直接使用：
+
+```bash
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6
+```
+
+底层 CLI 参数：
 
 - `--out`：本次 mock case 的输出根目录。
-
-通常还会指定：
-
 - `--config`：mock 动态系统参数，默认是 `configs/mock_dynamic24x6.yaml`。
 - `--actuation-config`：喷气动作 YAML。未提供 `--schedule` 时，会先调用 generator 生成输入表。
 - `--schedule`：已有的 `actuation_schedule.csv`。提供它时，mock 不再调用 generator。
@@ -35,10 +41,7 @@ Mock 输出会写入：
 这是最常用模式。命令会先调用 generator，再把生成的动作表送入 MockDynamic24x6。
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py \
-  --actuation-config configs/actions/pilot_sparse24.yaml \
-  --config configs/mock_dynamic24x6.yaml \
-  --out runs/mock_dynamic24x6_demo
+bash examples/run_mock_from_action.sh
 ```
 
 调用链：
@@ -52,48 +55,46 @@ configs/actions/pilot_sparse24.yaml
 
 ## 模式 2：使用已有动作表运行 mock
 
-如果已经有 `actuation_schedule.csv`，可以直接传给 mock。
+如果已经有 `actuation_schedule.csv`，可以选择 `runs` 下已有目录并直接在原目录写出 mock 结果。
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py \
-  --schedule runs/pilot_sparse24/input/actuation_schedule.csv \
-  --config configs/mock_dynamic24x6.yaml \
-  --out runs/mock_from_existing_schedule
+bash examples/run_mock_from_existing_dir.sh
 ```
 
-这种模式不会重新生成动作表，只会读取 `--schedule` 指向的 CSV 并写出 mock case。
+这种模式不会重新生成动作表，只会读取所选目录里的 `input/actuation_schedule.csv`
+或 `actuation_schedule.csv`，并把 mock case 写回该目录。
 
 ## 常用动作配置
 
 可以把 generator 的六种动作模式直接接到 mock：
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/no_jet_reference.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_no_jet_reference
 
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/pulse_singlejet.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_pulse_singlejet
 
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/step_singlejet.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_step_singlejet
 
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/chirp_keyjets.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_chirp_keyjets
 
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/prbs_demo.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_prbs_demo
 
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/pilot_sparse24.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out runs/mock_pilot_sparse24
@@ -105,7 +106,7 @@ configs/actions/pilot_sparse24.yaml
 
 ```bash
 for name in no_jet_reference pulse_singlejet step_singlejet chirp_keyjets prbs_demo pilot_sparse24; do
-  .venv/bin/python examples/run_mock_dynamic24x6.py \
+  .venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
     --actuation-config "configs/actions/${name}.yaml" \
     --config configs/mock_dynamic24x6.yaml \
     --out "runs/mock_examples/${name}"
@@ -157,13 +158,13 @@ runs/mock_examples/<模式名>/input/actuation_schedule.csv
 ## 查看命令参数
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py --help
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 --help
 ```
 
 ## 快速验证
 
 ```bash
-.venv/bin/python examples/run_mock_dynamic24x6.py \
+.venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
   --actuation-config configs/actions/pulse_singlejet.yaml \
   --config configs/mock_dynamic24x6.yaml \
   --out /tmp/flow_control_mock_check

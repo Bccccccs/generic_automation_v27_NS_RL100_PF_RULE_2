@@ -37,6 +37,14 @@ total_mass_flow_curve.svg
 
 ## 六种动作模式
 
+如果要生成计划表并继续运行 mock，使用 `examples` 中的启动脚本：
+
+```bash
+bash examples/run_one_action.sh
+```
+
+脚本会提示选择动作，输入数字 `1` 到 `6` 即可。
+
 ### 1. 无喷气参考段
 
 所有 24 路喷气关闭，用于建立基准。
@@ -104,17 +112,13 @@ total_mass_flow_curve.svg
 在项目根目录运行：
 
 ```bash
-for name in no_jet_reference pulse_singlejet step_singlejet chirp_keyjets prbs_demo pilot_sparse24; do
-  .venv/bin/python -m flow_control.generator.schedule_generator \
-    --config "configs/actions/${name}.yaml" \
-    --output-dir "runs/generator_examples/${name}"
-done
+bash examples/run_all_actions.sh
 ```
 
 每一种动作的主表都会位于：
 
 ```text
-runs/generator_examples/<模式名>/input/actuation_schedule.csv
+runs/<模式名>/input/actuation_schedule.csv
 ```
 
 ## 查看命令参数

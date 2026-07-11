@@ -1,0 +1,9 @@
+# STAR-CCM+ runtime settings used by examples/run_ccm_*.sh.
+# Fill sim_path and starccm_path with paths on the machine that will run CCM.
+
+ccm:
+  sim_path: ""
+  starccm_path: "starccm+"
+  num_cores: 1
+  region: "Region"
+  podkey: ""
