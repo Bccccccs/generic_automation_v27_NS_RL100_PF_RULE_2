@@ -1,13 +1,15 @@
-"""One-step STAR ingest pipeline.
+"""
+One-step STAR ingest pipeline.
 
-This module keeps the one-shot entry point next to the three explicit steps:
+一键式 STAR 数据摄入流水线,将三步流程封装为一个命令。
+在用户需要立即获取完整 Case 包时使用。
 
-1. ``step1_generate_timeseries`` writes the standard case package skeleton.
-2. ``step2_check_case`` writes ``quality_report.json``.
-3. ``step3_generate_figures`` writes diagnostic figures.
+三步流程:
+1. ``step1_generate_timeseries`` — 写入标准 Case 包骨架
+2. ``step2_check_case`` — 写入 quality_report.json(质量验证)
+3. ``step3_generate_figures`` —— 写入诊断图表
 
-The one-step pipeline runs the same high-level flow in one command for the
-common case where the user wants a complete case package immediately.
+此模块是这三步的调用入口,以及提供 CLI 接口。
 """
 
 from __future__ import annotations
@@ -38,13 +40,33 @@ def run_star_ingest_pipeline(
     partial: bool = False,
     check_mode: str = "star_ingest",
 ) -> dict[str, Any]:
-    """Run STAR export ingestion, quality checks, and figure generation."""
+    """Run STAR export ingestion, quality checks, and figure generation.
 
+    运行完整的 STAR 数据摄入流水线,包含 5 个步骤:
+    [1/5] 读取 STAR 导出 CSV 文件并映射列名
+    [2/5] 计算衍生量(如 Fz_Total)
+    [3/5] 摄入到标准 Case 目录(包括写入 Manifest/驱动指令等)
+    [4/5] 生成诊断图表(4 张)
+    [5/5] 输出质量检查结果和文件路径
+
+    参数:
+        case_dir: 目标 Case 目录路径
+        star_files: STAR 导出 CSV 文件列表(可与 star_dir 二选一)
+        star_dir: STAR 产品目录(可与 star_files 二选一)
+        force: 是否覆盖已存在的 Case 目录
+        jet: 是否标记为喷气工况
+        case_type: Case 类型(no_jet/jet_on/unknown)
+        partial: 是否允许部分列(不要求所有列都存在)
+        check_mode: 质量检查模式
+    """
+
+    # 解析数据源:可以是单个文件列表或产品目录
     source = _resolve_sources(star_files=star_files, star_dir=star_dir)
     resolved_case_type = case_type or ("jet_on" if jet else "unknown")
     case_path = Path(case_dir)
     manifest = _default_manifest(resolved_case_type, check_mode=check_mode)
 
+    # 打印起始信息
     print(f"\n{'=' * 60}")
     print("STAR Export Ingestion")
     print(f"{'=' * 60}")
@@ -68,6 +90,7 @@ def run_star_ingest_pipeline(
         print("  Fz_Total computed from sensor columns")
 
     print("\n[3/5] Ingesting into case directory ...")
+    # 根据数据源类型选择不同的摄入方式
     if source["product_dir"] is not None:
         result = ingest_star_product_dir(
             source["product_dir"],
@@ -101,15 +124,23 @@ def run_star_ingest_pipeline(
     print(f"  Warnings: {len(result['warnings'])}")
     _print_quality_messages(result)
 
+    # 将图表路径信息附加到质量报告中
     _attach_figures_to_quality_report(case_path, figures)
+    # 打印生成的输出文件列表
     _print_output_paths(case_path, result)
     return result
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    CLI 入口函数,使用 argparse 解析命令行参数。
+    提供 --star-file(单个 CSV)和 --star-dir(产品目录)两种互斥的数据源选择。
+    支持 --force(覆盖)、--jet(喷气工况)、--partial(部分列)和 --check-mode(检查模式)等选项。
+    """
     parser = argparse.ArgumentParser(
         description="One-step STAR ingest: read exports, package case, check quality, and generate figures."
     )
+    # 数据源:--star-file 和 --star-dir 是互斥的(二选一)
     source_group = parser.add_mutually_exclusive_group(required=True)
     source_group.add_argument(
         "--star-file",
@@ -166,6 +197,16 @@ def _resolve_sources(
     star_files: list[str | Path] | None,
     star_dir: str | Path | None,
 ) -> dict[str, Any]:
+    """
+    解析数据源输入,统一为 star_paths 列表。
+    支持两种方式:
+    - star_dir: 产品目录路径,自动发现其中的监视器 CSV
+    - star_files: 显式指定的 CSV 文件路径列表
+
+    返回字典包含:
+    - product_dir: 产品目录(如是通过目录发现的)或 None
+    - star_paths: 解析后的 Path 对象列表
+    """
     if star_dir is not None:
         product_dir = Path(star_dir)
         if not product_dir.is_dir():
@@ -183,6 +224,11 @@ def _resolve_sources(
 
 
 def _read_sources(star_paths: list[Path]) -> dict[str, Any]:
+    """
+    根据文件数量选择合适的读取方式:
+    - 1 个文件:使用 read_star_export_csv(单个读取)
+    - 多个文件:使用 read_star_export_bundle(批量合并)
+    """
     return (
         read_star_export_csv(star_paths[0])
         if len(star_paths) == 1
@@ -191,6 +237,11 @@ def _read_sources(star_paths: list[Path]) -> dict[str, Any]:
 
 
 def _default_manifest(case_type: str, *, check_mode: str) -> dict[str, Any]:
+    """
+    生成默认的 Case Manifest 字典。
+    包含默认的单位约定、符号约定和几何参数占位值。
+    调用方可以在此基础上覆盖或补充特定字段。
+    """
     return {
         "case_type": case_type,
         "check_mode": check_mode,
@@ -217,6 +268,11 @@ def _default_manifest(case_type: str, *, check_mode: str) -> dict[str, Any]:
 
 
 def _print_quality_messages(result: dict[str, Any]) -> None:
+    """
+    打印质量检查结果的详细信息。
+    分别列出错误(以 ! 标识)和警告(以 ? 标识)。
+    如果无错误则提示"Case passed all checks. "。
+    """
     if result["errors"]:
         print("\n  ERRORS:")
         for error in result["errors"]:
@@ -232,6 +288,10 @@ def _print_quality_messages(result: dict[str, Any]) -> None:
 
 
 def _attach_figures_to_quality_report(case_path: Path, figures: dict[str, Path | None]) -> None:
+    """
+    将生成的图表文件路径写入 quality_report.json。
+    路径使用相对于 Case 目录的相对路径,便于在不同环境中使用。
+    """
     report_path = case_path / "quality_report.json"
     quality_report: dict[str, Any] = {}
     if report_path.exists():
@@ -250,6 +310,9 @@ def _attach_figures_to_quality_report(case_path: Path, figures: dict[str, Path |
 
 
 def _print_output_paths(case_path: Path, result: dict[str, Any]) -> None:
+    """
+    打印生成的输出文件路径列表,供用户查看摄入结果。
+    """
     print("\nOutput files:")
     print(f"  {case_path / 'case_manifest.yaml'}")
     print(f"  {case_path / 'timeseries.csv'}")

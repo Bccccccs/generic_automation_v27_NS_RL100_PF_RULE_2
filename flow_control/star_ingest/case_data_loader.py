@@ -15,6 +15,22 @@ Standard case directory layout::
 
 This module extends ``flow_control.data_schema.CaseSchema`` with additional
 validation logic for the STAR-export ingest path.
+
+该模块是 STAR 数据摄入流程的核心,负责:
+1. 从 STAR 导出的 CSV 文件生成标准 Case 目录结构
+2. 对 Case 进行完整的 7 步验证(文件完整性 → Manifest → 时间序列 → 质量检查 → 驱动指令 → 质量报告 → 日志)
+3. 提供统一的 load_case 接口供后续处理步骤使用
+
+标准 Case 目录结构:
+- case_manifest.yaml: Case 元数据(几何、网格、流动参数等)
+- actuation_schedule.csv: 每个窗口的喷气驱动指令
+- timeseries.csv: 力/力矩传感器读数 + 喷气状态
+- quality_report.json: 预计算的质量度量
+- input/: 后端使用的驱动输入副本
+- figures/: 自动生成的诊断图表
+- logs/: 求解器/运行时日志
+- flow_snapshots/: 流场快照
+- notes.md: 人工阅读的备注(可选)
 """
 
 from __future__ import annotations
@@ -40,9 +56,20 @@ from .star_export_reader import (
 )
 from .quality_checker import QualityChecker
 
+# 日志记录器,命名空间为 "case_data_loader"
 logger = logging.getLogger("case_data_loader")
 
 # The 6 Fz sensor columns + 5 global columns that every case must have
+# 每个 Case 的时间序列中必须包含的基础列:
+# - physical_time: 仿真物理时间
+# - window_id: 窗口编号(用于识别不同驱动周期)
+# - Fz_S1L ~ Fz_S3R: 六个底部力传感器的法向力
+# - Fz_Total: 总法向力(六传感器之和或直接导出)
+# - Drag_Total: 总阻力
+# - Pitch_Moment: 俯仰力矩
+# - Roll_Moment: 滚转力矩
+# - Jet_Reaction_Z: 喷气反力(Z 方向)
+# - solver_status: 求解器状态("success" / "diverged" 等)
 REQUIRED_TIMESERIES_COLUMNS = (
     "physical_time",
     "window_id",
@@ -60,12 +87,14 @@ REQUIRED_TIMESERIES_COLUMNS = (
     "solver_status",
 )
 
+# 对于有喷气的 Case,额外必需的列(24 个阀门的开关 + 指令流量 + 实际流量)
 JET_REQUIRED_EXTRA_COLUMNS = (
     *JET_COLUMNS,
     *CMD_MASSFLOW_COLUMNS,
     *ACTUAL_MASSFLOW_COLUMNS,
 )
 
+# 标准 Case 目录中必须存在的文件
 CASE_REQUIRED_FILES = (
     "case_manifest.yaml",
     "actuation_schedule.csv",
@@ -73,7 +102,9 @@ CASE_REQUIRED_FILES = (
     "quality_report.json",
 )
 
+# 可选文件
 CASE_OPTIONAL_FILES = ("notes.md",)
+# 必须存在的子目录
 CASE_REQUIRED_DIRS = ("input", "figures", "logs", "flow_snapshots")
 
 
@@ -106,10 +137,23 @@ def load_case(
           validation was applied
         - ``errors``: list of validation errors (empty = valid)
         - ``warnings``: list of validation warnings
+
+    从标准 Case 目录加载完整的 Case 数据,并执行 7 步验证。
+    这是整个流水线中所有后续处理(ROM 训练、推理等)的统一数据入口。
+
+    加载步骤:
+    1. 检查文件完整性
+    2. 加载 Manifest(元数据)
+    3. 加载时间序列数据
+    4. 执行 7 项质量检查
+    5. 加载驱动指令表
+    6. 加载质量报告
+    7. 加载备注文件
     """
     case_dir = Path(case_dir).resolve()
     case_id = case_dir.name
 
+    # 初始化结果字典,设置合理的默认值
     result: dict[str, Any] = {
         "case_id": case_id,
         "case_dir": case_dir,
@@ -127,14 +171,16 @@ def load_case(
     }
 
     # ── 1. File completeness ──────────────────────────────────────────────
+    # 第 1 步:检查必须的文件和目录是否存在
     missing_files = _check_files(case_dir)
     if missing_files:
         result["errors"].append(
             f"Missing required files: {', '.join(missing_files)}"
         )
-        return result  # cannot continue without core files
+        return result  # cannot continue without core files / 缺少核心文件,无法继续
 
     # ── 2. Load manifest ──────────────────────────────────────────────────
+    # 第 2 步:加载 YAML 格式的 Case 元数据(几何、网格、流动参数、验证模式等)
     with (case_dir / "case_manifest.yaml").open("r", encoding="utf-8") as f:
         manifest = yaml.safe_load(f) or {}
     result["manifest"] = manifest
@@ -143,10 +189,12 @@ def load_case(
     result["check_mode"] = check_mode
     if require_complete_schema is None:
         validation_mode = str(manifest.get("validation_mode", "full_case")).lower()
+        # partial_timeseries 模式允许只包含部分列(适用于多步摄入场景)
         require_complete_schema = validation_mode != "partial_timeseries"
     result["require_complete_schema"] = bool(require_complete_schema)
 
     # ── 3. Load timeseries ────────────────────────────────────────────────
+    # 第 3 步:加载时间序列数据(力/力矩/喷气信号等)
     timeseries_path = case_dir / "timeseries.csv"
     result["timeseries"] = _read_csv_rows(timeseries_path)
     if not result["timeseries"]:
@@ -155,19 +203,25 @@ def load_case(
 
     # Detect if this is a jet case.  Manifest case_type is authoritative when
     # present; column names are only a fallback for legacy cases.
+    # 判断是否为喷气工况:
+    # - Manifest 中的 case_type 字段具有最高优先级
+    # - 列名前缀检测作为向后兼容的 fallback
     ts_columns = list(result["timeseries"][0].keys()) if result["timeseries"] else []
     result["has_jet_data"] = _is_jet_case(manifest, ts_columns)
     jet_case = result["has_jet_data"]
 
     # ── 4. Quality checks ─────────────────────────────────────────────────
+    # 第 4 步:执行质量检查(共 7 个子检查)
     checker = QualityChecker()
 
     # 4a. Column completeness.  Partial STAR timeseries imports are allowed to
     # omit columns that will arrive from later exports; full cases are strict.
+    # 检查列完整性。部分导入允许缺失列;完整导入要求所有列都存在。
     if require_complete_schema:
         col_errors = checker.check_required_columns(result["timeseries"], REQUIRED_TIMESERIES_COLUMNS)
         result["errors"].extend(col_errors)
     else:
+        # 非完整模式只检查 physical_time 列存在即可
         result["errors"].extend(
             checker.check_required_columns(result["timeseries"], ("physical_time",))
         )
@@ -177,47 +231,51 @@ def load_case(
         result["errors"].extend(jet_col_errors)
     elif not jet_case and (require_complete_schema or "Jet_Reaction_Z" in ts_columns):
         # No-jet case: Jet_Reaction_Z should be 0 or N/A when present.
+        # 无喷气工况:检查 Jet_Reaction_Z 的合理性
         jrz_check = checker.check_no_jet_jrz(result["timeseries"])
         result["warnings"].extend(jrz_check)
 
-    # 4b. Monotonic time
+    # 4b. Monotonic time / 时间单调性检查
     time_errs = checker.check_monotonic_time(result["timeseries"])
     result["errors"].extend(time_errs)
 
-    # 4c. NaN detection
+    # 4c. NaN detection / NaN 值检查
     nan_errs = checker.check_nan_values(result["timeseries"])
     result["errors"].extend(nan_errs)
 
-    # 4d. Units / direction warning
+    # 4d. Units / direction warning / 单位与方向检查
     unit_warns = checker.check_units_and_direction(manifest)
     result["warnings"].extend(unit_warns)
 
     if jet_case:
-        # 4e. Jet on/off vs massflow consistency
+        # 4e. Jet on/off vs massflow consistency / 喷气开关与质量流量一致性
         jet_mf_errs = checker.check_jet_massflow_consistency(result["timeseries"])
         result["errors"].extend(jet_mf_errs)
 
-        # 4f. cmd vs actual massflow separation
+        # 4f. cmd vs actual massflow separation / 指令与实际质量流量分离性
         mf_sep_errs = checker.check_massflow_separation(
             result["timeseries"],
             allow_identical_actual=check_mode in {"mock", "arx_use", "ccm"},
         )
         result["errors"].extend(mf_sep_errs)
 
-        # 4g. Jet_Reaction_Z in jet case should be present
+        # 4g. Jet_Reaction_Z in jet case should be present / 喷气工况必须有 Jet_Reaction_Z
         if "Jet_Reaction_Z" not in ts_columns:
             result["errors"].append(
                 "Jet case with active jets must include Jet_Reaction_Z column"
             )
 
     # ── 5. Load actuation schedule ────────────────────────────────────────
+    # 第 5 步:加载喷气驱动时间表(每个窗口的喷气阀门开关指令)
     result["actuation_schedule"] = _read_csv_rows(case_dir / "actuation_schedule.csv")
 
     # ── 6. Load quality report ────────────────────────────────────────────
+    # 第 6 步:加载已有的质量报告
     with (case_dir / "quality_report.json").open("r", encoding="utf-8") as f:
         result["quality_report"] = json.load(f)
 
     # ── 7. Load notes ─────────────────────────────────────────────────────
+    # 第 7 步:加载可选的备注文件
     notes_path = case_dir / "notes.md"
     if notes_path.exists():
         result["notes"] = notes_path.read_text(encoding="utf-8")
@@ -274,6 +332,19 @@ def ingest_star_export(
     Returns
     -------
     dict — the result of :func:`load_case` after ingestion.
+
+    将原始 STAR-CCM+ 导出文件摄取为标准 Case 目录。
+    这是 STAR → 标准 Case 流水线的主要入口函数。
+
+    处理流程:
+    1. 读取 STAR 导出数据(单个或多个 CSV 文件合并)
+    2. 计算衍生量(如 Fz_Total)
+    3. 写入 timeseries.csv
+    4. 写入 actuation_schedule.csv(含 input/ 备份)
+    5. 写入 case_manifest.yaml(自动填充默认值)
+    6. 创建标准子目录
+    7. 写入 notes.md
+    8. 运行 load_case 验证并生成质量报告
     """
     case_path = Path(case_dir)
     if case_path.exists() and not overwrite:
@@ -284,6 +355,7 @@ def ingest_star_export(
     case_path.mkdir(parents=True, exist_ok=True)
 
     # 1. Read STAR export data
+    # 读取 STAR 导出数据:单个文件或批量合并
     if len(star_files) == 1:
         data = read_star_export_csv(star_files[0])
     else:
@@ -293,6 +365,8 @@ def ingest_star_export(
 
     # 2. Compute Fz_Total if all six bottom-force sensors are present.
     # Missing STAR exports stay missing so quality checks can report them.
+    # 计算 Fz_Total(如果六个底部传感器都存在)
+    # 缺失的数据保持缺失,由质量检查器报告,而不是默默填充零值
     compute_fz_total(rows)
     _add_common_timeseries_fields(
         rows,
@@ -300,23 +374,26 @@ def ingest_star_export(
     )
 
     # Re-compute column ordering after derived columns are added.
+    # 添加衍生列后重新计算列顺序
     present_cols = _ordered_columns_from_rows(rows) if rows else data["columns"]
 
-    # 3. Write timeseries.csv
+    # 3. Write timeseries.csv / 写入时间序列 CSV
     _write_csv_rows(case_path / "timeseries.csv", present_cols, rows)
 
     # 4. Write actuation_schedule.csv.  The root copy is the standard case
     # schema; input/ keeps the backend command source for traceability.
+    # 写入驱动指令 CSV:根目录是标准副本,input/ 下保存后端命令源用于追溯
     if actuation_schedule is not None:
         sch_cols = list(actuation_schedule[0].keys()) if actuation_schedule else ["physical_time"]
         _write_csv_rows(case_path / "actuation_schedule.csv", sch_cols, actuation_schedule)
         _write_csv_rows(case_path / "input" / "actuation_schedule.csv", sch_cols, actuation_schedule)
     else:
         # Write an empty schedule with just the header
+        # 写入只有表头的空驱动指令表
         _write_csv_rows(case_path / "actuation_schedule.csv", ["physical_time"], [])
         _write_csv_rows(case_path / "input" / "actuation_schedule.csv", ["physical_time"], [])
 
-    # 5. Write case_manifest.yaml
+    # 5. Write case_manifest.yaml / 写入 Case 元数据(自动填充默认值)
     manifest_data = manifest or {}
     manifest_data.setdefault("geometry_version", "unknown")
     manifest_data.setdefault("mesh_version", "unknown")
@@ -334,14 +411,15 @@ def ingest_star_export(
     with (case_path / "case_manifest.yaml").open("w", encoding="utf-8") as f:
         yaml.safe_dump(manifest_data, f, sort_keys=False, allow_unicode=True)
 
-    # 6. Create standard case directories
+    # 6. Create standard case directories / 创建标准的 Case 子目录结构
     for directory_name in CASE_REQUIRED_DIRS:
         (case_path / directory_name).mkdir(exist_ok=True)
 
-    # 7. Write notes.md
+    # 7. Write notes.md / 写入备注文件(可选)
     if notes:
         (case_path / "notes.md").write_text(notes, encoding="utf-8")
 
+    # 8. 写入初始质量报告(仅含数据源信息,未验证)
     report_seed = {
         "status": "generated_timeseries_only",
         "check_mode": check_mode,
@@ -354,6 +432,7 @@ def ingest_star_export(
     with (case_path / "quality_report.json").open("w", encoding="utf-8") as f:
         json.dump(report_seed, f, indent=2, ensure_ascii=False)
 
+    # 如果调用方不需要最终质量报告,提前返回
     if not write_final_quality_report:
         return {
             "case_id": case_path.name,
@@ -364,6 +443,7 @@ def ingest_star_export(
             "warnings": [],
         }
 
+    # 执行完整的 load_case 验证并生成最终质量报告
     result = load_case(
         case_path,
         require_complete_schema=require_complete_schema,
@@ -376,7 +456,7 @@ def ingest_star_export(
     with (case_path / "quality_report.json").open("w", encoding="utf-8") as f:
         json.dump(quality_report, f, indent=2, ensure_ascii=False)
 
-    # Reload with updated quality report
+    # Reload with updated quality report / 使用更新后的质量报告重新加载
     result = load_case(
         case_path,
         require_complete_schema=require_complete_schema,
@@ -398,6 +478,15 @@ def write_quality_report(
     1. generate ``timeseries.csv`` and package files;
     2. validate the case and write ``quality_report.json``;
     3. generate diagnostic figures.
+
+    对已存在的标准 Case 目录执行验证,并写入/更新 quality_report.json。
+    这是三步工作流的第 2 步(检查步骤):
+    1. 生成 timeseries.csv 和打包文件
+    2. 验证 Case 并写入 quality_report.json ← 这里
+    3. 生成诊断图表
+
+    该函数会保留已有的数据源信息(source_files、star_column_mapping、detected_units),
+    主要是更新验证结果(errors/warnings)。
     """
     case_path = Path(case_dir)
     existing: dict[str, Any] = {}
@@ -414,6 +503,7 @@ def write_quality_report(
         check_mode=check_mode,
     )
     quality_report = _build_quality_report(result)
+    # 保留已有的数据源信息,仅更新验证结果
     for key in ("source_files", "star_column_mapping", "detected_units", "figures"):
         if key in existing:
             quality_report[key] = existing[key]
@@ -443,8 +533,21 @@ def ingest_star_product_dir(
     ``Pitch_Moment_Monitor_...csv`` and similar files.  The folder does not
     contain ``timeseries.csv``; this function discovers recognized monitor CSVs,
     merges them on ``physical_time``, and writes the standard case package.
+
+    从 STAR-CCM+ 仿真结果目录摄入数据到标准 Case 目录。
+    产品目录通常包含多个监视器 CSV 文件(力监视器、力矩监视器、喷气监视器等),
+    但不会包含 timeseries.csv。此函数自动发现可识别的监视器 CSV,
+    将其在 physical_time 上合并后生成标准 Case 包。
+
+    参数:
+        product_dir: STAR 产品目录路径(包含多个监视器 CSV)
+        case_dir: 目标 Case 目录
+        case_type: Case 类型(jet/no_jet/passive 等)
+        manifest: 可选的 Manifest 元数据
+        generate_no_jet_schedule: 无喷气工况是否自动生成空的驱动指令表
     """
     product_path = Path(product_dir)
+    # 自动发现产品目录中可识别的监视器 CSV 文件
     star_files = discover_star_export_csvs(product_path)
     if not star_files:
         raise ValueError(f"no recognized STAR monitor CSVs found in {product_path}")
@@ -452,6 +555,7 @@ def ingest_star_product_dir(
     manifest_data = dict(manifest or {})
     manifest_data.setdefault("case_type", case_type)
     manifest_data.setdefault("source_product_dir", str(product_path.resolve()))
+    # 默认单位约定
     manifest_data.setdefault("units", {"force": "N", "moment": "N-m", "massflow": "kg/s"})
     manifest_data.setdefault(
         "sign_convention",
@@ -462,11 +566,13 @@ def ingest_star_product_dir(
         ),
     )
 
+    # 对于无喷气/参考工况,自动生成空驱动指令表
     actuation_schedule = None
     if generate_no_jet_schedule and str(case_type).lower() in {"no_jet", "passive", "reference"}:
         data = read_star_export_bundle(star_files)
         actuation_schedule = _build_no_jet_actuation_schedule(data["rows"])
 
+    # 自动生成备注重述摄入来源
     notes = (
         "## STAR Product Directory Ingestion\n\n"
         f"- Source product directory: `{product_path.resolve()}`\n"
@@ -491,6 +597,10 @@ def ingest_star_product_dir(
 
 
 def _check_files(case_dir: Path) -> list[str]:
+    """
+    检查 Case 目录中必须存在的文件和子目录。
+    返回缺失项列表,空列表表示完整。
+    """
     missing: list[str] = []
     for file_name in CASE_REQUIRED_FILES:
         if not (case_dir / file_name).exists():
@@ -502,6 +612,11 @@ def _check_files(case_dir: Path) -> list[str]:
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
+    """
+    读取 CSV 文件为字典列表,自动尝试将数值字符串转为 float。
+    如果文件不存在返回空列表。
+    如果数值转换失败则保留原始字符串(如 "NaN"、"success" 等状态值)。
+    """
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8", newline="") as f:
@@ -522,6 +637,11 @@ def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
 
 
 def _build_no_jet_actuation_schedule(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    为无喷气工况构建空的喷气驱动指令表。
+    所有 24 个阀门的 JET 都设为 0,cmd_massflow 都设为 0.0。
+    每个窗口的 t_start/t_end 由时间序列中的 physical_time 推算得出。
+    """
     schedule: list[dict[str, Any]] = []
     times = [row.get("physical_time") for row in rows]
     numeric_times = [float(t) for t in times if isinstance(t, (int, float))]
@@ -551,6 +671,15 @@ def _build_no_jet_actuation_schedule(rows: list[dict[str, Any]]) -> list[dict[st
 
 
 def _add_common_timeseries_fields(rows: list[dict[str, Any]], *, case_type: str) -> None:
+    """
+    为时间序列数据添加通用字段:
+    - window_id: 窗口编号(按行索引自动分配)
+    - solver_status: 求解器状态(默认为 "success")
+    - case_stage: Case 阶段(默认为 "starccm_ingest")
+    - 无喷气工况:所有 JET 列默认设为 0
+
+    该函数直接修改 rows 列表(就地修改)。
+    """
     for idx, row in enumerate(rows):
         row.setdefault("window_id", idx)
         row.setdefault("solver_status", "success")
@@ -561,6 +690,13 @@ def _add_common_timeseries_fields(rows: list[dict[str, Any]], *, case_type: str)
 
 
 def _is_jet_case(manifest: dict[str, Any], ts_columns: list[str]) -> bool:
+    """
+    判断一个 Case 是否为喷气工况。
+    判断优先级:
+    1. Manifest 中的 case_type 字段(最高优先级)
+    2. 时间序列列名前缀检测(JET_/cmd_massflow_/actual_massflow_)
+    优先级设计:Manifest 显式声明优先于列名推断,避免列名误匹配。
+    """
     case_type = str(manifest.get("case_type", "")).strip().lower()
     if case_type in {"jet", "jet_on", "with_jet", "active_jet"}:
         return True
@@ -575,6 +711,13 @@ def _is_jet_case(manifest: dict[str, Any], ts_columns: list[str]) -> bool:
 
 
 def _ordered_columns_from_rows(rows: list[dict[str, Any]]) -> list[str]:
+    """
+    从数据行中提取列名并按标准优先级顺序排列。
+    标准顺序:
+    physical_time → window_id → Fz 传感器 → 全局量 → solver_status
+    → JET 信号 → cmd_massflow → actual_massflow → case_stage
+    → 其他未识别列(按首次出现的顺序)
+    """
     priority = (
         "physical_time",
         "window_id",
@@ -599,6 +742,10 @@ def _ordered_columns_from_rows(rows: list[dict[str, Any]]) -> list[str]:
 
 
 def _write_csv_rows(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
+    """
+    将数据写入 CSV 文件。
+    自动创建父目录,只写入指定的列(忽略行中的其他键)。
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=columns, extrasaction="ignore")
@@ -608,7 +755,15 @@ def _write_csv_rows(path: Path, columns: list[str], rows: list[dict[str, Any]]) 
 
 
 def _build_quality_report(result: dict[str, Any]) -> dict[str, Any]:
-    """Build a quality report dict from the case data and check results."""
+    """Build a quality report dict from the case data and check results.
+
+    从 load_case 的结果中提取关键信息,构建标准格式的质量报告。
+    质量报告包含:
+    - 错误/警告的数量和具体内容
+    - 验证模式(完整验证/部分验证)
+    - 时间序列维度信息
+    - 运行成功标志(无错误 = 成功)
+    """
     return {
         "case_id": result["case_id"],
         "num_errors": len(result["errors"]),
