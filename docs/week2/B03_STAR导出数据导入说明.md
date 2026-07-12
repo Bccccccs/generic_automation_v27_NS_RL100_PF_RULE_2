@@ -52,7 +52,10 @@ runs/<case_id>/
   figures/
     force_timeseries.png
     jet_schedule.png
-    massflow_check.png
+    massflow_check_01_06.png
+    massflow_check_07_12.png
+    massflow_check_13_18.png
+    massflow_check_19_24.png
     quality_summary.png
   logs/
   flow_snapshots/
@@ -215,9 +218,14 @@ python examples/run_ccm_ingest_step3_figures.py
 ```text
 runs/no_jet_star_case/figures/force_timeseries.png
 runs/no_jet_star_case/figures/jet_schedule.png
-runs/no_jet_star_case/figures/massflow_check.png
+runs/no_jet_star_case/figures/massflow_check_01_06.png
+runs/no_jet_star_case/figures/massflow_check_07_12.png
+runs/no_jet_star_case/figures/massflow_check_13_18.png
+runs/no_jet_star_case/figures/massflow_check_19_24.png
 runs/no_jet_star_case/figures/quality_summary.png
 ```
+
+如果 case 缺少质量流量列，则只生成 `massflow_check.png` 作为不可用占位图。
 
 `flow_control.star_ingest.pipeline` 仍保留一键式函数和 CLI，供自动化脚本使用；
 普通人工操作优先使用上面的 `examples/` 入口。

@@ -85,7 +85,10 @@
 
 - `runs/temp_j01_3s_mass2p57_dt1e-4/figures/force_timeseries.png`
 - `runs/temp_j01_3s_mass2p57_dt1e-4/figures/jet_schedule.png`
-- `runs/temp_j01_3s_mass2p57_dt1e-4/figures/massflow_check.png`
+- `runs/temp_j01_3s_mass2p57_dt1e-4/figures/massflow_check_01_06.png`
+- `runs/temp_j01_3s_mass2p57_dt1e-4/figures/massflow_check_07_12.png`
+- `runs/temp_j01_3s_mass2p57_dt1e-4/figures/massflow_check_13_18.png`
+- `runs/temp_j01_3s_mass2p57_dt1e-4/figures/massflow_check_19_24.png`
 - `runs/temp_j01_3s_mass2p57_dt1e-4/figures/quality_summary.png`
 
 ## 交付物位置

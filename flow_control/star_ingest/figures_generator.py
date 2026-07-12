@@ -2,13 +2,13 @@
 Auto-generate diagnostic figures for STAR-exported case data.
 
 自动为 STAR 导出的 Case 数据生成诊断图表。
-生成的图表文件共 4 个(存储于 Case 的 figures/ 目录):
+生成的图表文件存储于 Case 的 figures/ 目录:
 
 - ``force_timeseries.png`` — Fz 传感器力及总力随时间变化曲线
   包含每个传感器的 Fz 分量和总力/阻力/力矩等全局量。
 - ``jet_schedule.png``    — 喷气阀门激活状态热力图(仅喷气工况)
-- ``massflow_check.png``  — 指令质量流量与实际质量流量对比(仅喷气工况)
-  展示前 6 个活跃阀门的 cmd vs actual 跟踪情况。
+- ``massflow_check_01_06.png`` ... ``massflow_check_19_24.png`` —
+  指令质量流量与实际质量流量对比(仅喷气工况),覆盖全部 24 个阀门。
 - ``quality_summary.png`` — 质量检查结果的摘要仪表板卡片
   显示 Pass/Fail 状态、错误数、警告数及具体内容。
 
@@ -189,15 +189,15 @@ def generate_massflow_check(
     output_path: str | Path,
     *,
     case_has_jet: bool | None = None,
-) -> Path | None:
-    """Compare cmd_massflow vs actual_massflow for the first few active jets.
+) -> dict[str, Path | None]:
+    """Compare cmd_massflow vs actual_massflow for all 24 jets.
 
     If no massflow columns were exported, an explicit "unavailable" figure is
     generated rather than silently substituting zero flow.
 
     生成指令质量流量与实际质量流量的对比图。
-    显示前 6 个活跃阀门的 cmd_massflow(蓝色实线)和
-    actual_massflow(橙色虚线)随时间的变化曲线。
+    生成 4 张图,每张显示 6 个阀门,覆盖 JET_01 到 JET_24 的
+    cmd_massflow(蓝色实线)和 actual_massflow(橙色虚线)随时间的变化曲线。
 
     通过比较两者的差异可以评估控制回路的跟踪性能:
     - 两者重合:跟踪良好
@@ -218,46 +218,56 @@ def generate_massflow_check(
             "Unavailable: cmd_massflow_01 ... 24 and actual_massflow_01 ... 24\n"
             "were not present in the STAR exports."
         )
-        return _generate_unavailable_figure(
+        placeholder = _generate_unavailable_figure(
             output_path,
             "Commanded vs Actual Mass Flow",
             message,
         )
+        return {"massflow_check": placeholder}
 
     t = _time_array(rows)
-    # 最多显示 6 个阀门,避免图面过于拥挤
-    n_jets_to_plot = min(6, max(len(cmd_cols), len(actual_cols), 1))
-    fig, axes = plt.subplots(n_jets_to_plot, 1, figsize=(10, 2.5 * n_jets_to_plot),
-                             sharex=True)
-
-    if n_jets_to_plot == 1:
-        axes = [axes]
-
-    for i in range(n_jets_to_plot):
-        ax = axes[i]
-        idx = i + 1
-        cmd_col = f"cmd_massflow_{idx:02d}"
-        actual_col = f"actual_massflow_{idx:02d}"
-
-        if cmd_col in rows[0]:
-            ax.plot(t, _to_float_array(rows, cmd_col),
-                    label=f"cmd_massflow_{idx:02d}", color="blue", linewidth=0.7)
-        if actual_col in rows[0]:
-            ax.plot(t, _to_float_array(rows, actual_col),
-                    label=f"actual_massflow_{idx:02d}", color="orange",
-                    linewidth=0.7, linestyle="--")
-        ax.set_ylabel("Massflow")
-        ax.set_title(f"Jet {idx:02d} Massflow")
-        ax.legend(fontsize=7)
-        ax.grid(True, alpha=0.3)
-
-    axes[-1].set_xlabel("Time (s)")
-    plt.tight_layout()
     output = Path(output_path)
-    fig.savefig(output, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"  Saved: {output}")
-    return output
+    generated: dict[str, Path | None] = {}
+    for start_idx in range(1, 25, 6):
+        end_idx = start_idx + 5
+        page_name = f"massflow_check_{start_idx:02d}_{end_idx:02d}"
+        page_path = output.with_name(f"{page_name}{output.suffix or '.png'}")
+        fig, axes = plt.subplots(6, 1, figsize=(10, 15), sharex=True)
+
+        for axis_idx, idx in enumerate(range(start_idx, end_idx + 1)):
+            ax = axes[axis_idx]
+            cmd_col = f"cmd_massflow_{idx:02d}"
+            actual_col = f"actual_massflow_{idx:02d}"
+
+            plotted = False
+            if cmd_col in rows[0]:
+                ax.plot(t, _to_float_array(rows, cmd_col),
+                        label=cmd_col, color="blue", linewidth=0.7)
+                plotted = True
+            if actual_col in rows[0]:
+                ax.plot(t, _to_float_array(rows, actual_col),
+                        label=actual_col, color="orange",
+                        linewidth=0.7, linestyle="--")
+                plotted = True
+            if not plotted:
+                ax.text(0.5, 0.5, "massflow columns unavailable",
+                        ha="center", va="center", fontsize=9,
+                        color="#9c2f2f", transform=ax.transAxes)
+            ax.set_ylabel("Massflow")
+            ax.set_title(f"Jet {idx:02d} Massflow")
+            if plotted:
+                ax.legend(fontsize=7)
+            ax.grid(True, alpha=0.3)
+
+        axes[-1].set_xlabel("Time (s)")
+        fig.suptitle(f"Commanded vs Actual Mass Flow: JET_{start_idx:02d}-JET_{end_idx:02d}")
+        plt.tight_layout(rect=[0, 0.02, 1, 0.98])
+        fig.savefig(page_path, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+        print(f"  Saved: {page_path}")
+        generated[page_name] = page_path
+
+    return generated
 
 
 def _generate_unavailable_figure(
@@ -388,11 +398,11 @@ def generate_all_figures(
     -------
     dict mapping figure name (without extension) to output ``Path`` or ``None``.
 
-    统一生成一个 Case 的所有诊断图表(共 4 张),是图表的统一入口。
+    统一生成一个 Case 的所有诊断图表,是图表的统一入口。
     按顺序生成:
     1. force_timeseries.png — 力时间序列(始终生成)
     2. jet_schedule.png — 喷气热力图(有喷气数据时生成,否则占位图)
-    3. massflow_check.png — 质量流量对比(有喷气数据时生成,否则占位图)
+    3. massflow_check_*.png — 质量流量对比,有数据时生成 4 张覆盖 24 路
     4. quality_summary.png — 质量摘要(始终生成)
     """
     out = Path(output_dir)
@@ -409,10 +419,10 @@ def generate_all_figures(
         rows, out / "jet_schedule.png",
         case_has_jet=result.get("has_jet_data"),
     )
-    figs["massflow_check"] = generate_massflow_check(
+    figs.update(generate_massflow_check(
         rows, out / "massflow_check.png",
         case_has_jet=result.get("has_jet_data"),
-    )
+    ))
     figs["quality_summary"] = generate_quality_summary(
         result, out / "quality_summary.png"
     )

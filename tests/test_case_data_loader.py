@@ -456,6 +456,26 @@ class TestStarExportReader:
         }
         assert all(path is not None and path.exists() for path in figures.values())
 
+    def test_massflow_check_generates_all_24_jets_in_four_figures(self, tmp_path):
+        rows = _good_rows(jet=True)
+        result = {
+            "case_id": "jet_exports",
+            "timeseries": rows,
+            "has_jet_data": True,
+            "errors": [],
+            "warnings": [],
+        }
+        figures = generate_all_figures(result, tmp_path / "figures")
+        for key in (
+            "massflow_check_01_06",
+            "massflow_check_07_12",
+            "massflow_check_13_18",
+            "massflow_check_19_24",
+        ):
+            assert key in figures
+            assert figures[key] is not None
+            assert figures[key].exists()
+
     def test_missing_file_errors(self, tmp_path):
         """Missing required files produce file-completeness error."""
         case_dir = tmp_path / "incomplete_case"

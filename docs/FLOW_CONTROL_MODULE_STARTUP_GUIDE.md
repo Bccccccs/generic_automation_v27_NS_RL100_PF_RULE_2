@@ -519,11 +519,15 @@ runs/<case_id>/
   notes.md
   figures/force_timeseries.png
   figures/jet_schedule.png
-  figures/massflow_check.png
+  figures/massflow_check_01_06.png
+  figures/massflow_check_07_12.png
+  figures/massflow_check_13_18.png
+  figures/massflow_check_19_24.png
   figures/quality_summary.png
 ```
 
-是否生成某些图，取决于输入数据里是否有对应列。
+是否生成某些图，取决于输入数据里是否有对应列。没有质量流量列时，
+`massflow_check.png` 会作为不可用占位图；有质量流量列时，会拆成 4 张图覆盖 24 路。
 
 ### 4.7 调用链
 
