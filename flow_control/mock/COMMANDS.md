@@ -5,8 +5,8 @@
 Mock 入口：
 
 ```bash
-bash examples/run_mock_from_action.sh
-bash examples/run_mock_from_existing_dir.sh
+python examples/run_mock_from_action.py
+python examples/run_mock_from_existing_dir.py
 ```
 
 交互式脚本会负责提示动作或已有目录，并自动设置输出目录。
@@ -41,7 +41,7 @@ Mock 输出会写入：
 这是最常用模式。命令会先调用 generator，再把生成的动作表送入 MockDynamic24x6。
 
 ```bash
-bash examples/run_mock_from_action.sh
+python examples/run_mock_from_action.py
 ```
 
 调用链：
@@ -58,7 +58,7 @@ configs/actions/pilot_sparse24.yaml
 如果已经有 `actuation_schedule.csv`，可以选择 `runs` 下已有目录并直接在原目录写出 mock 结果。
 
 ```bash
-bash examples/run_mock_from_existing_dir.sh
+python examples/run_mock_from_existing_dir.py
 ```
 
 这种模式不会重新生成动作表，只会读取所选目录里的 `input/actuation_schedule.csv`

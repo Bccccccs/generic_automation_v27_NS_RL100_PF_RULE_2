@@ -1,4 +1,4 @@
-# STAR-CCM+ runtime settings used by examples/run_ccm_*.sh.
+# STAR-CCM+ runtime settings used by examples/run_ccm_*.py.
 # Fill sim_path and starccm_path with paths on the machine that will run CCM.
 
 ccm:

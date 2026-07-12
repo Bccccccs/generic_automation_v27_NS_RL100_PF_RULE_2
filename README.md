@@ -114,7 +114,7 @@ physical_time、t_start、t_end 都是物理时间秒，不是求解器迭代步
 选择一种动作，生成计划表并运行 mock：
 
 ```bash
-bash examples/run_one_action.sh
+python examples/run_one_action.py
 ```
 
 脚本会提示选择动作，输入数字 `1` 到 `6` 即可。
@@ -128,7 +128,7 @@ runs/mock_<动作名称>/
 一次生成全部六种动作：
 
 ```bash
-bash examples/run_all_actions.sh
+python examples/run_all_actions.py
 ```
 
 生成结果固定写到 `runs/<动作名称>/input/`：
@@ -222,15 +222,15 @@ STAR / Mock
 
 | 目标 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| 交互式选择动作和运行方式 | `bash examples/run_one_action.sh` | 推荐入口。先选择 1-6 种喷气激励，再选择 mock 或 CCM。 | mock 输出到 `runs/mock_<动作名称>/`；CCM 输出到 `runs/starccm_<动作名称>/` |
-| 一次生成全部动作表 | `bash examples/run_all_actions.sh` | 只生成 6 种激励的 `actuation_schedule.csv`，不运行 plant。 | `runs/<动作名称>/input/` |
+| 交互式选择动作和运行方式 | `python examples/run_one_action.py` | 推荐入口。先选择 1-6 种喷气激励，再选择 mock 或 CCM。 | mock 输出到 `runs/mock_<动作名称>/`；CCM 输出到 `runs/starccm_<动作名称>/` |
+| 一次生成全部动作表 | `python examples/run_all_actions.py` | 只生成 6 种激励的 `actuation_schedule.csv`，不运行 plant。 | `runs/<动作名称>/input/` |
 
 ### 7.2 Mock 本地验证
 
 | 目标 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| 选择动作并运行 mock | `bash examples/run_mock_from_action.sh` | 选择 1-6 种激励，生成动作表后直接运行 `MockDynamicPlant24x6`。 | `runs/mock_<动作名称>/` |
-| 用已有动作表运行 mock | `bash examples/run_mock_from_existing_dir.sh` | 从 `runs/` 下已有目录选择 `actuation_schedule.csv`，原地生成 mock 结果。 | 所选 `runs/<目录>/` |
+| 选择动作并运行 mock | `python examples/run_mock_from_action.py` | 选择 1-6 种激励，生成动作表后直接运行 `MockDynamicPlant24x6`。 | `runs/mock_<动作名称>/` |
+| 用已有动作表运行 mock | `python examples/run_mock_from_existing_dir.py` | 从 `runs/` 下已有目录选择 `actuation_schedule.csv`，原地生成 mock 结果。 | 所选 `runs/<目录>/` |
 
 mock 结果目录通常包含：
 
@@ -245,8 +245,8 @@ figures/
 
 | 目标 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| 选择动作并启动 CCM | `bash examples/run_ccm_from_action.sh` | 选择 1-6 种激励，生成动作表后启动 STAR-CCM+。 | `runs/starccm_<动作名称>/` |
-| 用已有动作表启动 CCM | `bash examples/run_ccm_from_existing_dir.sh` | 从 `runs/` 下已有目录选择动作表，并在该目录运行 STAR-CCM+。 | 所选 `runs/<目录>/` |
+| 选择动作并启动 CCM | `python examples/run_ccm_from_action.py` | 选择 1-6 种激励，生成动作表后启动 STAR-CCM+。 | `runs/starccm_<动作名称>/` |
+| 用已有动作表启动 CCM | `python examples/run_ccm_from_existing_dir.py` | 从 `runs/` 下已有目录选择动作表，并在该目录运行 STAR-CCM+。 | 所选 `runs/<目录>/` |
 
 CCM 启动脚本固定读取：
 
@@ -262,17 +262,17 @@ configs/ccm_runtime.yaml
 
 | 步骤 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| Step 1 | `bash examples/run_ccm_ingest_step1_timeseries.sh` | 从 STAR-CCM+ monitor CSV 和动作表生成标准 `timeseries.csv`。 | `timeseries.csv`、`case_manifest.yaml`、快速 SVG 图 |
-| Step 2 | `bash examples/run_ccm_ingest_step2_check.sh` | 检查必选列、时间单调性、缺失值、喷气开关和质量流量一致性。 | `quality_report.json` |
-| Step 3 | `bash examples/run_ccm_ingest_step3_figures.sh` | 基于质量检查结果生成诊断图。 | `figures/*.png` |
+| Step 1 | `python examples/run_ccm_ingest_step1_timeseries.py` | 从 STAR-CCM+ monitor CSV 和动作表生成标准 `timeseries.csv`。 | `timeseries.csv`、`case_manifest.yaml`、快速 SVG 图 |
+| Step 2 | `python examples/run_ccm_ingest_step2_check.py` | 检查必选列、时间单调性、缺失值、喷气开关和质量流量一致性。 | `quality_report.json` |
+| Step 3 | `python examples/run_ccm_ingest_step3_figures.py` | 基于质量检查结果生成诊断图。 | `figures/*.png` |
 
 ### 7.5 ROM 训练、验证和使用
 
 | 目标 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| 训练 ARX ROM | `bash examples/run_rom_train.sh` | 先生成 mock 训练集，再拟合 ARX ROM。 | `runs/arx/training/`、`runs/arx/model/arx_model.json` |
-| 验证 ARX ROM | `bash examples/run_rom_validate.sh` | 生成独立验证集并计算预测误差。 | `runs/arx/validation/metrics.json`、预测对比图 |
-| 用 ROM 预测已有 case | `bash examples/run_rom_use.sh` | 选择已有 `timeseries.csv` case，使用已训练模型递推预测。 | `runs/arx/use_<case_name>/` |
+| 训练 ARX ROM | `python examples/run_rom_train.py` | 先生成 mock 训练集，再拟合 ARX ROM。 | `runs/arx/training/`、`runs/arx/model/arx_model.json` |
+| 验证 ARX ROM | `python examples/run_rom_validate.py` | 生成独立验证集并计算预测误差。 | `runs/arx/validation/metrics.json`、预测对比图 |
+| 用 ROM 预测已有 case | `python examples/run_rom_use.py` | 选择已有 `timeseries.csv` case，使用已训练模型递推预测。 | `runs/arx/use_<case_name>/` |
 
 ROM 相关脚本只使用本地 mock 数据和标准 case，不调用历史 `generic_automation/rl/` 代码。
 

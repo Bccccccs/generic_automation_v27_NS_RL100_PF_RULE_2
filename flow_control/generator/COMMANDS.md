@@ -40,7 +40,7 @@ total_mass_flow_curve.svg
 如果要生成计划表并继续运行 mock，使用 `examples` 中的启动脚本：
 
 ```bash
-bash examples/run_one_action.sh
+python examples/run_one_action.py
 ```
 
 脚本会提示选择动作，输入数字 `1` 到 `6` 即可。
@@ -112,7 +112,7 @@ bash examples/run_one_action.sh
 在项目根目录运行：
 
 ```bash
-bash examples/run_all_actions.sh
+python examples/run_all_actions.py
 ```
 
 每一种动作的主表都会位于：

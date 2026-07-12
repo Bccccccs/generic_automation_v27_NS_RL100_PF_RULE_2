@@ -28,7 +28,7 @@ runs/arx/validation     验证输出
 启动脚本会固定生成训练数据集 `runs/arx/training`，然后训练模型到 `runs/arx/model`。
 
 ```bash
-bash examples/run_rom_train.sh
+python examples/run_rom_train.py
 ```
 
 生成后目录类似：
@@ -63,7 +63,7 @@ fit_policy: all usable rows from the explicitly supplied training set; no intern
 输出验证结果到 `runs/arx/validation`。
 
 ```bash
-bash examples/run_rom_validate.sh
+python examples/run_rom_validate.py
 ```
 
 输出：
@@ -83,7 +83,7 @@ runs/arx/validation/
 用 `runs/arx/model/arx_model.json` 对选中的目录生成预测 case。
 
 ```bash
-bash examples/run_rom_use.sh
+python examples/run_rom_use.py
 ```
 
 输出目录：
@@ -108,9 +108,9 @@ runs/arx/validation/
 从项目根目录依次运行：
 
 ```bash
-bash examples/run_rom_train.sh
-bash examples/run_rom_validate.sh
-bash examples/run_rom_use.sh
+python examples/run_rom_train.py
+python examples/run_rom_validate.py
+python examples/run_rom_use.py
 ```
 
 完整输出会落在：
