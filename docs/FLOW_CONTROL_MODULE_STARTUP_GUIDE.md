@@ -28,7 +28,7 @@
 推荐从仓库根目录执行所有命令：
 
 ```bash
-cd /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2
+cd <repo-root>
 ```
 
 如果 `.venv` 已经存在：
