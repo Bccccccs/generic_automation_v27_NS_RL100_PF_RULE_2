@@ -16,16 +16,15 @@ flow_control/star_ingest/star_export_reader.py
 flow_control/star_ingest/case_data_loader.py
 flow_control/star_ingest/quality_checker.py
 flow_control/star_ingest/figures_generator.py
-flow_control/star_ingest/step1_generate_timeseries.py
-flow_control/star_ingest/step2_check_case.py
-flow_control/star_ingest/step3_generate_figures.py
-examples/ingest_star_case.py
-examples/build_real_star_ingest_demo.py
+flow_control/star_ingest/pipeline.py
+examples/run_ccm_ingest_step1_timeseries.py
+examples/run_ccm_ingest_step2_check.py
+examples/run_ccm_ingest_step3_figures.py
 ```
 
 约定：`runs/` 目录只放输入数据、生成的数据包、图和质量报告，不放启动脚本。
-正式三步入口放在 `flow_control/star_ingest/` 模块里，旧的一步式示例保留在
-`examples/`。
+人工操作入口统一放在 `examples/`；`flow_control/star_ingest/` 只保留可复用的
+读取、检查、画图和一键 pipeline 逻辑。
 
 ## 一个跑完的 case 应该包括什么
 
@@ -65,7 +64,7 @@ runs/<case_id>/
 | --- | --- | --- |
 | mock 仿真 | mock runner 直接写标准列 | `runs/<case_id>/timeseries.csv` |
 | ARX/ROM 数据 | 训练或验证数据按 `window_id`/`physical_time` 对齐 | `runs/<case_id>/timeseries.csv` |
-| 实际 STAR-CCM+ | Step 1 从 STAR 导出 CSV 主动合成 | `runs/<case_id>/timeseries.csv` |
+| 实际 STAR-CCM+ | example 入口从 STAR 导出 CSV 主动合成 | `runs/<case_id>/timeseries.csv` |
 
 也就是说，STAR-CCM+ 原始产物里没有 `timeseries.csv` 是正常的；
 `timeseries.csv` 是本模块生成出来的标准中间层。
@@ -101,9 +100,9 @@ solver_status
 喷气 case 才要求 `cmd_massflow_01 ... cmd_massflow_24` 和
 `actual_massflow_01 ... actual_massflow_24` 分开保存。
 
-## 0. 推荐三步流程
+## 0. 推荐导入流程
 
-现在推荐把 STAR 导入拆成三步，方便定位问题：
+现在推荐使用 `examples/` 下的三个交互式入口，方便按目录编号选择 case：
 
 ```text
 Step 1: STAR CSV/目录 -> timeseries.csv 和标准 case 骨架
@@ -111,19 +110,14 @@ Step 2: 检查标准 case 数据格式，写 quality_report.json
 Step 3: 根据检查结果生成 figures/
 ```
 
-以根目录下 `无喷气(1)` 为例：
-
 ### Step 1: 生成 timeseries
 
 ```bash
-python -m flow_control.star_ingest.step1_generate_timeseries \
-  --star-dir "无喷气(1)" \
-  --case-id no_jet_star_case \
-  --case-type no_jet \
-  --force
+python examples/run_ccm_ingest_step1_timeseries.py
 ```
 
-这一步只生成文件，不做质量判定，不画图。主要输出：
+这一步会扫描 `runs/<case_id>/out_put/` 下的 STAR monitor CSV，并结合该 case 的
+动作表生成标准文件。主要输出：
 
 ```text
 runs/no_jet_star_case/timeseries.csv
@@ -189,8 +183,7 @@ python -m flow_control.cli.validate_rom \
 ### Step 2: 检查数据格式
 
 ```bash
-python -m flow_control.star_ingest.step2_check_case \
-  --case-id no_jet_star_case
+python examples/run_ccm_ingest_step2_check.py
 ```
 
 这一步读取标准 case 目录，检查：
@@ -214,8 +207,7 @@ runs/no_jet_star_case/quality_report.json
 ### Step 3: 生成图
 
 ```bash
-python -m flow_control.star_ingest.step3_generate_figures \
-  --case-id no_jet_star_case
+python examples/run_ccm_ingest_step3_figures.py
 ```
 
 这一步只画图，并把图路径写回 `quality_report.json`：
@@ -227,8 +219,8 @@ runs/no_jet_star_case/figures/massflow_check.png
 runs/no_jet_star_case/figures/quality_summary.png
 ```
 
-旧的 `examples/ingest_star_case.py` 仍然保留，它会一口气完成三步；
-但正式调试时优先使用上面的三步入口。
+`flow_control.star_ingest.pipeline` 仍保留一键式函数和 CLI，供自动化脚本使用；
+普通人工操作优先使用上面的 `examples/` 入口。
 
 ## 1. 两种运行模式
 

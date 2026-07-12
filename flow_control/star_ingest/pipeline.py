@@ -1,15 +1,15 @@
 """
 One-step STAR ingest pipeline.
 
-一键式 STAR 数据摄入流水线,将三步流程封装为一个命令。
+一键式 STAR 数据摄入流水线,将读取、质量检查和画图封装为一个命令。
 在用户需要立即获取完整 Case 包时使用。
 
-三步流程:
-1. ``step1_generate_timeseries`` — 写入标准 Case 包骨架
-2. ``step2_check_case`` — 写入 quality_report.json(质量验证)
-3. ``step3_generate_figures`` —— 写入诊断图表
+流程:
+1. 读取 STAR 导出 CSV 并写入标准 Case 包骨架
+2. 写入 quality_report.json(质量验证)
+3. 写入诊断图表
 
-此模块是这三步的调用入口,以及提供 CLI 接口。
+此模块是自动化的一键入口；人工操作入口在 examples/run_ccm_ingest_step*.py。
 """
 
 from __future__ import annotations
