@@ -1,9 +1,9 @@
-"""/use_rom CLI：使用已训练的 ARX 模型对 case 数据进行预测并写出预测结果。
+"""/use_rom CLI：使用已训练的 ARX 模型对 case 或 schedule 数据进行预测并写出预测结果。
 
 工作流程：
   1. 加载已训练的 ARX 模型（arx_model.json）
-  2. 加载 source case 的时序数据和激励计划
-  3. 前 max_lag 行作为"预热"历史（复制原始输出）
+  2. 加载 source case 的时序数据和激励计划，或加载纯 actuation_schedule
+  3. 前 max_lag 行作为"预热"历史（case 模式复制原始输出，schedule 模式使用零输出历史）
   4. 从 max_lag 开始进行递推预测（用模型自身输出作为后续预测的反馈）
   5. 将预测结果打包为标准 case 目录（带 case_manifest.yaml 和 quality_report）
 """
@@ -14,30 +14,38 @@ import argparse
 from pathlib import Path
 
 from flow_control.case_paths import resolve_case_dir
-from flow_control.rom import use_arx_rom_on_case
+from flow_control.rom import use_arx_rom_on_case, use_arx_rom_on_schedule
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Use an existing ARX ROM on a case and write a prediction case.")
+    parser = argparse.ArgumentParser(description="Use an existing ARX ROM on a case or pure schedule.")
     parser.add_argument("--model", required=True, help="Path to arx_model.json.")
-    # --- 数据源（二选一） ---
+    # --- 数据源（三选一） ---
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--case-id", help="Input case id under --runs-root.")
     source.add_argument("--case-dir", help="Input case directory.")
+    source.add_argument("--schedule", help="Pure actuation_schedule.csv input; outputs are predicted from zero warmup history.")
     parser.add_argument("--runs-root", default="runs", help="Root for --case-id inputs.")
     parser.add_argument("--out", required=True, help="Output prediction case directory.")
     args = parser.parse_args(argv)
 
-    case_dir = (
-        resolve_case_dir(case_id=args.case_id, runs_root=args.runs_root)
-        if args.case_id
-        else args.case_dir
-    )
-    result = use_arx_rom_on_case(
-        model_path=args.model,
-        case_dir=case_dir,
-        out_dir=args.out,
-    )
+    if args.schedule:
+        result = use_arx_rom_on_schedule(
+            model_path=args.model,
+            schedule_path=args.schedule,
+            out_dir=args.out,
+        )
+    else:
+        case_dir = (
+            resolve_case_dir(case_id=args.case_id, runs_root=args.runs_root)
+            if args.case_id
+            else args.case_dir
+        )
+        result = use_arx_rom_on_case(
+            model_path=args.model,
+            case_dir=case_dir,
+            out_dir=args.out,
+        )
     print(f"ARX ROM use complete: {Path(result.out_dir)}")
     print(f"source rows: {result.source_rows}")
     print(f"warmup rows: {result.warmup_rows}")

@@ -36,7 +36,7 @@ from .identifier import (
     write_single_jet_response_summary,
 )
 from .training import ARXDatasetTrainingResult, ARXTrainingResult, train_arx_rom_from_case, train_arx_rom_from_dataset
-from .inference import ARXUseResult, use_arx_rom_on_case
+from .inference import ARXUseResult, use_arx_rom_on_case, use_arx_rom_on_schedule
 from .validation import ARXValidationResult, validate_arx_rom
 
 __all__ = [
@@ -59,6 +59,7 @@ __all__ = [
     "train_arx_rom_from_case",
     "train_arx_rom_from_dataset",
     "use_arx_rom_on_case",
+    "use_arx_rom_on_schedule",
     "validate_arx_rom",
     "write_error_svg",
     "write_json",

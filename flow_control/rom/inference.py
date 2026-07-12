@@ -6,8 +6,8 @@
 
 预测流程：
 1. 加载训练好的 ARX 模型（JSON 格式）
-2. 加载目标案例的输入序列和初始输出历史
-3. 前 max_lag 行作为 warmup 历史（直接复制真实值）
+2. 加载目标案例或纯 actuation_schedule 的输入序列
+3. 前 max_lag 行作为 warmup 历史；case 模式使用真实输出，schedule 模式使用零初始历史
 4. 从 max_lag 行开始，执行递归 ARX 预测
 5. 将结果写入标准 CaseSchema 格式的案例目录
 """
@@ -22,6 +22,7 @@ import numpy as np
 
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.mock.mock_plant import spatial_nonuniformity, write_plots
 from flow_control.star_ingest.case_data_loader import write_quality_report
 from starccm.control.control_spec import GLOBAL_OUTPUT_COLUMNS, JET_COLUMNS
 
@@ -145,6 +146,110 @@ def use_arx_rom_on_case(
     )
 
 
+def use_arx_rom_on_schedule(
+    *,
+    model_path: str | Path,
+    schedule_path: str | Path,
+    out_dir: str | Path,
+) -> ARXUseResult:
+    """Run a trained ARX model on a pure actuation schedule.
+
+    A pure schedule has inputs but no measured outputs. ARX still needs output
+    history for the first few rows, so this mode initializes the first
+    ``model.max_lag`` output rows to zero and then recursively predicts from
+    the supplied input sequence.
+    """
+
+    model = ARXModel.from_dict(_read_json(model_path))
+    schedule_rows = read_csv_rows(schedule_path)
+    if len(schedule_rows) <= model.max_lag:
+        raise ValueError(f"schedule is too short for max_lag={model.max_lag}: {schedule_path}")
+
+    source_rows = _schedule_source_rows(schedule_rows)
+    inputs = matrix_from_rows(source_rows, ROM_INPUT_COLUMNS)
+    initial_outputs = np.zeros((len(source_rows), len(ROM_OUTPUT_COLUMNS)), dtype=float)
+    prediction = model.predict_recursive(
+        inputs,
+        initial_outputs,
+        start_index=model.max_lag,
+    )
+    prediction_rows = _prediction_case_rows(
+        source_rows=source_rows,
+        observed_outputs=initial_outputs,
+        prediction=prediction,
+        warmup_rows=model.max_lag,
+    )
+
+    output_path = Path(out_dir)
+    old_root = CaseSchema.runs_root
+    CaseSchema.runs_root = output_path.parent
+    try:
+        schema_result = CaseSchema.write_case(
+            {
+                "case_id": output_path.name,
+                "manifest": {
+                    "geometry_version": "arx-rom",
+                    "mesh_version": "not-applicable",
+                    "flow_velocity": 0.0,
+                    "gap": 0.0,
+                    "time_step": _infer_time_step(source_rows),
+                    "jet_amplitude": _max_total_massflow(schedule_rows),
+                    "window_duration": _infer_time_step(source_rows),
+                    "random_seed": 0,
+                    "case_stage": "arx_model_use_from_schedule",
+                    "check_mode": "arx_use",
+                    "source_schedule": str(schedule_path),
+                    "source_model": str(model_path),
+                    "initial_output_policy": "zero warmup history",
+                },
+                "timeseries": prediction_rows,
+                "actuation_schedule": schedule_rows,
+                "quality_report": {
+                    "case_stage": "arx_model_use_from_schedule",
+                    "source_schedule": str(schedule_path),
+                    "source_model": str(model_path),
+                    "warmup_rows": model.max_lag,
+                    "predicted_rows": len(prediction_rows) - model.max_lag,
+                    "initial_output_policy": "zero warmup history",
+                },
+            }
+        )
+    finally:
+        CaseSchema.runs_root = old_root
+
+    _write_rom_artifacts(
+        run_dir=Path(schema_result["run_dir"]),
+        schema_result=schema_result,
+        source_rows=source_rows,
+        prediction_rows=prediction_rows,
+        model_path=model_path,
+        schedule_path=schedule_path,
+        warmup_rows=model.max_lag,
+        initial_output_policy="zero warmup history",
+    )
+    quality_report = write_quality_report(schema_result["run_dir"], check_mode="arx_use")
+    _write_rom_summary(
+        Path(schema_result["run_dir"]),
+        schema_result=schema_result,
+        quality_report=quality_report,
+        model_path=model_path,
+        schedule_path=schedule_path,
+        warmup_rows=model.max_lag,
+        predicted_rows=len(prediction_rows) - model.max_lag,
+        initial_output_policy="zero warmup history",
+    )
+    return ARXUseResult(
+        out_dir=Path(schema_result["run_dir"]),
+        prediction_case_dir=Path(schema_result["run_dir"]),
+        prediction_timeseries_path=Path(schema_result["files"]["timeseries"]),
+        quality_report_path=Path(schema_result["files"]["quality_report"]),
+        source_rows=len(source_rows),
+        predicted_rows=len(prediction_rows) - model.max_lag,
+        warmup_rows=model.max_lag,
+        run_success_flag=bool(quality_report.get("run_success_flag", False)),
+    )
+
+
 # 组装预测案例的每一行数据
 # warmup 行（前 max_lag 行）使用观测输出值，之后的预测行使用 ARX 模型递归预测值
 def _prediction_case_rows(
@@ -209,6 +314,179 @@ def _read_schedule_rows(case_dir: str | Path) -> list[dict[str, str]]:
         }
         for idx, row in enumerate(load_case_table(case_dir))
     ]
+
+
+def _schedule_source_rows(schedule_rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for row_idx, source in enumerate(schedule_rows):
+        record: dict[str, Any] = dict(source)
+        record["physical_time"] = _schedule_time(source, row_idx)
+        record["window_id"] = int(float(source.get("window_id", row_idx) or row_idx))
+        for column in JET_COLUMNS:
+            record[column] = float(source.get(column, 0.0) or 0.0)
+        for column in MASSFLOW_COLUMNS:
+            record[column] = float(source.get(column, 0.0) or 0.0)
+        rows.append(record)
+    return rows
+
+
+def _schedule_time(row: dict[str, str], row_idx: int) -> float:
+    for key in ("physical_time", "t_start"):
+        value = row.get(key)
+        if value not in (None, ""):
+            return float(value)
+    return float(row_idx)
+
+
+def _write_rom_artifacts(
+    *,
+    run_dir: Path,
+    schema_result: dict[str, Any],
+    source_rows: list[dict[str, Any]],
+    prediction_rows: list[dict[str, Any]],
+    model_path: str | Path,
+    schedule_path: str | Path,
+    warmup_rows: int,
+    initial_output_policy: str,
+) -> None:
+    time_values = np.array([float(row.get("physical_time", idx) or idx) for idx, row in enumerate(prediction_rows)])
+    inputs = _rows_to_matrix(prediction_rows, ACTUAL_MASSFLOW_COLUMNS)
+    outputs = _rows_to_matrix(prediction_rows, tuple(ROM_OUTPUT_COLUMNS[:6]))
+    result = {
+        "physical_time": time_values,
+        "inputs": inputs,
+        "outputs": outputs,
+        "totals": {
+            "Fz_Total": np.array([float(row.get("Fz_Total", 0.0) or 0.0) for row in prediction_rows]),
+            "total_massflow": inputs.sum(axis=1),
+        },
+        "spatial_nonuniformity": spatial_nonuniformity(outputs),
+    }
+    write_plots(run_dir, result)
+    _write_rom_config_used(
+        run_dir,
+        model_path=model_path,
+        schedule_path=schedule_path,
+        source_rows=len(source_rows),
+        warmup_rows=warmup_rows,
+        predicted_rows=len(prediction_rows) - warmup_rows,
+        initial_output_policy=initial_output_policy,
+    )
+    _write_rom_demo_summary(
+        run_dir,
+        schema_result=schema_result,
+        model_path=model_path,
+        schedule_path=schedule_path,
+    )
+
+
+def _rows_to_matrix(rows: list[dict[str, Any]], columns: tuple[str, ...]) -> np.ndarray:
+    values = np.zeros((len(rows), len(columns)), dtype=float)
+    for row_idx, row in enumerate(rows):
+        for col_idx, column in enumerate(columns):
+            values[row_idx, col_idx] = float(row.get(column, 0.0) or 0.0)
+    return values
+
+
+def _write_rom_config_used(
+    run_dir: Path,
+    *,
+    model_path: str | Path,
+    schedule_path: str | Path,
+    source_rows: int,
+    warmup_rows: int,
+    predicted_rows: int,
+    initial_output_policy: str,
+) -> None:
+    import yaml
+
+    data = {
+        "runner": "arx_rom",
+        "model_path": str(model_path),
+        "schedule_path": str(schedule_path),
+        "source_rows": int(source_rows),
+        "warmup_rows": int(warmup_rows),
+        "predicted_rows": int(predicted_rows),
+        "initial_output_policy": initial_output_policy,
+    }
+    (run_dir / "config_used.yaml").write_text(
+        yaml.safe_dump(data, sort_keys=False, allow_unicode=True),
+        encoding="utf-8",
+    )
+
+
+def _write_rom_demo_summary(
+    run_dir: Path,
+    *,
+    schema_result: dict[str, Any],
+    model_path: str | Path,
+    schedule_path: str | Path,
+) -> None:
+    summary = {
+        "case_id": schema_result["case_id"],
+        "run_dir": str(schema_result["run_dir"]),
+        "runner": "arx_rom",
+        "source_model": str(model_path),
+        "source_schedule": str(schedule_path),
+        "outputs": {
+            "timeseries": "timeseries.csv",
+            "actuation_schedule": "actuation_schedule.csv",
+            "case_manifest": "case_manifest.yaml",
+            "quality_report": "quality_report.json",
+            "input_heatmap": "figures/input_heatmap.svg",
+            "fz_regions": "figures/fz_regions.svg",
+            "fz_total": "figures/fz_total.svg",
+            "spatial_nonuniformity": "figures/spatial_nonuniformity.svg",
+            "total_massflow": "figures/total_massflow.svg",
+        },
+    }
+    import json
+
+    (run_dir / "mock_dynamic24x6_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+
+
+def _write_rom_summary(
+    run_dir: Path,
+    *,
+    schema_result: dict[str, Any],
+    quality_report: dict[str, Any],
+    model_path: str | Path,
+    schedule_path: str | Path,
+    warmup_rows: int,
+    predicted_rows: int,
+    initial_output_policy: str,
+) -> None:
+    import json
+
+    summary = {
+        "case_id": schema_result["case_id"],
+        "run_dir": str(schema_result["run_dir"]),
+        "runner": "arx_rom",
+        "source_model": str(model_path),
+        "source_schedule": str(schedule_path),
+        "warmup_rows": int(warmup_rows),
+        "predicted_rows": int(predicted_rows),
+        "initial_output_policy": initial_output_policy,
+        "outputs": {
+            "timeseries": "timeseries.csv",
+            "actuation_schedule": "actuation_schedule.csv",
+            "case_manifest": "case_manifest.yaml",
+            "quality_report": "quality_report.json",
+            "input_heatmap": "figures/input_heatmap.svg",
+            "fz_regions": "figures/fz_regions.svg",
+            "fz_total": "figures/fz_total.svg",
+            "spatial_nonuniformity": "figures/spatial_nonuniformity.svg",
+            "total_massflow": "figures/total_massflow.svg",
+        },
+        "quality_report": quality_report,
+    }
+    (run_dir / "arx_rom_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
 
 
 # 从时间序列数据中推断时间步长 dt = 第2行时间 - 第1行时间
