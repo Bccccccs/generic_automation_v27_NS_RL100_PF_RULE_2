@@ -28,7 +28,12 @@ import yaml
 from flow_control.config import load_config_with_system_defaults
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
-from flow_control.sampling import expand_schedule_rows, infer_time_step, infer_window_duration
+from flow_control.sampling import (
+    expand_schedule_rows,
+    infer_time_step,
+    infer_window_duration,
+    resolve_schedule_time_step,
+)
 from flow_control.star_ingest.case_data_loader import write_quality_report
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
@@ -374,8 +379,12 @@ def write_mock_dynamic_case(
     """
     raw_config = load_config(config_path)
     config = MockDynamic24x6Config.from_mapping(raw_config)
-    if time_step is not None:
-        config = replace(config, time_step=float(time_step))
+    resolved_time_step, time_step_source = resolve_schedule_time_step(
+        schedule_path,
+        explicit_time_step=time_step,
+    )
+    if resolved_time_step is not None:
+        config = replace(config, time_step=float(resolved_time_step))
     schedule_rows = read_actuation_schedule(schedule_path)
     result = MockDynamicPlant24x6(config).simulate(schedule_rows)
     run_dir = Path(output_dir)
@@ -394,12 +403,14 @@ def write_mock_dynamic_case(
         "random_seed": config.random_seed,
         "case_stage": "mock_dynamic24x6",
         "check_mode": "mock",
+        "time_step_source": time_step_source,
     }
     quality_report = {
         "run_success_flag": True,
         "case_stage": "mock_dynamic24x6",
         "source_schedule": str(schedule_path),
         "mock_config": str(config_path),
+        "time_step_source": time_step_source,
         "spatial_nonuniformity_max": float(np.max(result["spatial_nonuniformity"])),
         "total_massflow_max": float(np.max(result["totals"]["total_massflow"])),
     }

@@ -104,6 +104,41 @@ def test_mock_dynamic24x6_can_iterate_within_control_windows(tmp_path):
     assert CaseSchema.validate_timeseries(timeseries) == []
 
 
+def test_mock_dynamic24x6_reads_time_step_from_schedule_config(tmp_path):
+    schedule_path = tmp_path / "input" / "actuation_schedule.csv"
+    config_path = tmp_path / "mock_dynamic24x6.yaml"
+    output_dir = tmp_path / "mock_from_existing_schedule"
+    schedule_path.parent.mkdir()
+    _write_schedule(schedule_path)
+    (schedule_path.parent / "config_summary.yaml").write_text(
+        "time_step_seconds: 0.02\n",
+        encoding="utf-8",
+    )
+    config_path.write_text(
+        "mock_dynamic24x6:\n"
+        "  random_seed: 123\n"
+        "  fz_noise_std: 0.0\n"
+        "  drag_noise_std: 0.0\n"
+        "  moment_noise_std: 0.0\n",
+        encoding="utf-8",
+    )
+
+    result = write_mock_dynamic_case(
+        schedule_path=schedule_path,
+        config_path=config_path,
+        output_dir=output_dir,
+    )
+
+    with result["files"]["timeseries"].open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    manifest = (output_dir / "case_manifest.yaml").read_text(encoding="utf-8")
+
+    assert len(rows) == 25
+    assert float(rows[1]["physical_time"]) == 0.02
+    assert "time_step: 0.02" in manifest
+    assert "time_step_source: config_summary" in manifest
+
+
 def test_system_random_seed_drives_mock_config():
     base = MockDynamic24x6Config.from_mapping(
         {"system": {"random_seed": 4321}, "mock_dynamic24x6": {}}

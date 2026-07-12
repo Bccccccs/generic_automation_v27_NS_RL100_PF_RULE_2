@@ -19,12 +19,16 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import yaml
 
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from flow_control.mock.mock_plant import spatial_nonuniformity, write_plots
-from flow_control.sampling import expand_schedule_rows, infer_time_step, infer_window_duration
+from flow_control.sampling import (
+    expand_schedule_rows,
+    infer_time_step,
+    infer_window_duration,
+    resolve_schedule_time_step,
+)
 from flow_control.star_ingest.case_data_loader import write_quality_report
 from starccm.control.control_spec import GLOBAL_OUTPUT_COLUMNS, JET_COLUMNS
 
@@ -166,7 +170,7 @@ def use_arx_rom_on_schedule(
     model = ARXModel.from_dict(_read_json(model_path))
     schedule_file = Path(schedule_path)
     schedule_rows = read_csv_rows(schedule_path)
-    resolved_time_step, time_step_source = _resolve_schedule_time_step(
+    resolved_time_step, time_step_source = resolve_schedule_time_step(
         schedule_file,
         explicit_time_step=time_step,
     )
@@ -349,49 +353,6 @@ def _schedule_source_rows(
             record[column] = float(source.get(column, 0.0) or 0.0)
         rows.append(record)
     return rows
-
-
-def _resolve_schedule_time_step(
-    schedule_path: Path,
-    *,
-    explicit_time_step: float | None,
-) -> tuple[float | None, str]:
-    if explicit_time_step is not None:
-        return float(explicit_time_step), "argument"
-    config_time_step = _read_schedule_config_time_step(schedule_path)
-    if config_time_step is not None:
-        return config_time_step, "config_summary"
-    return None, "schedule_window"
-
-
-def _read_schedule_config_time_step(schedule_path: Path) -> float | None:
-    for config_path in _schedule_config_candidates(schedule_path):
-        if not config_path.is_file():
-            continue
-        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
-        if not isinstance(data, dict):
-            continue
-        value = data.get("time_step_seconds")
-        if value is None:
-            value = data.get("time_step")
-        if value is None and isinstance(data.get("actuation"), dict):
-            value = data["actuation"].get("time_step")
-        if value in (None, ""):
-            continue
-        time_step = float(value)
-        if time_step > 0.0:
-            return time_step
-    return None
-
-
-def _schedule_config_candidates(schedule_path: Path) -> list[Path]:
-    parent = schedule_path.parent
-    candidates = [parent / "config_summary.yaml"]
-    if parent.name == "input":
-        candidates.append(parent.parent / "config_summary.yaml")
-    else:
-        candidates.append(parent / "input" / "config_summary.yaml")
-    return candidates
 
 
 def _schedule_time(row: dict[str, str], row_idx: int) -> float:

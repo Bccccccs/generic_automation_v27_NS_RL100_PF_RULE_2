@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 def expand_schedule_rows(
@@ -65,6 +68,58 @@ def infer_window_duration(rows: list[dict[str, Any]]) -> float:
     if len(rows) > 1:
         return float(rows[1].get("physical_time", 0.0)) - float(rows[0].get("physical_time", 0.0))
     return 0.0
+
+
+def resolve_schedule_time_step(
+    schedule_path: str | Path,
+    *,
+    explicit_time_step: float | None = None,
+) -> tuple[float | None, str]:
+    """Resolve the sample time step for an existing schedule.
+
+    Priority order:
+    1. an explicit function/CLI argument;
+    2. ``config_summary.yaml`` next to the schedule or its sibling ``input/``;
+    3. no override, which lets callers fall back to schedule window rows.
+    """
+    if explicit_time_step is not None:
+        return float(explicit_time_step), "argument"
+    config_time_step = read_schedule_config_time_step(schedule_path)
+    if config_time_step is not None:
+        return config_time_step, "config_summary"
+    return None, "schedule_window"
+
+
+def read_schedule_config_time_step(schedule_path: str | Path) -> float | None:
+    """Read ``time_step`` from schedule generation metadata when present."""
+    for config_path in schedule_config_candidates(schedule_path):
+        if not config_path.is_file():
+            continue
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        if not isinstance(data, dict):
+            continue
+        value = data.get("time_step_seconds")
+        if value is None:
+            value = data.get("time_step")
+        if value is None and isinstance(data.get("actuation"), dict):
+            value = data["actuation"].get("time_step")
+        if value in (None, ""):
+            continue
+        time_step = float(value)
+        if time_step > 0.0:
+            return time_step
+    return None
+
+
+def schedule_config_candidates(schedule_path: str | Path) -> list[Path]:
+    """Return likely config-summary locations for a schedule CSV."""
+    parent = Path(schedule_path).parent
+    candidates = [parent / "config_summary.yaml"]
+    if parent.name == "input":
+        candidates.append(parent.parent / "config_summary.yaml")
+    else:
+        candidates.append(parent / "input" / "config_summary.yaml")
+    return candidates
 
 
 def _row_start(row: dict[str, Any], row_idx: int) -> float:
