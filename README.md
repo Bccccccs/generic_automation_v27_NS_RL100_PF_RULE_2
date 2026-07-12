@@ -370,6 +370,12 @@ docs/B05_CASE_SCHEMA.md
 docs/week2/B06_ARX_ROM变量和公式说明.md
   ARX ROM 输入输出、数据生成、训练/验证入口和当前 mock 验证指标说明
 
+docs/week2/B07_joint_interface_report.md
+  B07 联合数据接力接口报告，说明浩坤 STAR 导出数据已可读、质量检查结果和交付物位置
+
+docs/week2/B07_current_blocking_issues.md
+  B07 当前待确认问题；目前没有格式读取阻塞，剩余问题是无喷气 case 中 Jet_Reaction_Z 非零等物理/monitor 口径确认
+
 flow_control/star_ingest/COMMANDS.md
   STAR ingest 模块命令说明，一步完成和三步执行入口都在模块内
 
