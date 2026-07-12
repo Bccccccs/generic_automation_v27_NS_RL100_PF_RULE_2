@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,7 @@ def configure_project_root() -> Path:
     root = project_root()
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
+    os.chdir(root)
     return root
 
 
@@ -46,8 +48,6 @@ def preferred_python() -> Path:
 def reexec_with_project_python() -> None:
     python = preferred_python()
     if Path(sys.executable) != python:
-        import os
-
         os.execv(python.as_posix(), [python.as_posix(), *sys.argv])
 
 
@@ -86,6 +86,67 @@ def find_schedule(case_dir: Path) -> Path:
 def list_dirs(paths: list[Path]) -> None:
     for path in paths:
         print(path.as_posix())
+
+
+def choose_path_or_prompt(paths: list[Path], prompt: str = "目录: ") -> Path:
+    selection = input(prompt).strip()
+    if not selection:
+        raise SystemExit("目录不能为空。")
+    if selection.isdigit():
+        idx = int(selection)
+        if idx < 1 or idx > len(paths):
+            raise SystemExit(f"无效编号：{selection}")
+        return paths[idx - 1]
+    return normalize_run_dir(selection)
+
+
+def list_numbered_dirs(paths: list[Path]) -> None:
+    for idx, path in enumerate(paths, start=1):
+        print(f"{idx}) {path.as_posix()}")
+
+
+def prompt_name(prompt: str) -> str:
+    value = input(prompt).strip()
+    if not value:
+        raise SystemExit("名称不能为空。")
+    path = Path(value)
+    if path.name != value or value in {".", ".."}:
+        raise SystemExit(f"名称不能包含路径分隔符：{value}")
+    return value
+
+
+def discover_arx_models() -> list[Path]:
+    models_root = Path("runs/arx/models")
+    return sorted(
+        path
+        for path in models_root.glob("*")
+        if path.is_dir() and (path / "arx_model.json").is_file()
+    )
+
+
+def choose_arx_model() -> Path:
+    models = discover_arx_models()
+    if not models:
+        raise SystemExit("未找到已训练模型。请先运行：python examples/run_rom_train.py")
+
+    print("当前可用 ARX 模型：")
+    for idx, model_dir in enumerate(models, start=1):
+        print(f"{idx}) {model_dir.name}  ({model_dir.as_posix()})")
+
+    print("\n请输入模型编号，或直接输入模型名：")
+    selection = input("模型: ").strip()
+    if not selection:
+        raise SystemExit("模型不能为空。")
+    if selection.isdigit():
+        idx = int(selection)
+        if idx < 1 or idx > len(models):
+            raise SystemExit(f"无效编号：{selection}")
+        return models[idx - 1]
+
+    model_dir = Path("runs/arx/models") / selection
+    if not (model_dir / "arx_model.json").is_file():
+        raise SystemExit(f"模型不存在：{model_dir}/arx_model.json")
+    return model_dir
 
 
 def read_ccm_config() -> dict[str, Any]:

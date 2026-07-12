@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from _common import configure_project_root, list_dirs, normalize_run_dir, reexec_with_project_python, run_module
+from _common import choose_path_or_prompt, configure_project_root, list_numbered_dirs, reexec_with_project_python, run_module
 
 
 def main() -> None:
@@ -14,9 +14,9 @@ def main() -> None:
         raise SystemExit("未找到可检查目录。需要目录中包含 timeseries.csv。")
 
     print("当前可检查目录路径：")
-    list_dirs(case_dirs)
-    print("\n请输入要执行的目录路径：")
-    case_dir = normalize_run_dir(input("目录: ").strip())
+    list_numbered_dirs(case_dirs)
+    print("\n请输入目录编号，或直接输入目录路径：")
+    case_dir = choose_path_or_prompt(case_dirs)
 
     run_module(
         "flow_control.star_ingest.step2_check_case",

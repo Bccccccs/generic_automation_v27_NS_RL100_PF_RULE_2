@@ -9,9 +9,9 @@ from pathlib import Path
 
 from _common import (
     configure_project_root,
+    choose_path_or_prompt,
     find_schedule,
-    list_dirs,
-    normalize_run_dir,
+    list_numbered_dirs,
     reexec_with_project_python,
 )
 
@@ -261,9 +261,9 @@ def main() -> None:
         raise SystemExit("未找到 CCM 输出目录。需要 runs/<目录>/out_put。")
 
     print("当前可生成标准 timeseries 的 CCM case 目录路径：")
-    list_dirs(case_dirs)
-    print("\n请输入要执行的目录路径：")
-    case_dir = normalize_run_dir(input("目录: ").strip())
+    list_numbered_dirs(case_dirs)
+    print("\n请输入目录编号，或直接输入目录路径：")
+    case_dir = choose_path_or_prompt(case_dirs)
     if not (case_dir / "out_put").is_dir():
         raise SystemExit(f"未找到 CCM 输出目录：{case_dir}/out_put")
 

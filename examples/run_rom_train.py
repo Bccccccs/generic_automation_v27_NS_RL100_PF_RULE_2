@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 """ARX 降阶模型（ROM）训练完整流程。"""
 
-from _common import configure_project_root, reexec_with_project_python, run_module
+from _common import configure_project_root, prompt_name, reexec_with_project_python, run_module
 
 
 def main() -> None:
     reexec_with_project_python()
     configure_project_root()
-    train_dir = "runs/arx/training"
-    model_dir = "runs/arx/model"
+    model_name = prompt_name("请输入模型名称，例如 train01: ")
+    train_dir = f"runs/arx/trains/{model_name}"
+    model_dir = f"runs/arx/models/{model_name}"
 
     print(f"Generating ROM training dataset -> {train_dir}")
     run_module(
