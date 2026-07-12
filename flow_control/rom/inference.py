@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import yaml
 
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
@@ -163,14 +164,19 @@ def use_arx_rom_on_schedule(
     """
 
     model = ARXModel.from_dict(_read_json(model_path))
+    schedule_file = Path(schedule_path)
     schedule_rows = read_csv_rows(schedule_path)
-    if len(schedule_rows) <= model.max_lag:
-        raise ValueError(f"schedule is too short for max_lag={model.max_lag}: {schedule_path}")
+    resolved_time_step, time_step_source = _resolve_schedule_time_step(
+        schedule_file,
+        explicit_time_step=time_step,
+    )
 
     source_rows = _schedule_source_rows(
         schedule_rows,
-        time_step=time_step,
+        time_step=resolved_time_step,
     )
+    if len(source_rows) <= model.max_lag:
+        raise ValueError(f"schedule is too short for max_lag={model.max_lag}: {schedule_path}")
     inputs = matrix_from_rows(source_rows, ROM_INPUT_COLUMNS)
     initial_outputs = np.zeros((len(source_rows), len(ROM_OUTPUT_COLUMNS)), dtype=float)
     prediction = model.predict_recursive(
@@ -206,7 +212,7 @@ def use_arx_rom_on_schedule(
                     "source_schedule": str(schedule_path),
                     "source_model": str(model_path),
                     "initial_output_policy": "zero warmup history",
-                    "time_step_source": "argument" if time_step is not None else "schedule_window",
+                    "time_step_source": time_step_source,
                 },
                 "timeseries": prediction_rows,
                 "actuation_schedule": schedule_rows,
@@ -217,7 +223,7 @@ def use_arx_rom_on_schedule(
                     "warmup_rows": model.max_lag,
                     "predicted_rows": len(prediction_rows) - model.max_lag,
                     "initial_output_policy": "zero warmup history",
-                    "time_step_source": "argument" if time_step is not None else "schedule_window",
+                    "time_step_source": time_step_source,
                 },
             }
         )
@@ -343,6 +349,49 @@ def _schedule_source_rows(
             record[column] = float(source.get(column, 0.0) or 0.0)
         rows.append(record)
     return rows
+
+
+def _resolve_schedule_time_step(
+    schedule_path: Path,
+    *,
+    explicit_time_step: float | None,
+) -> tuple[float | None, str]:
+    if explicit_time_step is not None:
+        return float(explicit_time_step), "argument"
+    config_time_step = _read_schedule_config_time_step(schedule_path)
+    if config_time_step is not None:
+        return config_time_step, "config_summary"
+    return None, "schedule_window"
+
+
+def _read_schedule_config_time_step(schedule_path: Path) -> float | None:
+    for config_path in _schedule_config_candidates(schedule_path):
+        if not config_path.is_file():
+            continue
+        data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+        if not isinstance(data, dict):
+            continue
+        value = data.get("time_step_seconds")
+        if value is None:
+            value = data.get("time_step")
+        if value is None and isinstance(data.get("actuation"), dict):
+            value = data["actuation"].get("time_step")
+        if value in (None, ""):
+            continue
+        time_step = float(value)
+        if time_step > 0.0:
+            return time_step
+    return None
+
+
+def _schedule_config_candidates(schedule_path: Path) -> list[Path]:
+    parent = schedule_path.parent
+    candidates = [parent / "config_summary.yaml"]
+    if parent.name == "input":
+        candidates.append(parent.parent / "config_summary.yaml")
+    else:
+        candidates.append(parent / "input" / "config_summary.yaml")
+    return candidates
 
 
 def _schedule_time(row: dict[str, str], row_idx: int) -> float:

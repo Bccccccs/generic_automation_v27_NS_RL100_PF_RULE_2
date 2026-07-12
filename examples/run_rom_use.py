@@ -55,7 +55,7 @@ def main() -> None:
     schedule_path = find_schedule(schedule_dir)
     out_dir = schedule_dir.as_posix()
 
-    print("\n请输入 ROM 时间步，直接回车表示使用 schedule 窗口长度：")
+    print("\n请输入 ROM 时间步，直接回车表示读取 config_summary.yaml，缺失时使用 schedule 窗口长度：")
     time_step = input("time_step: ").strip()
 
     print(f"\nUsing ARX ROM on schedule {schedule_path} -> {out_dir}", flush=True)

@@ -202,6 +202,10 @@ def test_use_arx_rom_on_schedule_expands_to_time_step(tmp_path):
     case_dir = tmp_path / "case"
     case_dir.mkdir()
     _write_minimal_case(case_dir, row_count=12)
+    (case_dir / "config_summary.yaml").write_text(
+        "time_step_seconds: 0.02\n",
+        encoding="utf-8",
+    )
     train_result = train_arx_rom_from_case(
         case_dir=case_dir,
         out_dir=tmp_path / "model",
@@ -213,7 +217,6 @@ def test_use_arx_rom_on_schedule_expands_to_time_step(tmp_path):
         model_path=train_result.model_path,
         schedule_path=case_dir / "actuation_schedule.csv",
         out_dir=tmp_path / "prediction_schedule",
-        time_step=0.02,
     )
 
     with result.prediction_timeseries_path.open(encoding="utf-8", newline="") as handle:
@@ -223,6 +226,9 @@ def test_use_arx_rom_on_schedule_expands_to_time_step(tmp_path):
     assert float(rows[1]["physical_time"]) == 0.02
     manifest = json.loads(result.quality_report_path.read_text(encoding="utf-8"))
     assert manifest["check_mode"] == "arx_use"
+    assert "time_step_source: config_summary" in (result.out_dir / "case_manifest.yaml").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_train_dataset_accepts_one_explicit_case_without_reserving_validation_data(tmp_path):

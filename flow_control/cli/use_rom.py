@@ -31,7 +31,10 @@ def main(argv: list[str] | None = None) -> int:
         "--time-step",
         type=float,
         default=None,
-        help="Response sampling dt for expanding a pure schedule into time-step rows.",
+        help=(
+            "Response sampling dt for expanding a pure schedule. "
+            "Defaults to config_summary.yaml time_step_seconds when available."
+        ),
     )
     args = parser.parse_args(argv)
 
