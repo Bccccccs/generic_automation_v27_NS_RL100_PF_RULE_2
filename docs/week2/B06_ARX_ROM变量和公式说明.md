@@ -20,8 +20,9 @@ B06 做的是一个最小输入-输出 ARX ROM。它不是强化学习控制器�
 - `flow_control/cli/train_rom.py`：训练命令行入口。
 - `flow_control/cli/validate_rom.py`：验证命令行入口。
 - `flow_control/cli/summarize_single_jet.py`：独立生成单喷气响应摘要，不参与训练。
-- `examples/train_rom_mock.py`：显式训练集训练示例，只拟合模型。
-- `examples/validate_rom_mock.py`：显式验证集验证示例，只输出验证结果。
+- `examples/run_rom_train.py`：输入模型名，生成训练集并拟合模型。
+- `examples/run_rom_validate.py`：选择模型和验证来源，只输出验证结果。
+- `examples/run_rom_use.py`：选择模型和纯 schedule，生成预测 case 产物。
 
 ## 2. 输入变量
 
@@ -88,6 +89,11 @@ theta = argmin ||X theta - Y||^2 + lambda ||theta||^2
   必须显式指定另一个验证 case/dataset。
   只读取已有 arx_model.json，不重新拟合。
   保存 metrics.json、预测数据和图。
+
+使用入口 use_rom：
+  面向没有真实输出的纯 actuation_schedule。
+  只读取喷气输入，用 arx_model.json 递推生成预测 timeseries。
+  纯 schedule 模式会用 0 初始化前 max_lag 行输出历史。
 ```
 
 dataset 训练时按 `index.csv` 中列出的 case 逐个读取，并使用全部 case。每个 case 内部独立构造滞后特征，历史不会跨 case 边界。训练模块没有 `train_fraction` 参数，也不会保留任何行或 case 进行内部验证。
@@ -99,6 +105,9 @@ dataset 训练时按 `index.csv` 中列出的 case 逐个读取，并使用全�
 3. 不使用未来输出，也不使用当前真实输出预测当前值。
 
 因此验证比“一步预测”更接近后续控制器调用 ROM 的方式。
+
+实际使用 ROM 时可以不提供 `timeseries.csv`，只提供 `actuation_schedule.csv`。
+这种情况下没有真实载荷可用于误差评估，所以它属于 use/prediction，不属于 validate。
 
 ## 6. 如何运行
 
@@ -127,15 +136,15 @@ runs/arx_test/sparse24_seed_20260717/
 
 ```bash
 .venv/bin/python -m flow_control.cli.train_rom \
-  --dataset-dir runs/arx_test \
-  --out runs/rom_mock_demo/model
+  --dataset-dir runs/arx/trains/train01 \
+  --out runs/arx/models/train01
 ```
 
 训练输出：
 
 ```text
-runs/rom_mock_demo/model/arx_model.json
-runs/rom_mock_demo/model/training_summary.json
+runs/arx/models/train01/arx_model.json
+runs/arx/models/train01/training_summary.json
 ```
 
 训练摘要明确记录 `validation_performed: false`。本次 mock 训练使用 100 个 case、8000 行源数据，其中扣除每个 case 的滞后初始化后有 7700 行用于拟合。
@@ -146,7 +155,7 @@ runs/rom_mock_demo/model/training_summary.json
 
 ```bash
 .venv/bin/python -m flow_control.rom.generate_arx_dataset \
-  --out runs/arx_validate \
+  --out runs/arx/vaild_cases/train01 \
   --count 10 \
   --start-seed 20260718 \
   --overwrite
@@ -155,35 +164,35 @@ runs/rom_mock_demo/model/training_summary.json
 默认会生成：
 
 ```text
-runs/arx_validate/sparse24_seed_20260718/
+runs/arx/vaild_cases/train01/sparse24_seed_20260718/
 ...
-runs/arx_validate/sparse24_seed_20260727/
+runs/arx/vaild_cases/train01/sparse24_seed_20260727/
 ```
 
 ### 6.4 验证已有模型
 
 ```bash
 .venv/bin/python -m flow_control.cli.validate_rom \
-  --model runs/rom_mock_demo/model/arx_model.json \
-  --dataset-dir runs/arx_validate \
-  --out runs/rom_mock_demo
+  --model runs/arx/models/train01/arx_model.json \
+  --dataset-dir runs/arx/vaild_cases/train01 \
+  --out runs/arx/validations/train01
 ```
 
 验证输出：
 
 ```text
-runs/rom_mock_demo/metrics.json
-runs/rom_mock_demo/prediction_timeseries.csv
-runs/rom_mock_demo/prediction_6_load_cells.svg
-runs/rom_mock_demo/error_6_load_cells.svg
-runs/rom_mock_demo/rmse_bar.svg
+runs/arx/validations/train01/metrics.json
+runs/arx/validations/train01/prediction_timeseries.csv
+runs/arx/validations/train01/prediction_6_load_cells.svg
+runs/arx/validations/train01/error_6_load_cells.svg
+runs/arx/validations/train01/rmse_bar.svg
 ```
 
 等价的示例脚本：
 
 ```bash
-.venv/bin/python examples/train_rom_mock.py
-.venv/bin/python examples/validate_rom_mock.py
+.venv/bin/python examples/run_rom_validate.py
+.venv/bin/python examples/run_rom_use.py
 ```
 
 单喷气响应摘要也独立运行，不挂在训练命令上：
@@ -201,7 +210,7 @@ runs/rom_mock_demo/rmse_bar.svg
 ```bash
 .venv/bin/python -m flow_control.cli.train_rom \
   --case-dir runs/mock_full_prbs_demo \
-  --out runs/rom_mock_demo/model
+  --out runs/arx/models/manual_prbs_demo
 ```
 
 这会使用该 case 的全部可用行训练，不在 case 内部切分。验证仍必须另行运行 `validate_rom` 并显式提供验证 case 或 dataset。
@@ -233,13 +242,13 @@ runs/rom_mock_demo/rmse_bar.svg
 当前模型：
 
 ```text
-runs/rom_mock_demo/model/arx_model.json
+runs/arx/models/train01/arx_model.json
 ```
 
 验证数据：
 
 ```text
-runs/arx_validate
+runs/arx/vaild_cases/train01
 10 个新 case，770 行验证样本
 ```
 

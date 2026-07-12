@@ -37,7 +37,7 @@ total_mass_flow_curve.svg
 
 ## 六种动作模式
 
-如果要生成计划表并继续运行 mock，使用 `examples` 中的启动脚本：
+如果要交互式选择一种动作并生成计划表，使用 `examples` 中的启动脚本：
 
 ```bash
 python examples/run_one_action.py

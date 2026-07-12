@@ -111,7 +111,7 @@ physical_time、t_start、t_end 都是物理时间秒，不是求解器迭代步
 
 推荐通过 `examples` 中的启动脚本生成动作表。
 
-选择一种动作，生成计划表并运行 mock：
+选择一种动作，只生成计划表：
 
 ```bash
 python examples/run_one_action.py
@@ -122,7 +122,7 @@ python examples/run_one_action.py
 输出写到：
 
 ```text
-runs/mock_<动作名称>/
+runs/<动作名称>/input/
 ```
 
 一次生成全部六种动作：
@@ -222,7 +222,7 @@ STAR / Mock
 
 | 目标 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| 交互式选择动作和运行方式 | `python examples/run_one_action.py` | 推荐入口。先选择 1-6 种喷气激励，再选择 mock 或 CCM。 | mock 输出到 `runs/mock_<动作名称>/`；CCM 输出到 `runs/starccm_<动作名称>/` |
+| 交互式选择并生成单个动作表 | `python examples/run_one_action.py` | 选择 1-6 种喷气激励，只生成 `actuation_schedule.csv`，不运行 plant。 | `runs/<动作名称>/input/` |
 | 一次生成全部动作表 | `python examples/run_all_actions.py` | 只生成 6 种激励的 `actuation_schedule.csv`，不运行 plant。 | `runs/<动作名称>/input/` |
 
 ### 7.2 Mock 本地验证
@@ -270,9 +270,9 @@ configs/ccm_runtime.yaml
 
 | 目标 | 命令 | 说明 | 主要输出 |
 |---|---|---|---|
-| 训练 ARX ROM | `python examples/run_rom_train.py` | 先生成 mock 训练集，再拟合 ARX ROM。 | `runs/arx/training/`、`runs/arx/model/arx_model.json` |
-| 验证 ARX ROM | `python examples/run_rom_validate.py` | 生成独立验证集并计算预测误差。 | `runs/arx/validation/metrics.json`、预测对比图 |
-| 用 ROM 预测已有 case | `python examples/run_rom_use.py` | 选择已有 `timeseries.csv` case，使用已训练模型递推预测。 | `runs/arx/use_<case_name>/` |
+| 训练 ARX ROM | `python examples/run_rom_train.py` | 输入模型名，生成 mock 训练集并拟合 ARX ROM。 | `runs/arx/trains/<模型名>/`、`runs/arx/models/<模型名>/arx_model.json` |
+| 验证 ARX ROM | `python examples/run_rom_validate.py` | 选择模型后，可选已有标准 case 验证，也可自动生成 10 个 mock case 验证。 | `runs/arx/validations/<模型名>/metrics.json`、预测对比图 |
+| 用 ROM 预测 schedule | `python examples/run_rom_use.py` | 选择已有纯 `actuation_schedule.csv` 目录，只用喷气输入递推预测载荷输出。 | 所选原目录中的标准 case 产物和 `figures/*.svg` |
 
 ROM 相关脚本只使用本地 mock 数据和标准 case，不调用历史 `generic_automation/rl/` 代码。
 
@@ -380,12 +380,12 @@ flow_control/star_ingest/COMMANDS.md
   STAR ingest 模块命令说明，一步完成和三步执行入口都在模块内
 
 flow_control/rom/COMMANDS.md
-  ROM 模块命令说明，约定训练数据集在 runs/arx/training，验证数据集在 runs/arx/vaild
+  ROM 模块命令说明，约定多模型目录在 runs/arx/trains、models、vaild_cases、validations 下
 
 docs/FLOW_CONTROL_MODULE_STARTUP_GUIDE.md
   schedule、mock、STAR-CCM+、数据导入/分析和 ARX 各模块启动方式
 
-docs/week2/STARCCM_RUNTIME_REFACTOR.md
+docs/STARCCM_RUNTIME_REFACTOR.md
   STAR-CCM+ runtime 分层和翻译层说明
 ```
 
