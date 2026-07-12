@@ -168,4 +168,4 @@ def test_validate_timeseries_rejects_nonconsecutive_window_id():
 
     errors = CaseSchema.validate_timeseries(rows)
 
-    assert any("window_id must be consecutive" in error for error in errors)
+    assert any("window_id groups must be consecutive" in error for error in errors)

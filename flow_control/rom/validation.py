@@ -85,11 +85,16 @@ def validate_arx_rom(
 
     prediction_parts: list[np.ndarray] = []   # 各案例的预测结果矩阵
     truth_parts: list[np.ndarray] = []         # 各案例的真实值矩阵
+    plot_time_parts: list[np.ndarray] = []     # 连续拼接的验证物理时间轴
     prediction_rows: list[dict[str, Any]] = [] # 用于输出 CSV 的行数据
+    time_axis_offset = 0.0
+    case_time_steps: dict[str, float] = {}
     # 对每个验证案例执行递归预测
     for sequence in sequences:
         inputs = sequence["inputs"]
         outputs = sequence["outputs"]
+        case_time_step = _infer_sequence_time_step(sequence)
+        case_time_steps[str(sequence["case_id"])] = case_time_step
         if len(inputs) <= model.max_lag:
             raise ValueError(f"case {sequence['case_id']} is too short for max_lag={model.max_lag}")
         # 递归预测：前 max_lag 行作为历史初始化，之后递归预测
@@ -98,6 +103,14 @@ def validate_arx_rom(
         truth = outputs[model.max_lag :]       # 与预测对齐的真实值（剔除 warmup 行）
         prediction_parts.append(prediction)
         truth_parts.append(truth)
+        plot_times = _validation_plot_times(
+            sequence["time_values"][model.max_lag :],
+            offset=time_axis_offset,
+            fallback_dt=case_time_step,
+        )
+        plot_time_parts.append(plot_times)
+        if len(plot_times):
+            time_axis_offset = float(plot_times[-1]) + (case_time_step if case_time_step > 0.0 else 1.0)
         _extend_prediction_rows(
             prediction_rows,
             case_id=sequence["case_id"],
@@ -109,6 +122,7 @@ def validate_arx_rom(
     # 拼接所有案例的预测和真实数据
     prediction_all = np.vstack(prediction_parts)
     truth_all = np.vstack(truth_parts)
+    validation_time_axis = np.concatenate(plot_time_parts) if plot_time_parts else np.asarray([], dtype=float)
     metrics = compute_metrics(truth_all, prediction_all, ROM_OUTPUT_COLUMNS)
 
     # 设置输出路径
@@ -132,6 +146,7 @@ def validate_arx_rom(
             "case_count": len(sequences),
             "validation_rows": int(len(truth_all)),
             "warmup_rows_per_case": model.max_lag,
+            "case_time_steps": case_time_steps,
             "case_ids": [sequence["case_id"] for sequence in sequences],
             "input_columns": list(ROM_INPUT_COLUMNS),
             "output_columns": list(ROM_OUTPUT_COLUMNS),
@@ -155,17 +170,16 @@ def validate_arx_rom(
 
     # 生成可视化图表（仅对区域载荷列作图）
     regional_count = len(REGIONAL_OUTPUT_COLUMNS)
-    validation_axis = np.arange(len(truth_all), dtype=float)  # 使用整数索引作为 X 轴
     write_prediction_svg(
         prediction_plot_path,
-        validation_axis,
+        validation_time_axis,
         truth_all[:, :regional_count],
         prediction_all[:, :regional_count],
         REGIONAL_OUTPUT_COLUMNS,
     )
     write_error_svg(
         error_plot_path,
-        validation_axis,
+        validation_time_axis,
         truth_all[:, :regional_count],
         prediction_all[:, :regional_count],
         REGIONAL_OUTPUT_COLUMNS,
@@ -230,6 +244,31 @@ def _load_rom_sequence(case_dir: str | Path) -> dict[str, Any]:
         "inputs": matrix_from_rows(rows, ROM_INPUT_COLUMNS),    # 输入矩阵
         "outputs": matrix_from_rows(rows, ROM_OUTPUT_COLUMNS),  # 输出矩阵
     }
+
+
+def _infer_sequence_time_step(sequence: dict[str, Any]) -> float:
+    time_values = np.asarray(sequence.get("time_values", []), dtype=float)
+    if len(time_values) < 2:
+        return 0.0
+    diffs = np.diff(time_values)
+    positive = diffs[diffs > 1.0e-12]
+    return float(np.median(positive)) if len(positive) else 0.0
+
+
+def _validation_plot_times(
+    time_values: np.ndarray,
+    *,
+    offset: float,
+    fallback_dt: float,
+) -> np.ndarray:
+    if len(time_values) == 0:
+        return np.asarray([], dtype=float)
+    values = np.asarray(time_values, dtype=float)
+    relative = values - values[0]
+    if len(relative) > 1 and np.max(relative) > 0.0:
+        return offset + relative
+    dt = fallback_dt if fallback_dt > 0.0 else 1.0
+    return offset + np.arange(len(values), dtype=float) * dt
 
 
 # 将单个案例的预测结果行扩展到全局预测行列表中

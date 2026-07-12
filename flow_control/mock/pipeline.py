@@ -47,4 +47,5 @@ def run_actuation_to_mock(
         schedule_path=schedule_path,
         config_path=mock_config_path,
         output_dir=output_dir,
+        time_step=actuation_config.time_step,
     )

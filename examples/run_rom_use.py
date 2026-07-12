@@ -55,8 +55,11 @@ def main() -> None:
     schedule_path = find_schedule(schedule_dir)
     out_dir = schedule_dir.as_posix()
 
+    print("\n请输入 ROM 时间步，直接回车表示使用 schedule 窗口长度：")
+    time_step = input("time_step: ").strip()
+
     print(f"\nUsing ARX ROM on schedule {schedule_path} -> {out_dir}", flush=True)
-    run_module(
+    args = [
         "flow_control.cli.use_rom",
         "--model",
         model_path,
@@ -64,7 +67,10 @@ def main() -> None:
         schedule_path.as_posix(),
         "--out",
         out_dir,
-    )
+    ]
+    if time_step:
+        args.extend(["--time-step", time_step])
+    run_module(*args)
 
     print("\nDone. ROM prediction outputs:")
     print(f"{out_dir}/timeseries.csv")

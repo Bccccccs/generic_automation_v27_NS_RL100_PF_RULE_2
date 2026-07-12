@@ -85,6 +85,25 @@ def test_mock_dynamic24x6_fixed_seed_is_reproducible(tmp_path):
     assert left == right
 
 
+def test_mock_dynamic24x6_can_iterate_within_control_windows(tmp_path):
+    schedule_path = tmp_path / "actuation_schedule.csv"
+    _write_schedule(schedule_path)
+    rows = read_actuation_schedule(schedule_path)
+    config = MockDynamic24x6Config(
+        random_seed=321,
+        fz_noise_std=0.0,
+        time_step=0.02,
+    )
+
+    result = MockDynamicPlant24x6(config).simulate(rows)
+    timeseries = result["timeseries"]
+
+    assert len(timeseries) == 25
+    assert [int(float(row["window_id"])) for row in timeseries[:5]] == [0, 0, 0, 0, 0]
+    assert [float(row["physical_time"]) for row in timeseries[:6]] == [0.0, 0.02, 0.04, 0.06, 0.08, 0.1]
+    assert CaseSchema.validate_timeseries(timeseries) == []
+
+
 def test_system_random_seed_drives_mock_config():
     base = MockDynamic24x6Config.from_mapping(
         {"system": {"random_seed": 4321}, "mock_dynamic24x6": {}}

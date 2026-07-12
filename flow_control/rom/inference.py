@@ -23,6 +23,7 @@ import numpy as np
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from flow_control.mock.mock_plant import spatial_nonuniformity, write_plots
+from flow_control.sampling import expand_schedule_rows, infer_time_step, infer_window_duration
 from flow_control.star_ingest.case_data_loader import write_quality_report
 from starccm.control.control_spec import GLOBAL_OUTPUT_COLUMNS, JET_COLUMNS
 
@@ -110,7 +111,7 @@ def use_arx_rom_on_case(
                     "gap": 0.0,
                     "time_step": _infer_time_step(rows),  # 从数据推断时间步长
                     "jet_amplitude": _max_total_massflow(schedule_rows),  # 喷射器最大总质量流量
-                    "window_duration": _infer_time_step(rows),
+                    "window_duration": infer_window_duration(rows),
                     "random_seed": 0,
                     "case_stage": "arx_model_use",
                     "check_mode": "arx_use",
@@ -151,6 +152,7 @@ def use_arx_rom_on_schedule(
     model_path: str | Path,
     schedule_path: str | Path,
     out_dir: str | Path,
+    time_step: float | None = None,
 ) -> ARXUseResult:
     """Run a trained ARX model on a pure actuation schedule.
 
@@ -165,7 +167,10 @@ def use_arx_rom_on_schedule(
     if len(schedule_rows) <= model.max_lag:
         raise ValueError(f"schedule is too short for max_lag={model.max_lag}: {schedule_path}")
 
-    source_rows = _schedule_source_rows(schedule_rows)
+    source_rows = _schedule_source_rows(
+        schedule_rows,
+        time_step=time_step,
+    )
     inputs = matrix_from_rows(source_rows, ROM_INPUT_COLUMNS)
     initial_outputs = np.zeros((len(source_rows), len(ROM_OUTPUT_COLUMNS)), dtype=float)
     prediction = model.predict_recursive(
@@ -194,13 +199,14 @@ def use_arx_rom_on_schedule(
                     "gap": 0.0,
                     "time_step": _infer_time_step(source_rows),
                     "jet_amplitude": _max_total_massflow(schedule_rows),
-                    "window_duration": _infer_time_step(source_rows),
+                    "window_duration": infer_window_duration(schedule_rows),
                     "random_seed": 0,
                     "case_stage": "arx_model_use_from_schedule",
                     "check_mode": "arx_use",
                     "source_schedule": str(schedule_path),
                     "source_model": str(model_path),
                     "initial_output_policy": "zero warmup history",
+                    "time_step_source": "argument" if time_step is not None else "schedule_window",
                 },
                 "timeseries": prediction_rows,
                 "actuation_schedule": schedule_rows,
@@ -211,6 +217,7 @@ def use_arx_rom_on_schedule(
                     "warmup_rows": model.max_lag,
                     "predicted_rows": len(prediction_rows) - model.max_lag,
                     "initial_output_policy": "zero warmup history",
+                    "time_step_source": "argument" if time_step is not None else "schedule_window",
                 },
             }
         )
@@ -316,7 +323,15 @@ def _read_schedule_rows(case_dir: str | Path) -> list[dict[str, str]]:
     ]
 
 
-def _schedule_source_rows(schedule_rows: list[dict[str, str]]) -> list[dict[str, Any]]:
+def _schedule_source_rows(
+    schedule_rows: list[dict[str, str]],
+    *,
+    time_step: float | None = None,
+) -> list[dict[str, Any]]:
+    schedule_rows = expand_schedule_rows(
+        schedule_rows,
+        time_step=time_step,
+    )
     rows: list[dict[str, Any]] = []
     for row_idx, source in enumerate(schedule_rows):
         record: dict[str, Any] = dict(source)
@@ -493,7 +508,7 @@ def _write_rom_summary(
 def _infer_time_step(rows: list[dict[str, str]]) -> float:
     if len(rows) < 2:
         return 0.0
-    return float(rows[1].get("physical_time", 0.0)) - float(rows[0].get("physical_time", 0.0))
+    return infer_time_step(rows)
 
 
 # 计算所有行中 24 个质量流量命令之和的最大值，用于 manifest 中的 jet_amplitude

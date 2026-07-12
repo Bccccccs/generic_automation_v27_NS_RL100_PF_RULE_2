@@ -48,6 +48,7 @@ class ActuationConfig:
     mass_flow_rate: float = 1.0    # 单喷口质量流量幅值 (kg/s)
     command_amplitude: float | None = None  # 命令幅值（与 mass_flow_rate 同义）
     window_duration: float = 0.1   # 每个时间窗口的持续时间（秒）
+    time_step: float = 0.1         # ROM/Mock/CCM 输出响应采样时间步（秒）
     random_seed: int = 20260618    # 随机种子，保证可复现性
     output_dir: Path = Path("runs/schedule_examples/sparse24")  # 输出目录
     total_windows: int = 10        # 总窗口数（对 sparse_groups 按 n_excitation + n_reference 计算）
@@ -83,6 +84,8 @@ class ActuationConfig:
             object.__setattr__(self, "command_amplitude", float(self.mass_flow_rate))
         if not isinstance(self.output_dir, Path):
             object.__setattr__(self, "output_dir", Path(self.output_dir))
+        if self.time_step <= 0.0:
+            object.__setattr__(self, "time_step", float(self.window_duration))
 
     @property
     def jet_names(self) -> list[str]:
@@ -165,6 +168,7 @@ class ActuationConfig:
                 actuation.get("mass_flow_rate", actuation.get("command_amplitude", 1.0))
             ),
             window_duration=float(actuation.get("window_duration", 0.1)),
+            time_step=float(actuation.get("time_step", actuation.get("window_duration", 0.1))),
             random_seed=int(actuation.get("random_seed", system.get("random_seed", 20260618))),
             output_dir=Path(output.get("run_dir", f"runs/schedule_examples/{mode}")),
             total_windows=total_windows,
@@ -312,6 +316,7 @@ def write_config_summary(
         "n_jets": config.n_jets,
         "total_windows": table.n_windows,
         "window_duration_seconds": config.window_duration,
+        "time_step_seconds": config.time_step,
         "mass_flow_rate": config.mass_flow_rate,
         "max_active_jets_observed": max((sum(row) for row in table.switches), default=0),
         "max_total_mass_flow_observed": max(total_massflows, default=0.0),

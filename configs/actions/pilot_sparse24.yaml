@@ -6,6 +6,7 @@ actuation:
   n_reference_windows: 8
   mass_flow_rate: 1.0
   window_duration: 0.1
+  time_step: 0.05
   max_consecutive_on: 2
   equal_activation_count: true
 

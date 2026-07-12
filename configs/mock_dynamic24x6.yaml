@@ -17,6 +17,9 @@ mock_dynamic24x6:
   tau_s2: 0.14
   tau_s3: 0.18
 
+  # Response sampling time step. 0.0 falls back to the actuation window length.
+  time_step: 0.0
+
   # Small reproducible noise.
   fz_noise_std: 0.035
   drag_noise_std: 0.01

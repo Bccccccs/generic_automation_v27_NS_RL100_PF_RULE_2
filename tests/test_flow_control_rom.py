@@ -9,6 +9,7 @@ from flow_control.rom import (
     train_arx_rom_from_dataset,
     train_arx_rom_from_case,
     use_arx_rom_on_case,
+    use_arx_rom_on_schedule,
     validate_arx_rom,
 )
 from flow_control.rom.generate_arx_dataset import generate_arx_sparse24_dataset
@@ -71,6 +72,11 @@ def test_generate_arx_sparse24_dataset_runs_schedule_and_mock(tmp_path):
         assert (case_dir / "actuation_schedule.csv").exists()
         assert (case_dir / "timeseries.csv").exists()
         assert (case_dir / "quality_report.json").exists()
+        with (case_dir / "timeseries.csv").open(encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        assert len(rows) == 160
+        assert float(rows[1]["physical_time"]) == 0.05
+        assert record["time_step"] == 0.05
 
 
 def test_generate_arx_sparse24_dataset_defaults_to_one_seed_per_case(tmp_path):
@@ -112,6 +118,7 @@ def test_generate_arx_sparse24_dataset_reads_seed_from_system_config(tmp_path):
         encoding="utf-8"
     )
     assert "system:\n  random_seed: 901" in mock_config
+    assert "time_step: 0.05" in mock_config
     assert "mock_dynamic24x6:\n  random_seed:" not in mock_config
 
 
@@ -146,12 +153,12 @@ def test_train_dataset_and_validate_existing_model_are_separate(tmp_path):
     )
 
     assert train_result.train_cases == 2
-    assert train_result.source_rows == 160
-    assert train_result.fit_rows == 156
+    assert train_result.source_rows == 320
+    assert train_result.fit_rows == 316
     assert train_result.model_path.exists()
     assert train_result.training_summary_path.exists()
     assert validate_result.case_count == 1
-    assert validate_result.validation_rows == 78
+    assert validate_result.validation_rows == 158
     assert validate_result.metrics_path.exists()
     assert validate_result.prediction_csv_path.exists()
     metrics = json.loads(validate_result.metrics_path.read_text(encoding="utf-8"))
@@ -185,10 +192,37 @@ def test_use_arx_rom_writes_checked_prediction_case(tmp_path):
     assert result.prediction_timeseries_path.exists()
     assert result.quality_report_path.exists()
     assert result.warmup_rows == 2
-    assert result.predicted_rows == 78
+    assert result.predicted_rows == 158
     report = json.loads(result.quality_report_path.read_text(encoding="utf-8"))
     assert report["check_mode"] == "arx_use"
     assert report["run_success_flag"] is True
+
+
+def test_use_arx_rom_on_schedule_expands_to_time_step(tmp_path):
+    case_dir = tmp_path / "case"
+    case_dir.mkdir()
+    _write_minimal_case(case_dir, row_count=12)
+    train_result = train_arx_rom_from_case(
+        case_dir=case_dir,
+        out_dir=tmp_path / "model",
+        input_lags=1,
+        output_lags=1,
+    )
+
+    result = use_arx_rom_on_schedule(
+        model_path=train_result.model_path,
+        schedule_path=case_dir / "actuation_schedule.csv",
+        out_dir=tmp_path / "prediction_schedule",
+        time_step=0.02,
+    )
+
+    with result.prediction_timeseries_path.open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 56
+    assert [int(float(row["window_id"])) for row in rows[:5]] == [0, 0, 0, 0, 0]
+    assert float(rows[1]["physical_time"]) == 0.02
+    manifest = json.loads(result.quality_report_path.read_text(encoding="utf-8"))
+    assert manifest["check_mode"] == "arx_use"
 
 
 def test_train_dataset_accepts_one_explicit_case_without_reserving_validation_data(tmp_path):
@@ -210,8 +244,8 @@ def test_train_dataset_accepts_one_explicit_case_without_reserving_validation_da
 
     assert result.train_cases == 1
     assert result.case_ids == ("sparse24_seed_601",)
-    assert result.source_rows == 80
-    assert result.fit_rows == 78
+    assert result.source_rows == 160
+    assert result.fit_rows == 158
 
 
 def _write_minimal_case(case_dir, row_count: int) -> None:

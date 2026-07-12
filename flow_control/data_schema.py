@@ -236,11 +236,17 @@ class CaseSchema:
             except (TypeError, ValueError):
                 errors.append("window_id must be integer-like for every row")
             else:
-                expected = list(range(window_ids[0], window_ids[0] + len(window_ids)))
-                if window_ids != expected:
+                if any(right < left for left, right in zip(window_ids, window_ids[1:])):
+                    errors.append("window_id must be non-decreasing in row order")
+                unique_window_ids: list[int] = []
+                for window_id in window_ids:
+                    if not unique_window_ids or unique_window_ids[-1] != window_id:
+                        unique_window_ids.append(window_id)
+                expected = list(range(unique_window_ids[0], unique_window_ids[0] + len(unique_window_ids)))
+                if unique_window_ids != expected:
                     errors.append(
-                        "window_id must be consecutive with step 1 in row order "
-                        f"(expected {expected[0]}..{expected[-1]}, got {window_ids[0]}..{window_ids[-1]})"
+                        "window_id groups must be consecutive with step 1 in row order "
+                        f"(expected {expected[0]}..{expected[-1]}, got {unique_window_ids[0]}..{unique_window_ids[-1]})"
                     )
 
         return errors

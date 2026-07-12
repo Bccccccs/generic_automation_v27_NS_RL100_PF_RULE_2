@@ -3,6 +3,7 @@ actuation:
   n_jets: 24
   total_windows: 30000
   window_duration: 1.0e-4
+  time_step: 1.0e-4
   mass_flow_rate: 0.0
 
 output:

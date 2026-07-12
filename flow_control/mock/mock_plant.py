@@ -18,7 +18,7 @@ from __future__ import annotations
 import csv
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +28,7 @@ import yaml
 from flow_control.config import load_config_with_system_defaults
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.sampling import expand_schedule_rows, infer_time_step, infer_window_duration
 from flow_control.star_ingest.case_data_loader import write_quality_report
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
@@ -60,6 +61,8 @@ class MockDynamic24x6Config:
     fz_noise_std: float = 0.035
     drag_noise_std: float = 0.01
     moment_noise_std: float = 0.015
+    # Response sampling time step. 0.0 falls back to the actuation window length.
+    time_step: float = 0.0
     # 派生全局量的简化系数。
     drag_base: float = 0.0
     drag_massflow_gain: float = 0.35
@@ -119,19 +122,20 @@ class MockDynamicPlant24x6:
         if not schedule_rows:
             raise ValueError("actuation_schedule.csv must contain at least one row")
 
-        physical_time = np.asarray([float(row["physical_time"]) for row in schedule_rows])
-        window_id = np.asarray([int(float(row["window_id"])) for row in schedule_rows])
-        dt_values = _infer_dt_values(schedule_rows, physical_time)
+        sample_rows = expand_schedule_rows(schedule_rows, time_step=self.config.time_step)
+        physical_time = np.asarray([float(row["physical_time"]) for row in sample_rows])
+        window_id = np.asarray([int(float(row["window_id"])) for row in sample_rows])
+        dt_values = _infer_dt_values(sample_rows, physical_time)
 
         # switches 是阀门是否打开；massflows 是每个喷口的指令质量流量。
         # 二者相乘后才是实际参与 mock 计算的 24 路有效喷气输入。
-        switches = _rows_to_matrix(schedule_rows, JET_COLUMNS)
-        massflows = _rows_to_matrix(schedule_rows, MASSFLOW_COLUMNS, fallback=switches)
+        switches = _rows_to_matrix(sample_rows, JET_COLUMNS)
+        massflows = _rows_to_matrix(sample_rows, MASSFLOW_COLUMNS, fallback=switches)
         effective_input = switches * massflows
 
         # targets 是“空间耦合 + 延迟”之后的目标载荷，尚未经过惯性平滑。
         targets = self._build_delayed_targets(effective_input, dt_values)
-        outputs = np.zeros((len(schedule_rows), len(LOAD_COLUMNS)), dtype=float)
+        outputs = np.zeros((len(sample_rows), len(LOAD_COLUMNS)), dtype=float)
         state = np.zeros(len(LOAD_COLUMNS), dtype=float)
 
         for row_idx, target in enumerate(targets):
@@ -145,6 +149,7 @@ class MockDynamicPlant24x6:
 
         totals = self._derived_outputs(outputs, effective_input)
         rows = self._timeseries_rows(
+            sample_rows,
             physical_time,
             window_id,
             switches,
@@ -156,6 +161,7 @@ class MockDynamicPlant24x6:
         return {
             "timeseries": rows,
             "schedule": schedule_rows,
+            "sample_rows": sample_rows,
             "physical_time": physical_time,
             "inputs": effective_input,
             "outputs": outputs,
@@ -285,6 +291,7 @@ class MockDynamicPlant24x6:
 
     def _timeseries_rows(
         self,
+        sample_rows: list[dict[str, Any]],
         physical_time: np.ndarray,
         window_id: np.ndarray,
         switches: np.ndarray,
@@ -353,6 +360,7 @@ def write_mock_dynamic_case(
     schedule_path: str | Path,
     config_path: str | Path,
     output_dir: str | Path,
+    time_step: float | None = None,
 ) -> dict[str, Any]:
     """运行一次完整 mock case，并写出标准目录。
 
@@ -366,6 +374,8 @@ def write_mock_dynamic_case(
     """
     raw_config = load_config(config_path)
     config = MockDynamic24x6Config.from_mapping(raw_config)
+    if time_step is not None:
+        config = replace(config, time_step=float(time_step))
     schedule_rows = read_actuation_schedule(schedule_path)
     result = MockDynamicPlant24x6(config).simulate(schedule_rows)
     run_dir = Path(output_dir)
@@ -378,9 +388,9 @@ def write_mock_dynamic_case(
         "mesh_version": "not-applicable",
         "flow_velocity": float(raw_config.get("flow_velocity", 0.0)),
         "gap": float(raw_config.get("gap", 0.0)),
-        "time_step": _manifest_time_step(schedule_rows),
+        "time_step": _manifest_time_step(result["sample_rows"]),
         "jet_amplitude": _max_total_massflow(schedule_rows),
-        "window_duration": _manifest_time_step(schedule_rows),
+        "window_duration": _manifest_window_duration(schedule_rows),
         "random_seed": config.random_seed,
         "case_stage": "mock_dynamic24x6",
         "check_mode": "mock",
@@ -622,9 +632,16 @@ def _infer_dt_values(rows: list[dict[str, Any]], physical_time: np.ndarray) -> n
 def _manifest_time_step(rows: list[dict[str, Any]]) -> float:
     if not rows:
         return 0.0
+    inferred = infer_time_step(rows)
+    if inferred > 0.0:
+        return inferred
     if "t_start" in rows[0] and "t_end" in rows[0]:
         return float(rows[0]["t_end"]) - float(rows[0]["t_start"])
     return 1.0
+
+
+def _manifest_window_duration(rows: list[dict[str, Any]]) -> float:
+    return infer_window_duration(rows)
 
 
 def _max_total_massflow(rows: list[dict[str, Any]]) -> float:

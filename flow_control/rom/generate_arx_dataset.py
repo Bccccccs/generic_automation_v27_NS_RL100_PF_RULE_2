@@ -137,6 +137,7 @@ def generate_arx_sparse24_dataset(
         mock_config_path,
         system_config_path=system_config_path,
     )
+    actuation_time_step = _actuation_time_step(base_actuation)
 
     records: list[dict[str, Any]] = []
     for idx in range(count):
@@ -156,6 +157,7 @@ def generate_arx_sparse24_dataset(
         _write_mock_config(
             base_config=base_mock,
             global_seed=global_seed,
+            time_step=actuation_time_step,
             path=mock_config_used,
         )
         # 步骤3：运行 MockDynamic24x6 仿真生成 timeseries.csv
@@ -163,6 +165,7 @@ def generate_arx_sparse24_dataset(
             schedule_path=case_dir / "input" / "actuation_schedule.csv",
             config_path=mock_config_used,
             output_dir=case_dir,
+            time_step=actuation_time_step,
         )
 
         # 记录该案例的元数据到索引
@@ -172,6 +175,7 @@ def generate_arx_sparse24_dataset(
             "global_seed": global_seed,
             "schedule_seed": global_seed,       # 调度表和 Mock 使用相同种子
             "mock_seed": global_seed,
+            "time_step": actuation_time_step,
             "case_dir": str(case_dir),
             "schedule_dir": str(case_dir / "input"),
             "schedule_path": str(case_dir / "input" / "actuation_schedule.csv"),
@@ -231,16 +235,34 @@ def _write_mock_config(
     *,
     base_config: dict[str, Any],  # 基础 Mock 配置
     global_seed: int,             # 全局随机种子
+    time_step: float,             # 从 actuation YAML 读取的响应采样时间步
     path: Path,                   # 输出的 YAML 文件路径
 ) -> None:
     config = deepcopy(base_config)
     config.setdefault("system", {})["random_seed"] = int(global_seed)
-    config.setdefault("mock_dynamic24x6", {}).pop("random_seed", None)
+    mock_section = config.setdefault("mock_dynamic24x6", {})
+    mock_section.pop("random_seed", None)
+    mock_section["time_step"] = float(time_step)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         yaml.safe_dump(config, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
+
+
+def _actuation_time_step(config: dict[str, Any]) -> float:
+    actuation = config.get("actuation", {}) if isinstance(config, dict) else {}
+    time_step = actuation.get("time_step", actuation.get("window_duration", 0.0))
+    try:
+        value = float(time_step)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"actuation.time_step must be numeric, got {time_step!r}") from exc
+    if value <= 0.0:
+        window_duration = float(actuation.get("window_duration", 0.0))
+        if window_duration <= 0.0:
+            raise ValueError("actuation.time_step or actuation.window_duration must be positive")
+        return window_duration
+    return value
 
 
 # 生成数据集的索引文件 index.csv 和 index.json

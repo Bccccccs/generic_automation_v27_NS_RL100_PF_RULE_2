@@ -27,6 +27,7 @@ from .identifier import (
     ROM_OUTPUT_COLUMNS,
     load_case_table,
     matrix_from_rows,
+    time_values_from_rows,
     write_json,
 )
 
@@ -203,6 +204,10 @@ def _persist_training(
     model_path = output_path / "arx_model.json"
     training_summary_path = output_path / "training_summary.json"
     case_ids = tuple(str(sequence["case_id"]) for sequence in sequences)
+    case_time_steps = {
+        str(sequence["case_id"]): _infer_sequence_time_step(sequence)
+        for sequence in sequences
+    }
 
     # 将模型序列化为字典，附加训练数据元信息
     model_payload = model.to_dict()
@@ -212,6 +217,7 @@ def _persist_training(
         "case_ids": list(case_ids),
         "source_rows": source_rows,
         "fit_rows": fit_rows,
+        "case_time_steps": case_time_steps,
         "fit_policy": "all usable rows from the explicitly supplied training set; no internal split",
     }
     write_json(model_path, model_payload)
@@ -228,6 +234,7 @@ def _persist_training(
             "case_ids": list(case_ids),
             "source_rows": source_rows,
             "fit_rows": fit_rows,
+            "case_time_steps": case_time_steps,
             "lag_context_rows_per_case": model.max_lag,  # 每个案例因滞后损失的行数
             "input_columns": list(ROM_INPUT_COLUMNS),
             "output_columns": list(ROM_OUTPUT_COLUMNS),
@@ -287,6 +294,16 @@ def _load_rom_sequence(case_dir: str | Path) -> dict[str, Any]:
         )
     return {
         "case_id": Path(case_dir).name,                             # 案例 ID = 目录名
+        "time_values": time_values_from_rows(rows),                 # 物理时间轴，用于记录 timestep
         "inputs": matrix_from_rows(rows, ROM_INPUT_COLUMNS),       # 输入矩阵 [N_steps x N_inputs]
         "outputs": matrix_from_rows(rows, ROM_OUTPUT_COLUMNS),     # 输出矩阵 [N_steps x N_outputs]
     }
+
+
+def _infer_sequence_time_step(sequence: dict[str, Any]) -> float:
+    time_values = sequence.get("time_values")
+    if time_values is None or len(time_values) < 2:
+        return 0.0
+    diffs = np.diff(np.asarray(time_values, dtype=float))
+    positive = diffs[diffs > 1.0e-12]
+    return float(np.median(positive)) if len(positive) else 0.0

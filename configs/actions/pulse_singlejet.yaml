@@ -3,6 +3,7 @@ actuation:
   n_jets: 24
   total_windows: 10
   window_duration: 0.1
+  time_step: 0.1
   mass_flow_rate: 0.02
   jet_ids: [3]
   pulse_windows: [1]

@@ -27,6 +27,12 @@ def main(argv: list[str] | None = None) -> int:
     source.add_argument("--schedule", help="Pure actuation_schedule.csv input; outputs are predicted from zero warmup history.")
     parser.add_argument("--runs-root", default="runs", help="Root for --case-id inputs.")
     parser.add_argument("--out", required=True, help="Output prediction case directory.")
+    parser.add_argument(
+        "--time-step",
+        type=float,
+        default=None,
+        help="Response sampling dt for expanding a pure schedule into time-step rows.",
+    )
     args = parser.parse_args(argv)
 
     if args.schedule:
@@ -34,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
             model_path=args.model,
             schedule_path=args.schedule,
             out_dir=args.out,
+            time_step=args.time_step,
         )
     else:
         case_dir = (

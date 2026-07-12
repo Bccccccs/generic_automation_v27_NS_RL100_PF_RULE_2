@@ -240,6 +240,10 @@ python examples/run_rom_use.py
 
 因为纯 schedule 没有真实载荷历史，ARX 会用 0 初始化前 `max_lag` 行输出历史，然后从第 `max_lag` 行开始递推预测。
 
+ROM 的离散索引是时间步样本编号，不是喷气窗口编号。纯 schedule
+预测时可以输入 `time_step`；留空表示使用 schedule 窗口长度，
+填写例如 `0.01` 会把每个喷气窗口按 0.01 s 展开成多行样本。
+
 ## 6. 常见质量检查样例
 
 本地 `runs/` 下可以放错误样例，用来测试检查器。例如：
