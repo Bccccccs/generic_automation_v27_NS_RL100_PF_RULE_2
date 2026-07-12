@@ -1,0 +1,15 @@
+{
+  "case_id": "error_case_missing_required_column",
+  "num_errors": 1,
+  "num_warnings": 0,
+  "errors": [
+    "Missing required column: Fz_Total"
+  ],
+  "warnings": [],
+  "has_jet_data": true,
+  "check_mode": "ccm",
+  "validation_mode": "full_case",
+  "num_timeseries_rows": 5,
+  "num_timeseries_columns": 86,
+  "run_success_flag": false
+}
