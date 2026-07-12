@@ -1,0 +1,19 @@
+geometry_version: error-case-fixture
+mesh_version: not-applicable
+flow_velocity: 0.0
+gap: 0.0
+time_step: 0.1
+jet_amplitude: 0.25
+window_duration: 0.1
+random_seed: 0
+git_commit: fixture
+created_time: '2026-07-12T11:19:15.791731+00:00'
+case_stage: error_case_fixture
+check_mode: star_ingest
+validation_mode: full_case
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+sign_convention: synthetic error fixture for quality-check testing
+notes: 'Intentional invalid fixture: error_case_missing_actual_massflow'
