@@ -37,9 +37,9 @@ python3 -m venv .venv
 
 ```bash
 mkdir -p runs/week3_clean_star_ingest/input runs/week3_clean_star_ingest/out_put
-cp '0709实验结果/ccm_runs/pulse_singlejet_test/actuation_schedule.csv' \
+cp runs/B31_source_star_export/input/actuation_schedule.csv \
   runs/week3_clean_star_ingest/input/actuation_schedule.csv
-cp '0709实验结果/ccm_runs/pulse_singlejet_test/'*_image.csv \
+cp runs/B31_source_star_export/out_put/*.csv \
   runs/week3_clean_star_ingest/out_put/
 
 printf 'runs/week3_clean_star_ingest\n' | .venv/bin/python examples/run_ccm_ingest_step1_timeseries.py

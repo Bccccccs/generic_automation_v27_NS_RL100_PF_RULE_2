@@ -13,6 +13,7 @@
 - `docs/README_real_data.md`: real data workflow README.
 - `docs/B01_reproduce_from_clean_clone.md`: clean clone reproduction commands and result notes.
 - `logs/pytest_week3_start.log`: full clean clone install, ingest, quality check, and pytest log.
+- `../../runs/B31_source_star_export/`: tracked STAR export input used for the clean clone reproduction.
 - `clean_clone_schedule_input/`: generated action schedule outputs from the clean clone.
 - `clean_clone_standard_case/`: standard case produced by reorganizing existing STAR CSV outputs in the clean clone.
 
