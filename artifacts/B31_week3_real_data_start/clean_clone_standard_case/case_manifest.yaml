@@ -1,0 +1,20 @@
+geometry_version: starccm-runtime
+mesh_version: unknown
+git_commit: 966489e34e372f0439dc6b93db99a82651e95292
+flow_velocity: 0.0
+gap: 0.0
+time_step: 0.1
+jet_amplitude: 0.02
+window_duration: 0.1
+random_seed: 0
+case_type: jet_on
+case_stage: starccm_output_ingest
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+sign_convention: positive values follow the STAR-CCM+ monitor export convention
+check_mode: ccm
+validation_mode: full_case
+source_product_dir: runs/week3_clean_star_ingest/out_put
+source_schedule: runs/week3_clean_star_ingest/input/actuation_schedule.csv
