@@ -1,11 +1,11 @@
 geometry_version: starccm-runtime
 mesh_version: unknown
-git_commit: 966489e34e372f0439dc6b93db99a82651e95292
+git_commit: 6918c023f00cfca1c5e319d89f958f083b8e68a7
 flow_velocity: 0.0
 gap: 0.0
-time_step: 0.1
-jet_amplitude: 0.02
-window_duration: 0.1
+time_step: 0.0001
+jet_amplitude: 2.57
+window_duration: 0.0001
 random_seed: 0
 case_type: jet_on
 case_stage: starccm_output_ingest

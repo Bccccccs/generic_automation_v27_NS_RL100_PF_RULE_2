@@ -7,16 +7,16 @@
   "has_jet_data": true,
   "check_mode": "ccm",
   "validation_mode": "full_case",
-  "num_timeseries_rows": 10,
+  "num_timeseries_rows": 30000,
   "num_timeseries_columns": 87,
   "run_success_flag": true,
   "source_files": [
-    "runs/week3_clean_star_ingest/out_put/Drag_Monitor_绘图_image.csv",
-    "runs/week3_clean_star_ingest/out_put/FZ_image.csv",
-    "runs/week3_clean_star_ingest/out_put/Fz_Monitor_绘图_image.csv",
-    "runs/week3_clean_star_ingest/out_put/Jet_Reaction_Z_Monitor_绘图_image.csv",
-    "runs/week3_clean_star_ingest/out_put/Pitch_Moment_Monitor_绘图_image.csv",
-    "runs/week3_clean_star_ingest/out_put/Roll_Moment_Monitor_绘图_image.csv"
+    "runs/week3_clean_star_ingest/out_put/Drag_Monitor_绘图_image_30000.csv",
+    "runs/week3_clean_star_ingest/out_put/FZ_image_30000.csv",
+    "runs/week3_clean_star_ingest/out_put/Fz_Monitor_绘图_image_30000.csv",
+    "runs/week3_clean_star_ingest/out_put/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
+    "runs/week3_clean_star_ingest/out_put/Pitch_Moment_Monitor_绘图_image_30000.csv",
+    "runs/week3_clean_star_ingest/out_put/Roll_Moment_Monitor_绘图_image_30000.csv"
   ],
   "star_column_mapping": {
     "physical_time": "时间",

@@ -5,8 +5,8 @@
 - Week 2 final commit: `fe48df1c9b92279c3e10ccd560cf506372df99b7`
 - Week 2 tag: `week2_final_b31`
 - Week 3 branch: `week3_real_data`
-- Clean clone verified commit: `966489e34e372f0439dc6b93db99a82651e95292`
-- Source reproduction commit: `44287c8058d8920942a27b1169d233ac602e209e`
+- Clean clone verified commit: `6918c023f00cfca1c5e319d89f958f083b8e68a7`
+- Source reproduction commit: `6918c023f00cfca1c5e319d89f958f083b8e68a7`
 
 ## Contents
 
@@ -20,7 +20,7 @@
 ## Verification Summary
 
 - Clean clone branch: `week3_real_data`
-- Clean clone pytest: `80 passed in 8.20s`
+- Clean clone pytest: `80 passed in 8.68s`
 - STAR output quality check: `quality_report_errors=0`, `quality_report_warnings=0`
-- Generated schedule provenance: `git_commit=966489e34e372f0439dc6b93db99a82651e95292`
-- Standard case provenance: `git_commit=966489e34e372f0439dc6b93db99a82651e95292`
+- Generated schedule provenance: `git_commit=6918c023f00cfca1c5e319d89f958f083b8e68a7`
+- Standard case provenance: `git_commit=6918c023f00cfca1c5e319d89f958f083b8e68a7`

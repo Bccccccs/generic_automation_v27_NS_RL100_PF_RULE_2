@@ -5,17 +5,17 @@
 - 第二周最终 commit: `fe48df1c9b92279c3e10ccd560cf506372df99b7`
 - 第二周 Git tag: `week2_final_b31`
 - 第三周工作分支: `week3_real_data`
-- 本次 clean clone 验证 commit: `966489e34e372f0439dc6b93db99a82651e95292`
-- clean clone 目录: `/Users/yanbochao/week3_b31_clean_clone_20260727074419`
+- 本次 clean clone 验证 commit: `6918c023f00cfca1c5e319d89f958f083b8e68a7`
+- clean clone 目录: `/Users/yanbochao/week3_b31_runs_clean_clone_20260727075455`
 
 ## 复现命令
 
 ```bash
 git clone --branch week3_real_data \
   /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2 \
-  /Users/yanbochao/week3_b31_clean_clone_20260727074419
+  /Users/yanbochao/week3_b31_runs_clean_clone_20260727075455
 
-cd /Users/yanbochao/week3_b31_clean_clone_20260727074419
+cd /Users/yanbochao/week3_b31_runs_clean_clone_20260727075455
 git branch --show-current
 git rev-parse HEAD
 git rev-list -n 1 week2_final_b31
@@ -77,8 +77,8 @@ PY
 - 动作表生成成功: `runs/week3_clean_schedule/input/actuation_schedule.csv`
 - STAR 输出整理成功: `runs/week3_clean_star_ingest/timeseries.csv`
 - 质量检查通过: `quality_report_errors=0`, `quality_report_warnings=0`
-- 测试通过: `80 passed in 8.20s`
-- 动作表 `config_summary.yaml` 记录 `git_commit=966489e34e372f0439dc6b93db99a82651e95292`
-- 标准 case `case_manifest.yaml` 记录 `git_commit=966489e34e372f0439dc6b93db99a82651e95292`
+- 测试通过: `80 passed in 8.68s`
+- 动作表 `config_summary.yaml` 记录 `git_commit=6918c023f00cfca1c5e319d89f958f083b8e68a7`
+- 标准 case `case_manifest.yaml` 记录 `git_commit=6918c023f00cfca1c5e319d89f958f083b8e68a7`
 
 完整运行日志见 `pytest_week3_start.log`。
