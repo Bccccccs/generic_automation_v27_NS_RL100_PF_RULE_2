@@ -3,8 +3,8 @@ adapter: starccm
 result_root: ../results_validation
 case_name: validation_phase2_mesh_only_20260610T034023Z
 
-starccm_path: "/work/home/acn6k38urd/apprepo/starccmplus/17.06.007-none/app/17.06.007-R8/STAR-CCM+17.06.007-R8/star/bin/starccm_wrapper"
-template_sim: /work/home/acn6k38urd/CSU-ML/Code_tmp/RL_sim/AMG.sim
+starccm_path: "starccm+"
+template_sim: ""
 num_cores: 128
 pod_key: ""
 

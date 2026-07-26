@@ -26,7 +26,7 @@ python3 --version
 在项目根目录执行：
 
 ```bash
-cd /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2
+cd <repo-root>
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -85,16 +85,17 @@ PY
 
 STAR-CCM+ 不能通过 `pip` 安装，需要已有安装包、许可证和集群/服务器环境。
 
-当前 `configs/config.yaml` 中的路径示例：
+当前 `configs/config.yaml` 使用不绑定个人机器的默认值：
 
 ```yaml
-starccm_path: "/work/home/acn6k38urd/apprepo/starccmplus/17.06.007-none/app/17.06.007-R8/STAR-CCM+17.06.007-R8/star/bin/starccm_wrapper"
+starccm_path: "starccm+"
+template_sim: ""
 ```
 
-你需要确认该路径在实际运行机器上存在：
+你需要确认 STAR-CCM+ 可执行文件在实际运行机器上可用：
 
 ```bash
-ls -l "/work/home/acn6k38urd/apprepo/starccmplus/17.06.007-none/app/17.06.007-R8/STAR-CCM+17.06.007-R8/star/bin/starccm_wrapper"
+which starccm+
 ```
 
 或者如果集群使用 module：
@@ -105,7 +106,7 @@ module load starccm/17.06.007
 which starccm+
 ```
 
-然后把 `configs/config.yaml` 中的 `starccm_path` 改成实际可执行路径。
+如果集群没有把 `starccm+` 放进 PATH，再把 `configs/config.yaml` 或本机私有配置中的 `starccm_path` 改成实际可执行路径。
 
 ## 7. 修改配置中的关键路径
 
@@ -224,4 +225,3 @@ case:
 6. 确认 `template_sim` 或 `input_sim`。
 7. 先用 `--no-monitor` 跑一次。
 8. 再打开 RL monitor。
-

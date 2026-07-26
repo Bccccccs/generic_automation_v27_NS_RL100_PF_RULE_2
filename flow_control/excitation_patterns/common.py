@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -32,6 +33,20 @@ SUPPORTED_ACTUATION_MODES = {
     "prbs_demo",              # 伪随机二进制序列
     "sparse_random_groups",   # 稀疏随机分组
 }
+
+
+def current_git_commit() -> str:
+    """Return the current repository commit for generated-data provenance."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
 
 
 @dataclass(frozen=True)
@@ -312,6 +327,7 @@ def write_config_summary(
     total_massflows = [sum(row) for row in table.massflows]
     summary = {
         "mode": config.mode,
+        "git_commit": current_git_commit(),
         "random_seed": config.random_seed,
         "n_jets": config.n_jets,
         "total_windows": table.n_windows,

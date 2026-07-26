@@ -38,6 +38,7 @@ from __future__ import annotations
 import json
 import csv
 import logging
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,20 @@ from .quality_checker import QualityChecker
 
 # 日志记录器,命名空间为 "case_data_loader"
 logger = logging.getLogger("case_data_loader")
+
+
+def current_git_commit() -> str:
+    """Return the current repository commit for generated-data provenance."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
 
 # The 6 Fz sensor columns + 5 global columns that every case must have
 # 每个 Case 的时间序列中必须包含的基础列:
@@ -403,6 +418,7 @@ def ingest_star_export(
     manifest_data.setdefault("jet_amplitude", 0.0)
     manifest_data.setdefault("window_duration", 0.0)
     manifest_data.setdefault("random_seed", 0)
+    manifest_data.setdefault("git_commit", current_git_commit())
     manifest_data.setdefault("case_type", "unknown")
     manifest_data["check_mode"] = check_mode
     manifest_data["validation_mode"] = (
@@ -426,6 +442,7 @@ def ingest_star_export(
         "source_files": data["source_files"],
         "star_column_mapping": data["mapping"],
         "detected_units": data["units"],
+        "git_commit": manifest_data.get("git_commit", "unknown"),
         "num_timeseries_rows": len(rows),
         "num_timeseries_columns": len(present_cols),
     }

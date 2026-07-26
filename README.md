@@ -185,6 +185,44 @@ python examples/run_ccm_ingest_step3_figures.py
 
 Step 1/2/3 的交互列表都支持输入编号或直接输入目录路径。
 
+### 4.4 第三周真实数据常用命令
+
+只生成动作表，不启动 STAR：
+
+```bash
+python -m flow_control.generator.schedule_generator \
+  --config configs/actions/pulse_singlejet.yaml \
+  --output-dir runs/week3_pulse_singlejet
+```
+
+只整理已有 STAR 输出，不启动 STAR：
+
+```bash
+printf 'runs/<case_dir>\n' | python examples/run_ccm_ingest_step1_timeseries.py
+printf 'runs/<case_dir>\n' | python examples/run_ccm_ingest_step2_check.py
+printf 'runs/<case_dir>\n' | python examples/run_ccm_ingest_step3_figures.py
+```
+
+只做数据检查：
+
+```bash
+printf 'runs/<case_dir>\n' | python examples/run_ccm_ingest_step2_check.py
+```
+
+只有同时满足以下条件才启动 STAR：本机能执行 `starccm+` 或已设置 `STARCCM_PATH`、已有真实 `.sim` 文件、`configs/ccm_runtime.yaml` 已填好、动作表已通过校验。
+
+```bash
+python -m flow_control.cli.run_starccm \
+  --schedule runs/week3_pulse_singlejet/input/actuation_schedule.csv \
+  --sim /path/to/input.sim \
+  --out runs/starccm_week3_pulse_singlejet \
+  --starccm-path "${STARCCM_PATH:-starccm+}" \
+  --np 1 \
+  --region Region
+```
+
+动作表的 `input/config_summary.yaml`、mock/ROM 标准 case 的 `case_manifest.yaml`、真实 STAR 整理后的 `case_manifest.yaml` 都会记录 `git_commit`，用于回答某个标准 case 由哪个代码 commit 生成。
+
 ## 5. ROM 训练、验证和使用
 
 ARX ROM 支持多模型目录，统一放在：

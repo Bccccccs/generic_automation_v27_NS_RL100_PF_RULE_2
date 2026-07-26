@@ -67,6 +67,7 @@ def ingest_case(case_dir: Path, schedule_path: Path) -> None:
     from flow_control.star_ingest.case_data_loader import (
         CASE_REQUIRED_DIRS,
         compute_fz_total,
+        current_git_commit,
         ingest_star_export,
     )
     from flow_control.star_ingest.star_export_reader import (
@@ -98,6 +99,7 @@ def ingest_case(case_dir: Path, schedule_path: Path) -> None:
     manifest = {
         "geometry_version": "starccm-runtime",
         "mesh_version": "unknown",
+        "git_commit": current_git_commit(),
         "flow_velocity": 0.0,
         "gap": 0.0,
         "time_step": window_duration,
@@ -205,6 +207,7 @@ def ingest_case(case_dir: Path, schedule_path: Path) -> None:
             "validation_mode": "full_case",
             "source_product_dir": str(product_dir),
             "source_schedule": str(schedule_path),
+            "git_commit": manifest_data.get("git_commit", "unknown"),
             "window_duration": window_duration,
             "time_step": window_duration,
             "jet_amplitude": jet_amplitude,
@@ -224,6 +227,7 @@ def ingest_case(case_dir: Path, schedule_path: Path) -> None:
             "case_type": case_type,
             "source_product_dir": str(product_dir),
             "source_schedule": str(schedule_path),
+            "git_commit": manifest_data.get("git_commit", "unknown"),
             "source_files": [str(path) for path in star_files],
             "num_timeseries_rows": len(merged_rows),
             "num_timeseries_columns": len(columns),
