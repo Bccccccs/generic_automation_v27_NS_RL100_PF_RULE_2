@@ -1,0 +1,71 @@
+schema_version: B02_real_data_contract_v1
+case_id: "<case_id>"
+case_type: "<no_jet|jet|reference|other>"
+created_time: "<ISO-8601 UTC time>"
+
+star:
+  version: "待浩坤确认"
+  sim_file: "待浩坤确认；只记录文件名或项目内相对标识，不提交个人绝对路径"
+  sim_file_hash_sha256: "待浩坤确认"
+  geometry_version: "待浩坤确认"
+  mesh_version: "待浩坤确认"
+  region_names: ["待浩坤确认"]
+  boundary_mapping_file: "docs/week3/B02_boundary_mapping.csv"
+  report_mapping_file: "docs/week3/B02_report_mapping.csv"
+  current_reference_cases:
+    jet_on_j01: "runs/temp_j01_3s_mass2p57_dt1e-4"
+    no_jet: "runs/temp_no_jet_3s_dt1e-4"
+    star_output_dir_name: "out_put"
+
+solver_time:
+  physical_time_unit: s
+  time_step: 0.0001
+  inner_iterations_per_time_step: "待浩坤确认"
+  sampling_interval: 0.0001
+  sampling_times_definition: "current temp STAR exports contain 30000 monitor samples from 0.0001 s to approximately 3.0 s; do not use solver iteration number as time"
+  output_time_column: physical_time
+
+actuation:
+  action_schedule_file: "actuation_schedule.csv"
+  action_schedule_hash_sha256: "待运行时计算"
+  window_duration: 0.0001
+  window_count: 30000
+  window_rule: "row i defines t_start=i*0.0001 and t_end=(i+1)*0.0001 in physical seconds; current ingested temp cases align STAR sample t_end to the same row/window_id, pending STAR macro confirmation"
+  columns:
+    time: [physical_time, window_id, t_start, t_end]
+    switches: JET_01..JET_24
+    commanded_massflow: cmd_massflow_01..cmd_massflow_24
+    actual_massflow: actual_massflow_01..actual_massflow_24
+
+coordinates:
+  star_coordinate_system: "待浩坤确认"
+  algorithm_coordinate_system: "待浩坤确认"
+  x_direction: "待浩坤确认"
+  y_direction: "待浩坤确认"
+  z_direction: "待浩坤确认"
+  lift_direction_vector: "待浩坤确认；不能由 Fz 列名推断"
+  drag_direction_vector: "待浩坤确认"
+  pitch_moment_axis: "待浩坤确认"
+  roll_moment_axis: "待浩坤确认"
+  moment_center: "待浩坤确认"
+
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+  time: s
+  area: m^2
+
+standard_columns:
+  regional_forces: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R]
+  vehicle_outputs: [Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z]
+  jet_switches: JET_01..JET_24
+  commanded_massflow: cmd_massflow_01..cmd_massflow_24
+  actual_massflow: actual_massflow_01..actual_massflow_24
+
+provenance:
+  git_commit: "待运行时写入"
+  code_branch: "week3_real_data"
+  generator_config: "待记录"
+  source_product_dir: "待记录"
+  notes: "未知信息必须保留为待浩坤确认，不允许默默填 0 或按列名猜方向。"

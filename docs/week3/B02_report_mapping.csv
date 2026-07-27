@@ -1,0 +1,12 @@
+quantity_group,star_original_report_name,star_export_header_pattern,unified_column_name,expected_unit,star_export_unit,coordinate_system,direction_vector_xyz,integrated_surfaces,status,confirmation_owner,notes
+regional_force,S1L Monitor,"S1L.*Monitor",Fz_S1L,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: S1L Monitor: S1L Monitor (N)。列名 Fz_S1L 只是算法统一名，不能据此认定方向为全局 +Z。"
+regional_force,S1R Monitor,"S1R.*Monitor",Fz_S1R,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: S1R Monitor: S1R Monitor (N)。必须确认 Direction Vector、Coordinate System 和参与积分表面。"
+regional_force,S2L Monitor,"S2L.*Monitor",Fz_S2L,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: S2L Monitor: S2L Monitor (N)。必须确认 Direction Vector、Coordinate System 和参与积分表面。"
+regional_force,S2R Monitor,"S2R.*Monitor",Fz_S2R,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: S2R Monitor: S2R Monitor (N)。必须确认 Direction Vector、Coordinate System 和参与积分表面。"
+regional_force,S3L Monitor,"S3L.*Monitor",Fz_S3L,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: S3L Monitor: S3L Monitor (N)。必须确认 Direction Vector、Coordinate System 和参与积分表面。"
+regional_force,S3R Monitor,"S3R.*Monitor",Fz_S3R,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: S3R Monitor: S3R Monitor (N)。必须确认 Direction Vector、Coordinate System 和参与积分表面。"
+vehicle_total_force,Fz Monitor,"(?:^|[\\s:\\\"])Fz\\s*Monitor",Fz_Total,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: Fz Monitor: Fz Monitor (N)。重点核实它是否真实表示升力方向，必须读取 STAR 报告 Direction Vector。"
+vehicle_total_force,Drag Monitor,"drag|阻力",Drag_Total,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: Drag Monitor: Drag Monitor (N)。必须确认正方向是来流方向、反来流方向还是 STAR 自定义方向。"
+vehicle_moment,Pitch_Moment Monitor,"pitch|俯仰",Pitch_Moment,N-m,N-m,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: Pitch_Moment Monitor: Pitch_Moment Monitor (N-m)。必须确认坐标系、力矩中心和正方向。"
+vehicle_moment,Roll_Moment Monitor,"roll|滚转",Roll_Moment,N-m,N-m,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: Roll_Moment Monitor: Roll_Moment Monitor (N-m)。必须确认坐标系、力矩中心和正方向。"
+jet_reaction_force,Jet_Reaction_Z Monitor,"jet.*reaction|喷气.*反力|reaction.*z",Jet_Reaction_Z,N,N,待浩坤确认,待浩坤确认,待浩坤确认,export_header_confirmed_direction_pending,浩坤,"真实导出 header: Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)。名称含 Z 也不能代替 Direction Vector 核实。"
