@@ -28,7 +28,16 @@ cmd_massflow_01 ... cmd_massflow_24
 actual_massflow_01 ... actual_massflow_24
 ```
 
-`JET_XX` 表示开关，`cmd_massflow_XX` 表示动作表给 STAR 的指令质量流量，`actual_massflow_XX` 表示 STAR 或后处理得到的实际质量流量。真实 STAR 里的 `JET01`、`Document.Document_Body.JET01` 等名称只能作为候选对象名，必须通过 `docs/week3/B02_boundary_mapping.csv` 逐行确认。
+`JET_XX` 表示算法侧开关，`cmd_massflow_XX` 表示动作表给 STAR 的指令质量流量，`actual_massflow_XX` 表示 STAR 或后处理得到的实际质量流量。
+
+当前 CCM 界面已确认 STAR 命名口径：
+
+| STAR 名称 | 当前含义 |
+| --- | --- |
+| `JET01..JET24` | 底部边界 / 底部受力分区 |
+| `J01..J24` | 喷气口 |
+
+因此算法侧 `JET_01..JET_24` 如果表示喷气控制，应映射到 `J01..J24`，不是 `JET01..JET24`。建模人已确认最终喷气建模方式是把 `J01..J24` 改成质量流量入口；当前 `.sim` 中 `J01` 仍显示为 wall boundary，说明当前状态尚未切换到最终喷气边界条件。
 
 算法侧统一使用以下力和力矩列：
 
@@ -69,7 +78,7 @@ Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z
 | `Roll_Moment` | `Roll_Moment Monitor: Roll_Moment Monitor (N-m)` | N-m |
 | `Jet_Reaction_Z` | `Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)` | N |
 
-这些 header 只能证明导出列名和单位，仍不能证明坐标系、Direction Vector、力矩中心或积分表面。
+这些 header 只能证明导出列名和单位。当前 CCM 界面已进一步确认：`Fz`、`Jet_Reaction_Z` 和 6 个区域力均为 `Laboratory` 坐标系、方向 `[0.0, 0.0, 1.0]`、力选项“压力 + 剪切”、参考压力 `0.0 Pa`。其中 6 个区域力选中互斥的 `JET` 底部边界分区，`Fz` 选中全部 `JET01..JET24` 加 `tail`，`Jet_Reaction_Z` 选中全部 `J01..J24` 喷气口。`Drag_Total`、`Pitch_Moment` 和 `Roll_Moment` 的方向、坐标系、轴和力矩中心仍需确认。
 
 ## 4. 动作窗口和 STAR 输出时间
 
@@ -143,18 +152,26 @@ boundary/report mapping file versions
 | 项 | 当前状态 |
 | --- | --- |
 | 算法喷气列 | `JET_01..JET_24`、`cmd_massflow_01..cmd_massflow_24`。 |
+| STAR 命名口径 | `JET01..JET24` 是底部边界，`J01..J24` 是喷气口。 |
+| 控制候选边界 | 算法侧 `JET_01..JET_24` 控制候选对象应是 STAR `J01..J24`。 |
+| 当前 J01 边界状态 | 当前 `.sim` 中 `J01` 显示为 wall boundary；建模人确认最终喷气建模需改成质量流量入口。 |
 | 动作窗口语义 | 每行表示物理时间窗口，`physical_time == t_start`。 |
 | 当前真实样本 | 两个 temp case 均为 30000 个动作窗口和 30000 个 STAR 输出样本，`dt=0.0001 s`。 |
 | 当前 STAR 导出列 | 已确认 6 个区域力、总 Fz、Drag、Pitch、Roll、Jet_Reaction_Z 的 CSV header 和单位。 |
 | 标准载荷列 | 6 个区域力、整车总力、阻力、俯仰、滚转、喷气反作用力。 |
+| Z 向力 report 口径 | 6 个区域力、`Fz`、`Jet_Reaction_Z` 均为 `Laboratory +Z` 压力+剪切力。 |
+| 6 区域力积分面 | `S1L=JET01/JET02/JET05/JET06`，`S1R=JET03/JET04/JET07/JET08`，`S2L=JET09/JET10/JET13/JET14`，`S2R=JET11/JET12/JET15/JET16`，`S3L=JET17/JET18/JET21/JET22`，`S3R=JET19/JET20/JET23/JET24`。 |
+| `Fz_Total` 积分面 | 全部 `JET01..JET24` 加 `tail`，不含 `J01..J24`；不能直接称为整车全表面升力。 |
+| `Jet_Reaction_Z` 积分面 | 全部 `J01..J24`，不含 `JET01..JET24`；在当前 wall 状态是喷气口壁面 +Z 力，在最终质量流量入口状态可作为喷气口边界 +Z 力 report。 |
 | STAR CSV 读取 | 当前代码按 header 正则映射标准列，并保留缺失列。 |
 
 未知，必须确认：
 
 | 项 | 原因 |
 | --- | --- |
-| 24 个喷气区真实 Region/Boundary/面积/法向 | 当前只有候选命名模式，没有 STAR 模型导出证明。 |
-| `Fz_Total` 是否真实等于升力 | 必须读取 STAR report 的 Direction Vector 和 Coordinate System。 |
-| 6 个区域力参与积分的真实表面 | 不能由 `S1L` 等列名反推。 |
-| 阻力、俯仰、滚转、喷气反作用力方向 | 必须来自 STAR report 定义。 |
+| `J01..J24` 的面积和法向 | 当前只确认命名和边界类型，面积、法向、正负号仍需建模人确认。 |
+| 喷气施加方式 | 建模人确认最终方式是把 `J01..J24` 改成质量流量入口；仍需确认 profile 绑定、正负号和动作窗口切换。 |
+| `actual_massflow_01` 真实回读 | 当前未找到 mass flow report/monitor；需确认是否存在实际质量流量输出及其正负号。 |
+| `Fz_Total` 是否可作为项目升力 | 当前只确认它是 `JET01..JET24 + tail` 的 +Z 力，不是整车全表面力。 |
+| 阻力、俯仰、滚转方向 | 必须来自 STAR report 定义。 |
 | STAR 窗口边界切换规则 | 当前样本在窗口终点输出，必须确认这个输出属于刚结束窗口还是下一窗口。 |

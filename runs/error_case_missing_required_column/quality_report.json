@@ -7,7 +7,7 @@
   ],
   "warnings": [],
   "has_jet_data": true,
-  "check_mode": "star_ingest",
+  "check_mode": "ccm",
   "validation_mode": "full_case",
   "num_timeseries_rows": 5,
   "num_timeseries_columns": 86,

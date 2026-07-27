@@ -15,6 +15,9 @@ runs/*
 archive/legacy/*
 !archive/legacy/.gitkeep
 
+offline_packages/
+offline_packages_linux_x86_64_py310_py311_py312.tar.gz
+
 runs/starccm_single/
 runs/starccm_no/
 
