@@ -1,0 +1,16 @@
+{
+  "case_id": "B01_mock_full_demo",
+  "num_errors": 0,
+  "num_warnings": 2,
+  "errors": [],
+  "warnings": [
+    "Units not documented in manifest — add 'units' or 'force_units' field (e.g. 'N' for force, 'Nm' for moment)",
+    "Sign/direction convention not documented in manifest — add 'sign_convention' field describing positive force direction (e.g. 'positive Fz = lift upward')"
+  ],
+  "has_jet_data": true,
+  "check_mode": "mock",
+  "validation_mode": "full_case",
+  "num_timeseries_rows": 10,
+  "num_timeseries_columns": 87,
+  "run_success_flag": true
+}
