@@ -81,4 +81,4 @@ PY
 - 动作表 `config_summary.yaml` 记录 `git_commit=6918c023f00cfca1c5e319d89f958f083b8e68a7`
 - 标准 case `case_manifest.yaml` 记录 `git_commit=6918c023f00cfca1c5e319d89f958f083b8e68a7`
 
-完整运行日志见 `docs/week3/pytest_week3_start.log`。
+当前保留的核心复现日志见 `docs/week3/B01_mock_full_demo.log`。
