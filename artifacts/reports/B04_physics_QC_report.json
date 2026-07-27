@@ -1,0 +1,769 @@
+{
+  "schema_version": "B04_physics_consistency_v1",
+  "summary": {
+    "num_cases": 2,
+    "category_counts": {
+      "format_errors": 0,
+      "name_or_coordinate_errors": 0,
+      "massflow_errors": 1,
+      "force_accounting_errors": 0,
+      "numerical_instability_warnings": 0,
+      "physical_questions_for_haokun": 58
+    },
+    "blocking_issue_count": 1,
+    "run_success_flag": false
+  },
+  "cases": [
+    {
+      "schema_version": "B04_physics_consistency_v1",
+      "case_id": "temp_j01_3s_mass2p57_dt1e-4",
+      "categories": {
+        "format_errors": [],
+        "name_or_coordinate_errors": [],
+        "massflow_errors": [],
+        "force_accounting_errors": [],
+        "numerical_instability_warnings": [],
+        "physical_questions_for_haokun": [
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 1,
+            "boundary": "Document.Document_Body.JET01"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 2,
+            "boundary": "Document.Document_Body.JET02"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 3,
+            "boundary": "Document.Document_Body.JET03"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 4,
+            "boundary": "Document.Document_Body.JET04"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 5,
+            "boundary": "Document.Document_Body.JET05"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 6,
+            "boundary": "Document.Document_Body.JET06"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 7,
+            "boundary": "Document.Document_Body.JET07"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 8,
+            "boundary": "Document.Document_Body.JET08"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 9,
+            "boundary": "Document.Document_Body.JET09"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 10,
+            "boundary": "Document.Document_Body.JET10"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 11,
+            "boundary": "Document.Document_Body.JET11"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 12,
+            "boundary": "Document.Document_Body.JET12"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 13,
+            "boundary": "Document.Document_Body.JET13"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 14,
+            "boundary": "Document.Document_Body.JET14"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 15,
+            "boundary": "Document.Document_Body.JET15"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 16,
+            "boundary": "Document.Document_Body.JET16"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 17,
+            "boundary": "Document.Document_Body.JET17"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 18,
+            "boundary": "Document.Document_Body.JET18"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 19,
+            "boundary": "Document.Document_Body.JET19"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 20,
+            "boundary": "Document.Document_Body.JET20"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 21,
+            "boundary": "Document.Document_Body.JET21"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 22,
+            "boundary": "Document.Document_Body.JET22"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 23,
+            "boundary": "Document.Document_Body.JET23"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 24,
+            "boundary": "Document.Document_Body.JET24"
+          },
+          {
+            "severity": "warning",
+            "message": "Fz_Total report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Fz_Total"
+          },
+          {
+            "severity": "warning",
+            "message": "Drag_Total report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Drag_Total"
+          },
+          {
+            "severity": "warning",
+            "message": "Pitch_Moment report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Pitch_Moment"
+          },
+          {
+            "severity": "warning",
+            "message": "Roll_Moment report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Roll_Moment"
+          },
+          {
+            "severity": "warning",
+            "message": "Fz_Total differs from six regional force sum; not treated as an error because they may be different STAR reports",
+            "examples": [
+              {
+                "row": 0,
+                "regional_lift_sum": 389.634945821432,
+                "Fz_Total": -23301.529346695024,
+                "difference": -23691.164292516456
+              },
+              {
+                "row": 1,
+                "regional_lift_sum": 865.7444399031566,
+                "Fz_Total": -35731.363608573956,
+                "difference": -36597.108048477116
+              },
+              {
+                "row": 2,
+                "regional_lift_sum": 1229.455552245725,
+                "Fz_Total": -41252.529295827786,
+                "difference": -42481.98484807351
+              },
+              {
+                "row": 3,
+                "regional_lift_sum": 1411.5717732954806,
+                "Fz_Total": -43234.30578042882,
+                "difference": -44645.8775537243
+              },
+              {
+                "row": 4,
+                "regional_lift_sum": 1449.4931920642757,
+                "Fz_Total": -44472.34960748589,
+                "difference": -45921.84279955017
+              }
+            ]
+          }
+        ]
+      },
+      "summaries": {
+        "time_alignment": {
+          "paired_rows_checked": 30000,
+          "sample_matches_t_start_rows": 0,
+          "sample_matches_t_end_rows": 30000,
+          "sample_inside_window_rows": 30000
+        },
+        "star_csv_alignment": {
+          "checked_source_csv_count": 0,
+          "checked_source_csvs": []
+        },
+        "massflow_tracking": {
+          "jet_columns_present": 24,
+          "cmd_massflow_columns_present": 24,
+          "actual_massflow_columns_present": 24,
+          "max_abs_cmd_minus_actual_by_jet": {
+            "actual_massflow_01": 0.0,
+            "actual_massflow_02": 0.0,
+            "actual_massflow_03": 0.0,
+            "actual_massflow_04": 0.0,
+            "actual_massflow_05": 0.0,
+            "actual_massflow_06": 0.0,
+            "actual_massflow_07": 0.0,
+            "actual_massflow_08": 0.0,
+            "actual_massflow_09": 0.0,
+            "actual_massflow_10": 0.0,
+            "actual_massflow_11": 0.0,
+            "actual_massflow_12": 0.0,
+            "actual_massflow_13": 0.0,
+            "actual_massflow_14": 0.0,
+            "actual_massflow_15": 0.0,
+            "actual_massflow_16": 0.0,
+            "actual_massflow_17": 0.0,
+            "actual_massflow_18": 0.0,
+            "actual_massflow_19": 0.0,
+            "actual_massflow_20": 0.0,
+            "actual_massflow_21": 0.0,
+            "actual_massflow_22": 0.0,
+            "actual_massflow_23": 0.0,
+            "actual_massflow_24": 0.0
+          },
+          "mean_abs_cmd_minus_actual_by_jet": {
+            "actual_massflow_01": 0.0,
+            "actual_massflow_02": 0.0,
+            "actual_massflow_03": 0.0,
+            "actual_massflow_04": 0.0,
+            "actual_massflow_05": 0.0,
+            "actual_massflow_06": 0.0,
+            "actual_massflow_07": 0.0,
+            "actual_massflow_08": 0.0,
+            "actual_massflow_09": 0.0,
+            "actual_massflow_10": 0.0,
+            "actual_massflow_11": 0.0,
+            "actual_massflow_12": 0.0,
+            "actual_massflow_13": 0.0,
+            "actual_massflow_14": 0.0,
+            "actual_massflow_15": 0.0,
+            "actual_massflow_16": 0.0,
+            "actual_massflow_17": 0.0,
+            "actual_massflow_18": 0.0,
+            "actual_massflow_19": 0.0,
+            "actual_massflow_20": 0.0,
+            "actual_massflow_21": 0.0,
+            "actual_massflow_22": 0.0,
+            "actual_massflow_23": 0.0,
+            "actual_massflow_24": 0.0
+          }
+        },
+        "force_accounting": {
+          "regional_lift_sum": {
+            "count": 30000,
+            "min": -133083.93156453746,
+            "max": 59598.57538452703,
+            "mean": -24469.396199526294,
+            "median": -23177.130634681642,
+            "first": 389.634945821432,
+            "last": -16599.50295698727
+          },
+          "vehicle_aerodynamics": {
+            "Fz_Total": {
+              "count": 30000,
+              "min": -62369.87684348262,
+              "max": 121381.97292257451,
+              "mean": 57285.76084736008,
+              "median": 58595.19401717263,
+              "first": -23301.529346695024,
+              "last": 63431.016733220604
+            },
+            "Drag_Total": {
+              "count": 30000,
+              "min": 21994.627699864235,
+              "max": 431382.54376095167,
+              "mean": 33511.83798840493,
+              "median": 31736.59869293406,
+              "first": 387563.83818134875,
+              "last": 36227.84300064362
+            },
+            "Pitch_Moment": {
+              "count": 30000,
+              "min": -7112455.654134613,
+              "max": 1535535.267695272,
+              "mean": -505018.16965346696,
+              "median": -514303.02912722895,
+              "first": -6362876.790858828,
+              "last": -576429.0162489982
+            },
+            "Roll_Moment": {
+              "count": 30000,
+              "min": -2350.0114663398995,
+              "max": 3557.3258577146066,
+              "mean": 78.82355578232567,
+              "median": 83.14415017697064,
+              "first": 288.3260473282746,
+              "last": 639.3957766954828
+            }
+          },
+          "jet_reaction": {
+            "count": 30000,
+            "min": 29.61657640715034,
+            "max": 563.7806804358883,
+            "mean": 131.71429180581964,
+            "median": 130.28782404104066,
+            "first": 400.5646919919227,
+            "last": 144.49587315264526
+          }
+        }
+      },
+      "inputs": {
+        "case_dir": "runs/temp_j01_3s_mass2p57_dt1e-4",
+        "boundary_mapping_path": "docs/week3/B02_boundary_mapping.csv",
+        "report_mapping_path": "docs/week3/B02_report_mapping.csv",
+        "zero_tolerance": 1e-08,
+        "time_tolerance": 1e-09
+      },
+      "summary": {
+        "category_counts": {
+          "format_errors": 0,
+          "name_or_coordinate_errors": 0,
+          "massflow_errors": 0,
+          "force_accounting_errors": 0,
+          "numerical_instability_warnings": 0,
+          "physical_questions_for_haokun": 29
+        },
+        "blocking_issue_count": 0,
+        "run_success_flag": true
+      }
+    },
+    {
+      "schema_version": "B04_physics_consistency_v1",
+      "case_id": "temp_no_jet_3s_dt1e-4",
+      "categories": {
+        "format_errors": [],
+        "name_or_coordinate_errors": [],
+        "massflow_errors": [
+          {
+            "severity": "error",
+            "message": "No-jet case has non-zero jet massflow/switch/reaction values",
+            "examples": [
+              {
+                "row": 0,
+                "column": "Jet_Reaction_Z",
+                "value": -105.31277014367323
+              },
+              {
+                "row": 1,
+                "column": "Jet_Reaction_Z",
+                "value": -221.10261147406447
+              },
+              {
+                "row": 2,
+                "column": "Jet_Reaction_Z",
+                "value": -270.5895778691549
+              },
+              {
+                "row": 3,
+                "column": "Jet_Reaction_Z",
+                "value": -206.14200997933094
+              },
+              {
+                "row": 4,
+                "column": "Jet_Reaction_Z",
+                "value": -45.772548206821135
+              }
+            ],
+            "tolerance": 1e-08
+          }
+        ],
+        "force_accounting_errors": [],
+        "numerical_instability_warnings": [],
+        "physical_questions_for_haokun": [
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 1,
+            "boundary": "Document.Document_Body.JET01"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 2,
+            "boundary": "Document.Document_Body.JET02"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 3,
+            "boundary": "Document.Document_Body.JET03"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 4,
+            "boundary": "Document.Document_Body.JET04"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 5,
+            "boundary": "Document.Document_Body.JET05"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 6,
+            "boundary": "Document.Document_Body.JET06"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 7,
+            "boundary": "Document.Document_Body.JET07"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 8,
+            "boundary": "Document.Document_Body.JET08"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 9,
+            "boundary": "Document.Document_Body.JET09"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 10,
+            "boundary": "Document.Document_Body.JET10"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 11,
+            "boundary": "Document.Document_Body.JET11"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 12,
+            "boundary": "Document.Document_Body.JET12"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 13,
+            "boundary": "Document.Document_Body.JET13"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 14,
+            "boundary": "Document.Document_Body.JET14"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 15,
+            "boundary": "Document.Document_Body.JET15"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 16,
+            "boundary": "Document.Document_Body.JET16"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 17,
+            "boundary": "Document.Document_Body.JET17"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 18,
+            "boundary": "Document.Document_Body.JET18"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 19,
+            "boundary": "Document.Document_Body.JET19"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 20,
+            "boundary": "Document.Document_Body.JET20"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 21,
+            "boundary": "Document.Document_Body.JET21"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 22,
+            "boundary": "Document.Document_Body.JET22"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 23,
+            "boundary": "Document.Document_Body.JET23"
+          },
+          {
+            "severity": "warning",
+            "message": "Jet boundary area or normal vector is not confirmed",
+            "unified_jet_id": 24,
+            "boundary": "Document.Document_Body.JET24"
+          },
+          {
+            "severity": "warning",
+            "message": "Fz_Total report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Fz_Total"
+          },
+          {
+            "severity": "warning",
+            "message": "Drag_Total report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Drag_Total"
+          },
+          {
+            "severity": "warning",
+            "message": "Pitch_Moment report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Pitch_Moment"
+          },
+          {
+            "severity": "warning",
+            "message": "Roll_Moment report direction vector is not confirmed; column name cannot prove physical direction",
+            "unified_column_name": "Roll_Moment"
+          },
+          {
+            "severity": "warning",
+            "message": "Fz_Total differs from six regional force sum; not treated as an error because they may be different STAR reports",
+            "examples": [
+              {
+                "row": 0,
+                "regional_lift_sum": 152.42513843151528,
+                "Fz_Total": -23539.155852752738,
+                "difference": -23691.58099118425
+              },
+              {
+                "row": 1,
+                "regional_lift_sum": 472.0953994145955,
+                "Fz_Total": -36125.68863467701,
+                "difference": -36597.78403409161
+              },
+              {
+                "row": 2,
+                "regional_lift_sum": 721.549095780916,
+                "Fz_Total": -41762.956349446766,
+                "difference": -42484.50544522768
+              },
+              {
+                "row": 3,
+                "regional_lift_sum": 838.6070062612457,
+                "Fz_Total": -43814.99166238219,
+                "difference": -44653.59866864344
+              },
+              {
+                "row": 4,
+                "regional_lift_sum": 860.5834141234245,
+                "Fz_Total": -45080.10881715531,
+                "difference": -45940.692231278736
+              }
+            ]
+          }
+        ]
+      },
+      "summaries": {
+        "time_alignment": {
+          "paired_rows_checked": 30000,
+          "sample_matches_t_start_rows": 0,
+          "sample_matches_t_end_rows": 30000,
+          "sample_inside_window_rows": 30000
+        },
+        "star_csv_alignment": {
+          "checked_source_csv_count": 0,
+          "checked_source_csvs": []
+        },
+        "massflow_tracking": {
+          "jet_columns_present": 24,
+          "cmd_massflow_columns_present": 24,
+          "actual_massflow_columns_present": 24,
+          "max_abs_cmd_minus_actual_by_jet": {
+            "actual_massflow_01": 0.0,
+            "actual_massflow_02": 0.0,
+            "actual_massflow_03": 0.0,
+            "actual_massflow_04": 0.0,
+            "actual_massflow_05": 0.0,
+            "actual_massflow_06": 0.0,
+            "actual_massflow_07": 0.0,
+            "actual_massflow_08": 0.0,
+            "actual_massflow_09": 0.0,
+            "actual_massflow_10": 0.0,
+            "actual_massflow_11": 0.0,
+            "actual_massflow_12": 0.0,
+            "actual_massflow_13": 0.0,
+            "actual_massflow_14": 0.0,
+            "actual_massflow_15": 0.0,
+            "actual_massflow_16": 0.0,
+            "actual_massflow_17": 0.0,
+            "actual_massflow_18": 0.0,
+            "actual_massflow_19": 0.0,
+            "actual_massflow_20": 0.0,
+            "actual_massflow_21": 0.0,
+            "actual_massflow_22": 0.0,
+            "actual_massflow_23": 0.0,
+            "actual_massflow_24": 0.0
+          },
+          "mean_abs_cmd_minus_actual_by_jet": {
+            "actual_massflow_01": 0.0,
+            "actual_massflow_02": 0.0,
+            "actual_massflow_03": 0.0,
+            "actual_massflow_04": 0.0,
+            "actual_massflow_05": 0.0,
+            "actual_massflow_06": 0.0,
+            "actual_massflow_07": 0.0,
+            "actual_massflow_08": 0.0,
+            "actual_massflow_09": 0.0,
+            "actual_massflow_10": 0.0,
+            "actual_massflow_11": 0.0,
+            "actual_massflow_12": 0.0,
+            "actual_massflow_13": 0.0,
+            "actual_massflow_14": 0.0,
+            "actual_massflow_15": 0.0,
+            "actual_massflow_16": 0.0,
+            "actual_massflow_17": 0.0,
+            "actual_massflow_18": 0.0,
+            "actual_massflow_19": 0.0,
+            "actual_massflow_20": 0.0,
+            "actual_massflow_21": 0.0,
+            "actual_massflow_22": 0.0,
+            "actual_massflow_23": 0.0,
+            "actual_massflow_24": 0.0
+          }
+        },
+        "force_accounting": {
+          "regional_lift_sum": {
+            "count": 30000,
+            "min": -132149.15103707337,
+            "max": 53341.22287965419,
+            "mean": -26344.717895448528,
+            "median": -25121.29369248685,
+            "first": 152.42513843151528,
+            "last": -19167.752476590664
+          },
+          "vehicle_aerodynamics": {
+            "Fz_Total": {
+              "count": 30000,
+              "min": -61903.106112773356,
+              "max": 115214.70185483707,
+              "mean": 52844.71694322322,
+              "median": 53810.93279533266,
+              "first": -23539.155852752738,
+              "last": 57339.67863880808
+            },
+            "Drag_Total": {
+              "count": 30000,
+              "min": 22439.056888759347,
+              "max": 431459.9678193157,
+              "mean": 33838.018430785516,
+              "median": 32077.798712309574,
+              "first": 387621.49426220934,
+              "last": 36560.477715714296
+            },
+            "Pitch_Moment": {
+              "count": 30000,
+              "min": -7112054.499792303,
+              "max": 1534457.7641161985,
+              "mean": -495426.6993812413,
+              "median": -506728.0755646437,
+              "first": -6362702.322353729,
+              "last": -520115.6224899869
+            },
+            "Roll_Moment": {
+              "count": 30000,
+              "min": -1883.7870531820797,
+              "max": 1591.6810247768522,
+              "mean": -58.73885983896112,
+              "median": -25.497962285864816,
+              "first": 67.63176022788352,
+              "last": 59.735817244712145
+            }
+          },
+          "jet_reaction": {
+            "count": 30000,
+            "min": -2970.036113918113,
+            "max": 1793.7155036067506,
+            "mean": -330.22218545116675,
+            "median": -301.3160761315853,
+            "first": -105.31277014367323,
+            "last": -144.48688371679995
+          }
+        }
+      },
+      "inputs": {
+        "case_dir": "runs/temp_no_jet_3s_dt1e-4",
+        "boundary_mapping_path": "docs/week3/B02_boundary_mapping.csv",
+        "report_mapping_path": "docs/week3/B02_report_mapping.csv",
+        "zero_tolerance": 1e-08,
+        "time_tolerance": 1e-09
+      },
+      "summary": {
+        "category_counts": {
+          "format_errors": 0,
+          "name_or_coordinate_errors": 0,
+          "massflow_errors": 1,
+          "force_accounting_errors": 0,
+          "numerical_instability_warnings": 0,
+          "physical_questions_for_haokun": 29
+        },
+        "blocking_issue_count": 1,
+        "run_success_flag": false
+      }
+    }
+  ]
+}
