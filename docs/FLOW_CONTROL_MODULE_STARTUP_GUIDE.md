@@ -369,7 +369,7 @@ export STARCCM_PATH=/path/to/starccm+
 --starccm-path          STAR-CCM+ 可执行文件路径，默认 $STARCCM_PATH 或 starccm+
 --np                    并行核数
 --podkey                STAR-CCM+ license token
---region                包含 fc_jet_XX 边界的 Region 名称
+--region                包含 J01..J24 喷气口边界的 Region 名称
 --time-step             控制窗口内的 solver time step
 --report                额外采样 report，可重复传入
 --non-strict-boundaries 缺少喷口边界时警告并跳过

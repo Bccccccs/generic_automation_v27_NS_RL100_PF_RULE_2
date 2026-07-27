@@ -69,12 +69,15 @@ STAR_COLUMN_PATTERNS: dict[str, re.Pattern] = {
     "Jet_Reaction_Z": re.compile(r"jet.*reaction|喷气.*反力|reaction.*z", re.IGNORECASE),
 }
 
-# 下面三个正则分别匹配:喷气阀门开关信号(JET_xx)、
+# 下面三个正则分别匹配:算法侧喷气开关信号(JET_xx)、
 # 指令质量流量(cmd_massflow_xx)和实际质量流量(actual_massflow_xx)。
-# JET_xx 表示第 xx 号喷气阀的开关状态(0/1),
+# JET_xx 表示第 xx 号喷气口控制通道的开关状态(0/1),
 # cmd_massflow_xx 是控制系统发出的质量流量指令,
 # actual_massflow_xx 是仿真计算返回的实际质量流量。
-JET_COLUMN_PATTERN = re.compile(r"JET[_\s]?(\d{1,2})", re.IGNORECASE)
+#
+# 注意:STAR 中 JET01..JET24 是底部受力区域,不是喷气口;不能把 JET01
+# 这样的 STAR 边界名映射成算法侧 JET_01 开关列。
+JET_COLUMN_PATTERN = re.compile(r"^JET_(\d{1,2})$", re.IGNORECASE)
 MASSFLOW_CMD_PATTERN = re.compile(r"cmd.*mass.?flow[_\s]?(\d{1,2})", re.IGNORECASE)
 MASSFLOW_ACTUAL_PATTERN = re.compile(r"(?:actual|real).*mass.?flow[_\s]?(\d{1,2})", re.IGNORECASE)
 
@@ -88,11 +91,11 @@ FZ_SENSOR_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
 GLOBAL_COLUMNS = ("Fz_Total", "Drag_Total", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z")
 STANDARD_LOAD_COLUMNS = (*FZ_SENSOR_COLUMNS, *GLOBAL_COLUMNS)
 
-# 24 个喷气阀的列名,格式为 JET_01 ~ JET_24(开关信号)
+# 24 个算法喷气开关列名,格式为 JET_01 ~ JET_24(开关信号)
 JET_COLUMNS = tuple(f"JET_{idx:02d}" for idx in range(1, 25))
-# 24 个喷气阀的指令质量流量列名 cmd_massflow_01 ~ cmd_massflow_24
+# 24 个喷气口指令质量流量列名 cmd_massflow_01 ~ cmd_massflow_24
 CMD_MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{idx:02d}" for idx in range(1, 25))
-# 24 个喷气阀的实际质量流量列名 actual_massflow_01 ~ actual_massflow_24
+# 24 个喷气口实际质量流量列名 actual_massflow_01 ~ actual_massflow_24
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
 
 # 需要忽略的 STAR 产品目录下的 CSV 文件名模式。
@@ -149,7 +152,7 @@ def detect_star_column_mapping(headers: list[str]) -> dict[str, str]:
 
     该函数是列名映射的核心逻辑:
     1. 遍历 STAR CSV 的每个原始列名
-    2. 按优先级依次尝试匹配:标准列名 → 喷气阀信号 → 指令质量流量 → 实际质量流量
+    2. 按优先级依次尝试匹配:标准列名 → 算法喷气开关信号 → 指令质量流量 → 实际质量流量
     3. 返回 {标准名: 原始列名} 的映射字典
     """
     mapping: dict[str, str] = {}
@@ -171,8 +174,9 @@ def detect_star_column_mapping(headers: list[str]) -> dict[str, str]:
         if matched:
             continue
 
-        # Try jet on/off columns (JET_01 … JET_24)
-        # 尝试匹配喷气阀门开关信号,编号范围 01~24
+        # Try algorithm-side jet switch columns (JET_01 … JET_24).
+        # Do not match STAR JET01 bottom-region names here.
+        # 尝试匹配算法侧喷气开关信号,编号范围 01~24;这里不能匹配 STAR 的 JET01 底面区域名。
         jet_match = JET_COLUMN_PATTERN.match(header_stripped)
         if jet_match:
             idx = int(jet_match.group(1))
@@ -440,7 +444,7 @@ def _order_columns(present: list[str]) -> list[str]:
     1. physical_time(物理时间)——最左侧
     2. Fz 传感器列(S1L~S3R)
     3. 全局量(总力、阻力、力矩等)
-    4. 喷气阀门信号(JET_01~JET_24)
+    4. 算法喷气开关信号(JET_01~JET_24)
     5. 指令质量流量(cmd_massflow_01~cmd_massflow_24)
     6. 实际质量流量(actual_massflow_01~actual_massflow_24)
     7. 其他未识别的列(保持原始顺序)

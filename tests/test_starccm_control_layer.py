@@ -18,6 +18,8 @@ def test_default_control_spec_fixes_24_jets_and_6_load_points():
     assert [point["column"] for point in context["load_points"]] == list(LOAD_COLUMNS)
     assert len(DEFAULT_STARCCM_JETS) == 24
     assert len(DEFAULT_LOAD_POINTS) == 6
+    assert context["jets"][0]["boundary_name"] == "J01"
+    assert context["jets"][-1]["boundary_name"] == "J24"
     assert context["load_points"][0]["report_name"] == "fc_load_S1L"
     assert context["load_points"][-1]["report_name"] == "fc_load_S3R"
 
@@ -62,4 +64,5 @@ def test_starccm_adapter_writes_shared_control_context(tmp_path):
     text = context_path.read_text(encoding="utf-8")
 
     assert "fc_load_S1L" in text
-    assert "fc_jet_01_mass_flow" in text
+    assert '"boundary_name": "J01"' in text
+    assert "j01_mass_flow" in text

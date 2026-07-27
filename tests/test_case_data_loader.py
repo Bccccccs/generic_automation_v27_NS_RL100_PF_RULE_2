@@ -368,6 +368,22 @@ class TestStarExportReader:
         assert mapping["cmd_massflow_01"] == '"cmd_massflow_01"'
         assert mapping["actual_massflow_01"] == '"actual_massflow_01"'
 
+    def test_star_bottom_jet_boundary_name_is_not_switch_column(self):
+        """STAR JET01 is a bottom region, not the algorithm JET_01 switch."""
+        headers = [
+            '"时间"',
+            '"JET01"',
+            '"JET24"',
+            '"J01"',
+            '"cmd_massflow_01"',
+        ]
+
+        mapping = detect_star_column_mapping(headers)
+
+        assert "JET_01" not in mapping
+        assert "JET_24" not in mapping
+        assert mapping["cmd_massflow_01"] == '"cmd_massflow_01"'
+
     def test_read_star_export_csv(self, tmp_path):
         """Read a minimal STAR-like CSV and verify output structure."""
         csv_content = (

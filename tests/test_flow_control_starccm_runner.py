@@ -1,6 +1,8 @@
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
+
 from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
@@ -33,7 +35,7 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     )
 
     assert "public class FlowControlRunMacro" in macro
-    assert "fc_jet_03" in macro
+    assert '"J03"' in macro
     assert "0.025" in macro
     assert '"drag"' in macro
     assert "MassFlowRateProfile" in macro
@@ -64,10 +66,34 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
     assert "setBoundaryType(MassFlowBoundary.class)" in macro
     assert "[flow_control] completed window=" in macro
     assert "normalizeStarPath(RESULT_SIM_PATH)" in macro
-    assert macro.index('"J" + digits') < macro.index('"JET" + digits')
-    assert '"JET" + digits' in macro
     assert '"J" + digits' in macro
+    assert '"JET" + digits' not in macro
+    assert '"JET_" + digits' not in macro
+    assert "isBottomJetBoundaryName" in macro
     assert "private String resolvePath" not in macro
+
+
+def test_build_flow_control_macro_rejects_star_bottom_jet_boundaries(tmp_path):
+    windows = [
+        type("Window", (), {
+            "window_id": 0,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "massflows": tuple([0.025] + [0.0] * 23),
+        })()
+    ]
+
+    with pytest.raises(ValueError, match="not JET01..JET24 bottom-region boundaries"):
+        build_flow_control_macro(
+            windows,
+            output_dir=tmp_path,
+            region_name="Region",
+            time_step=0.01,
+            report_names=("drag",),
+            strict_boundaries=True,
+            result_sim_path=tmp_path / "result.sim",
+            boundary_names=tuple(["JET01"] + [f"J{idx:02d}" for idx in range(2, 25)]),
+        )
 
 
 def test_build_flow_control_macro_uses_template_time_step_when_not_overridden(tmp_path):

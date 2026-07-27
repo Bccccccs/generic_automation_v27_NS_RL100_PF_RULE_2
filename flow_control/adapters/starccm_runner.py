@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import math
 import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
@@ -14,6 +15,9 @@ from typing import Any
 from flow_control.adapters.starccm_adapter import FlowControlStarCCMAdapter
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC, JET_COLUMNS
+
+
+_STAR_BOTTOM_JET_BOUNDARY_RE = re.compile(r"^JET_?\d{1,2}$", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -159,6 +163,16 @@ def build_flow_control_macro(
         raise ValueError("actuation schedule must contain at least one row")
     if len(boundary_names) != len(JET_COLUMNS):
         raise ValueError(f"expected {len(JET_COLUMNS)} jet boundary names")
+    bottom_boundary_names = [
+        name for name in boundary_names
+        if _STAR_BOTTOM_JET_BOUNDARY_RE.fullmatch(name.strip())
+    ]
+    if bottom_boundary_names:
+        raise ValueError(
+            "mass-flow actuation must target STAR J01..J24 nozzle boundaries, "
+            "not JET01..JET24 bottom-region boundaries: "
+            + ", ".join(bottom_boundary_names)
+        )
     effective_time_step = float(time_step or 0.0)
     csv_output_dir = output_dir or (result_sim_path.parent if result_sim_path else Path("."))
     return f"""import star.common.*;
@@ -220,6 +234,12 @@ public class FlowControlRunMacro extends StarMacro {{
     }}
 
     private void applyMassFlow(Simulation sim, String boundaryName, double value) {{
+        if (isBottomJetBoundaryName(boundaryName)) {{
+            throw new RuntimeException(
+                "Refusing to apply mass flow to bottom-region boundary '" + boundaryName
+                + "'. Use J01..J24 nozzle boundaries for actuation."
+            );
+        }}
         boolean requiresBoundary = Math.abs(value) > 1.0e-15;
         Boundary boundary = findBoundary(sim, boundaryName);
         if (boundary == null) {{
@@ -322,10 +342,20 @@ public class FlowControlRunMacro extends StarMacro {{
         return new String[] {{
             boundaryName,
             "J" + digits,
-            "J_" + digits,
-            "JET" + digits,
-            "JET_" + digits
+            "J_" + digits
         }};
+    }}
+
+    private boolean isBottomJetBoundaryName(String boundaryName) {{
+        String normalized = boundaryName == null
+            ? ""
+            : boundaryName.trim().replace("_", "").toUpperCase(Locale.ROOT);
+        if (!normalized.startsWith("JET")) return false;
+        if (normalized.length() <= 3) return false;
+        for (int idx = 3; idx < normalized.length(); idx++) {{
+            if (!Character.isDigit(normalized.charAt(idx))) return false;
+        }}
+        return true;
     }}
 
     private String trailingDigits(String value) {{

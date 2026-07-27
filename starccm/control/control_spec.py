@@ -44,11 +44,11 @@ def _default_jets() -> tuple[JetActuator, ...]:
     return tuple(
         JetActuator(
             column=column,
-            boundary_name=f"fc_{column.lower()}",
-            profile_name=f"fc_{column.lower()}_mass_flow",
-            report_name=f"fc_{column.lower()}_mass_flow_report",
+            boundary_name=f"J{idx:02d}",
+            profile_name=f"j{idx:02d}_mass_flow",
+            report_name=f"j{idx:02d}_mass_flow_report",
         )
-        for column in JET_COLUMNS
+        for idx, column in enumerate(JET_COLUMNS, start=1)
     )
 
 

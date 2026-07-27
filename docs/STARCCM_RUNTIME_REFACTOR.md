@@ -124,8 +124,8 @@ Fz_S3R -> fc_load_S3R
 
 ```text
 JET_03
-  boundary_name = fc_jet_03
-  profile_name  = fc_jet_03_mass_flow
+  boundary_name = J03
+  profile_name  = j03_mass_flow
 ```
 
 这一层不启动 STAR，也不解析日志。它只是统一名字、字段和结果契约。
@@ -251,8 +251,8 @@ JET_03 = 0.025
 
 翻译成：
 SetBoundaryProfile(
-  boundary_name="fc_jet_03",
-  profile_name="fc_jet_03_mass_flow",
+  boundary_name="J03",
+  profile_name="j03_mass_flow",
   value=0.025
 )
 ```

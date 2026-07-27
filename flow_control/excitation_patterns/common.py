@@ -104,7 +104,7 @@ class ActuationConfig:
 
     @property
     def jet_names(self) -> list[str]:
-        """返回喷口名称列表，如 ['JET_01', 'JET_02', ...]"""
+        """返回算法侧喷气开关列名列表，如 ['JET_01', 'JET_02', ...]。"""
         return [f"JET_{idx:02d}" for idx in range(1, self.n_jets + 1)]
 
     @property
@@ -275,7 +275,7 @@ def empty_switches(total_windows: int, n_jets: int) -> list[list[int]]:
 
 
 def jet_index(jet_id: int, n_jets: int) -> int:
-    """将 1-based 的 JET 编号转换为 0-based 的列索引。"""
+    """将 1-based 的算法喷气通道编号转换为 0-based 的列索引。"""
     if not 1 <= jet_id <= n_jets:
         raise ValueError(f"jet_id must be in [1, {n_jets}], got {jet_id}")
     return jet_id - 1
@@ -285,7 +285,8 @@ def rows_from_table(config: ActuationConfig, table: ScheduleTable) -> list[dict[
     """将 ScheduleTable 转换为 CSV 行的字典列表。
 
     每行包含：physical_time, window_id, t_start, t_end,
-    JET_01..JET_NN 的 0/1 开关值，cmd_massflow_01..cmd_massflow_NN 的质量流量值。
+    算法侧 JET_01..JET_NN 的 0/1 开关值，cmd_massflow_01..cmd_massflow_NN 的质量流量值。
+    这里的 JET_XX 是表格列名；落到 STAR 时必须映射到 JXX 喷气口，不能映射到 JETXX 底面区域。
     """
     rows: list[dict[str, Any]] = []
     for window_id, (switch_row, massflow_row) in enumerate(zip(table.switches, table.massflows)):
@@ -352,8 +353,8 @@ def write_config_summary(
         },
         "notes": {
             "time_columns": "physical_time, t_start, and t_end are seconds, not solver iterations",
-            "switch_columns": "JET_01..JET_24 are 0/1 valve states",
-            "massflow_columns": "cmd_massflow_01..cmd_massflow_24 are commanded mass flow values",
+            "switch_columns": "JET_01..JET_24 are algorithm-side 0/1 nozzle switch columns",
+            "massflow_columns": "cmd_massflow_01..cmd_massflow_24 target STAR J01..J24 nozzle mass flow values",
         },
     }
     if extra:

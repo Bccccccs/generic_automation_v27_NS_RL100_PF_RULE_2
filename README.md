@@ -1,6 +1,6 @@
 # generic_automation / maglev_sparse_jet_9w
 
-本项目当前重点是 `flow_control/`：围绕 24 个喷气区生成统一的 `actuation_schedule.csv`，把动作表送入 mock、STAR-CCM+ 或 ROM 链路，并把结果整理成统一 case 目录。
+本项目当前重点是 `flow_control/`：围绕 24 个算法喷气控制通道生成统一的 `actuation_schedule.csv`，把动作表送入 mock、STAR-CCM+ 或 ROM 链路，并把结果整理成统一 case 目录。
 
 `generic_automation/` 中保留了历史 STAR-CCM+ 自动化、求解器参数调优、在线监控和 RL 代码；它不是当前喷气控制主线的默认入口。
 
@@ -53,8 +53,8 @@ physical_time    当前窗口开始物理时间，单位秒
 window_id        第几个喷气窗口，从 0 开始
 t_start          窗口开始时间，单位秒
 t_end            窗口结束时间，单位秒
-JET_01..JET_24   喷气区开关，1 表示打开，0 表示关闭
-cmd_massflow_*   对应喷气区的指令质量流量，单位 kg/s
+JET_01..JET_24   算法侧喷气口控制通道开关，1 表示打开，0 表示关闭
+cmd_massflow_*   对应喷气口控制通道的指令质量流量，单位 kg/s
 ```
 
 强制规则：
@@ -495,3 +495,4 @@ docs/STARCCM_RUNTIME_REFACTOR.md
 ```
 
 也就是说，现在交付重点是喷气实验输入生成、本地 mock 验证、STAR 数据导入、ROM 建模和质量检查链路；真实 STAR-CCM+ 喷口边界闭环接入是下一步工作。
+STAR 命名必须严格区分：`J01..J24` 是喷气口边界，`JET01..JET24` 是底面受力区域。算法侧列名 `JET_01..JET_24` 只是 schedule/timeseries 的开关列，落到 STAR 控制时必须映射到 `J01..J24`，不能映射到 `JET01..JET24`。

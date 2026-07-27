@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--np", type=int, default=1, help="Number of STAR-CCM+ processes.")
     parser.add_argument("--podkey", default="", help="STAR-CCM+ pod key/license token.")
-    parser.add_argument("--region", default="Region", help="Region containing fc_jet_XX boundaries.")
+    parser.add_argument("--region", default="Region", help="Region containing STAR J01..J24 nozzle boundaries.")
     parser.add_argument(
         "--time-step",
         type=float,
