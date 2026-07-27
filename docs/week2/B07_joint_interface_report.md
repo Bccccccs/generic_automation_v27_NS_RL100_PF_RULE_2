@@ -94,7 +94,7 @@
 ## 交付物位置
 
 - `docs/week2/B07_joint_interface_report.md`
-- `B07_next_cfd_case_suggestion.csv`
+- `artifacts/reports/B07_next_cfd_case_suggestion.csv`
 - `docs/week2/B07_current_blocking_issues.md`
 - `runs/temp_no_jet_3s_dt1e-4/quality_report.json`
 - `runs/temp_j01_3s_mass2p57_dt1e-4/quality_report.json`

@@ -1,0 +1,6 @@
+case_id: G00_nojet_existing
+source_product_dir: /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/temp_no_jet_3s_dt1e-4/out_put
+status: complete
+errors: 0
+warnings: 2
+stop_reason: No blocking missing data detected for the declared case type.

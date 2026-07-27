@@ -10,6 +10,8 @@ results/
 results_validation/
 runs/*
 !runs/.gitkeep
+!runs/real_star/
+!runs/real_star/**
 archive/legacy/*
 !archive/legacy/.gitkeep
 
@@ -19,6 +21,7 @@ runs/starccm_no/
 *.sim
 *.sim~
 *.log
+!runs/real_star/**/*.log
 *.csv.tmp
 *.pdf
 *.key

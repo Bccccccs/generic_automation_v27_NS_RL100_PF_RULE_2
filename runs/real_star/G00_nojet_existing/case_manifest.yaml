@@ -1,0 +1,39 @@
+case_id: G00_nojet_existing
+case_type: no_jet
+description: existing no-jet STAR monitor exports
+source_product_dir: raw_star/out_put
+raw_star_dir: /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G00_nojet_existing/raw_star
+processed_timeseries: processed/timeseries.csv
+actuation_schedule: actuation_schedule.csv
+quality_report: quality_report.json
+figures_dir: figures
+git_commit: e2d7a583ef88e218bc57f31b9150e2f5bf5d1533
+units:
+  Drag_Total: N
+  Fz_S1L: N
+  Fz_S1R: N
+  Fz_S2L: N
+  Fz_S2R: N
+  Fz_S3L: N
+  Fz_S3R: N
+  Fz_Total: N
+  Jet_Reaction_Z: N
+  Pitch_Moment: N-m
+  Roll_Moment: N-m
+sign_convention: STAR monitor export convention preserved; aerodynamic positive direction
+  unconfirmed.
+validation_mode: existing_data_evidence_ingest
+status: complete
+raw_csv_count: 7
+timeseries_csv_count: 6
+notes:
+- raw_star is a read-only copy of existing STAR out_put products.
+- existing run figures and derived data are classified under figures/ and logs/ without
+  overwriting standard outputs.
+- processed/timeseries.csv is merged on physical_time, not row number.
+- actual_massflow columns are not synthesized from command values.
+source_run_products:
+  figures: figures/run_figures
+  input_figures: figures/input_figures
+  derived_data: logs/run_products
+  input_data: logs/input_data

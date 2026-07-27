@@ -206,7 +206,7 @@ runs/arx/validations/train01/rmse_bar.svg
 ```bash
 .venv/bin/python -m flow_control.cli.summarize_single_jet \
   --case-dir runs/mock_full_step_singlejet \
-  --out B06_single_jet_response_summary.csv
+  --out artifacts/reports/B06_single_jet_response_summary.csv
 ```
 
 ### 6.5 单 case 兼容示例

@@ -23,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--case-dir", required=True, help="Single-jet case directory.")
     parser.add_argument(
         "--out",
-        default="B06_single_jet_response_summary.csv",
+        default="artifacts/reports/B06_single_jet_response_summary.csv",
         help="Summary CSV output path.",
     )
     args = parser.parse_args(argv)

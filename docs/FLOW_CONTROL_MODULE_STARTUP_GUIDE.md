@@ -803,7 +803,7 @@ runs/rom_mock_demo/rmse_bar.svg
 ```bash
 .venv/bin/python -m flow_control.cli.summarize_single_jet \
   --case-dir runs/mock_full_step_singlejet \
-  --out B06_single_jet_response_summary.csv
+  --out artifacts/reports/B06_single_jet_response_summary.csv
 ```
 
 也可以只验证 dataset 中的一部分 case：

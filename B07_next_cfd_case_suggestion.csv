@@ -1,5 +1,0 @@
-case_id,激励类型,喷气区编号,质量流量,持续时间,为什么要跑这个算例,预期观察哪个升力区域
-B07_J01_repeat_3s_mass2p57,single_jet_constant,JET_01,2.57 kg/s,3.0 s,复现实次已通过的最小喷气链路，确认 STAR 导出 timeseries.csv 的可重复性和 JET_01 实际质量流量字段稳定性,S1L/S1R 近场区域与 Fz_Total
-B07_J01_pulse_1s_mass2p57,single_jet_pulse,JET_01,2.57 kg/s,1.0 s on + 2.0 s off,把持续喷气改成短脉冲，区分喷气开启瞬态、关闭恢复段和数值漂移,S1L/S1R 近场区域及 Jet_Reaction_Z
-B07_J02_constant_3s_mass2p57,single_jet_constant,JET_02,2.57 kg/s,3.0 s,用相邻喷口验证喷气区编号映射和左右/前后方向定义是否一致,S1R 或相邻传感器响应区域
-B07_no_jet_reference_repeat,no_jet,none,0 kg/s,3.0 s,复核无喷气基线中 Jet_Reaction_Z 非零的问题，判断是监视器定义、正方向口径还是物理/数值残差,Fz_Total 基线和 Jet_Reaction_Z
