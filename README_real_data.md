@@ -26,6 +26,8 @@ export STARCCM_PATH=/path/to/starccm+
 
 ## 2. 只生成动作表
 
+本节是独立用法，只验证动作生成器。执行本节后，输出目录是 `runs/week3_pulse_singlejet`。
+
 ```bash
 .venv/bin/python -m flow_control.generator.schedule_generator \
   --config configs/actions/pulse_singlejet.yaml \
@@ -44,7 +46,9 @@ runs/week3_pulse_singlejet/input/validation_report.json
 
 ## 3. 本地 mock 全流程演示
 
-不需要 STAR 许可证时，先用 mock 验证动作表、喷气检查表、标准 case 和质量检查链路：
+本节是 README 推荐的本地完整演示流程，不需要 STAR 许可证。执行本节后，标准 case 目录只应是 `runs/week3_mock_full_demo`。
+
+用 mock 验证动作表、喷气检查表、标准 case 和质量检查链路：
 
 ```bash
 .venv/bin/python -m flow_control.generator.schedule_generator \
@@ -60,7 +64,9 @@ printf 'runs/week3_mock_full_demo\nmock\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
 ```
 
-上面的 `runs/week3_mock_full_demo` 是后续本地演示建议使用的 case 目录。B01 是交付物编号；B01 clean clone 复现时已经跑通过一次完整演示，命令和日志在：
+不要同时保留 `runs/B01_mock_full_demo` 或 `runs/readme_real_data_check` 作为 README 输出目录；它们只是历史复现或临时验证时用过的本地目录名。
+
+B01 是交付物编号；B01 clean clone 复现时已经跑通过一次完整演示，命令和日志在：
 
 ```text
 docs/week3/B01_mock_full_demo_from_clean_clone.md
@@ -228,6 +234,8 @@ PY
 ```
 
 ## 6. 条件满足时启动 STAR
+
+本节是真实 STAR-CCM+ 路径。执行成功后，真实运行输出目录是 `runs/starccm_week3_pulse_singlejet`，不是 mock 演示目录。
 
 只有满足以下条件才启动真实 STAR：
 
