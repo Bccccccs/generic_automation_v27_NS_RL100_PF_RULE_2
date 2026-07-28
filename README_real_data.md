@@ -87,7 +87,7 @@ figures/quality_summary.png
 B01 是交付物编号；B01 clean clone 复现时已经跑通过一次完整演示，命令和日志在：
 
 ```text
-docs/week3/B01_mock_full_demo_from_clean_clone.md
+docs/week3/B01_reproduce_from_clean_clone.md
 docs/week3/B01_mock_full_demo.log
 docs/week3/B01_mock_full_demo_outputs/
 ```
