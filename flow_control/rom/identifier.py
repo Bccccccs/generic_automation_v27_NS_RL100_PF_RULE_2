@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 
+from flow_control.case_paths import find_case_timeseries_path
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 # 质量流量命令列名：cmd_massflow_01 到 cmd_massflow_24，对应 24 个喷射器的质量流量指令
@@ -34,7 +35,7 @@ def load_case_table(case_dir: str | Path) -> list[dict[str, str]]:
     """Load and merge ``timeseries.csv`` with ``actuation_schedule.csv`` if present."""
     # case_dir 可以是字符串或 Path 对象，统一转为 Path 以便路径操作
     case_path = Path(case_dir)
-    timeseries_path = case_path / "timeseries.csv"
+    timeseries_path = find_case_timeseries_path(case_path)
     schedule_path = case_path / "actuation_schedule.csv"
     rows = read_csv_rows(timeseries_path)
     if not rows:

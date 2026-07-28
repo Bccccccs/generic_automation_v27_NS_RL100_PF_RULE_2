@@ -284,21 +284,17 @@ ROM 的离散索引是时间步样本编号，不是喷气窗口编号。纯 sch
 
 ## 6. 常见质量检查样例
 
-本地 `runs/` 下可以放错误样例，用来测试检查器。例如：
+本地 `runs/error_case/` 下统一存放错误样例，用来测试检查器：
 
 ```text
-runs/error_case_missing_required_file
-runs/error_case_missing_required_column
-runs/error_case_non_monotonic_time
-runs/error_case_nan_value
-runs/error_case_jet_massflow_mismatch
-runs/error_case_missing_actual_massflow
-runs/error_case_no_jet_reaction_nonzero
+runs/error_case/legacy_quality_checker/
+runs/error_case/ccm_physics/
+runs/error_case/error_case_index.csv
 ```
 
-这些目录用于测试 `python examples/run_ccm_ingest_step2_check.py` 的质量报告生成。
+`legacy_quality_checker/` 覆盖早期基础 CSV 质量检查；`ccm_physics/` 覆盖当前 ccm profile 的 B03/B04 真实 STAR/CCM 检查。
 
-其中 `error_case_no_jet_reaction_nonzero` 是 warning-only：无喷气 case 中 `Jet_Reaction_Z` 非零，表示需要确认 STAR monitor 的物理口径。
+这些目录用于测试 `python examples/run_ccm_ingest_step2_check.py` 的质量报告生成。交互时先选 case 目录，再选 `mock` 或 `ccm` 检查模式。
 
 ## 7. 模块作用
 

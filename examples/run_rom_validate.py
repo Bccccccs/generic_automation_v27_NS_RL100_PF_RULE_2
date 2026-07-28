@@ -3,16 +3,24 @@
 
 from pathlib import Path
 
-from _common import choose_arx_model, configure_project_root, normalize_run_dir, reexec_with_project_python, run_module
+from _common import (
+    choose_arx_model,
+    configure_project_root,
+    discover_case_dirs_with_timeseries,
+    find_timeseries,
+    normalize_run_dir,
+    reexec_with_project_python,
+    run_module,
+)
 
 
 def discover_validation_cases() -> list[Path]:
     cases: list[Path] = []
-    for timeseries in sorted(Path("runs").rglob("timeseries.csv")):
-        text_path = timeseries.as_posix()
+    for case_dir in discover_case_dirs_with_timeseries():
+        text_path = case_dir.as_posix()
         if text_path.startswith("runs/arx/"):
             continue
-        cases.append(timeseries.parent)
+        cases.append(case_dir)
     return cases
 
 
@@ -32,7 +40,7 @@ def main() -> None:
     if mode == "1":
         cases = discover_validation_cases()
         if not cases:
-            raise SystemExit("未找到可验证 case。需要非 runs/arx 目录中包含 timeseries.csv。")
+            raise SystemExit("未找到可验证 case。需要非 runs/arx 目录中包含 processed/timeseries.csv 或 timeseries.csv。")
 
         print("\n当前可用于 ROM 验证的 case：")
         for idx, case_dir in enumerate(cases, start=1):
@@ -51,8 +59,7 @@ def main() -> None:
             case_dir = normalize_run_dir(selection)
         if case_dir.as_posix().startswith("runs/arx/"):
             raise SystemExit(f"验证输入不能使用 runs/arx 下的目录：{case_dir}")
-        if not (case_dir / "timeseries.csv").is_file():
-            raise SystemExit(f"目录缺少 timeseries.csv：{case_dir}")
+        find_timeseries(case_dir)
 
         print(f"\nValidating ARX ROM on {case_dir} -> {validation_out}", flush=True)
         run_module(

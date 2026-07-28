@@ -3,7 +3,23 @@
 
 from pathlib import Path
 
-from _common import choose_arx_model, configure_project_root, find_schedule, normalize_run_dir, reexec_with_project_python, run_module
+from _common import (
+    choose_arx_model,
+    configure_project_root,
+    find_schedule,
+    find_timeseries,
+    normalize_run_dir,
+    reexec_with_project_python,
+    run_module,
+)
+
+
+def has_timeseries(case_dir: Path) -> bool:
+    try:
+        find_timeseries(case_dir)
+    except SystemExit:
+        return False
+    return True
 
 
 def discover_schedule_dirs() -> list[Path]:
@@ -12,7 +28,7 @@ def discover_schedule_dirs() -> list[Path]:
         if schedule.as_posix().startswith("runs/arx/"):
             continue
         schedule_dir = schedule.parent.parent if schedule.parent.name == "input" else schedule.parent
-        if (schedule_dir / "timeseries.csv").exists():
+        if has_timeseries(schedule_dir):
             continue
         schedule_dirs.add(schedule_dir)
     return sorted(schedule_dirs)
@@ -49,8 +65,8 @@ def main() -> None:
         raise SystemExit(f"目录不存在：{schedule_dir}")
     if schedule_dir.as_posix().startswith("runs/arx/"):
         raise SystemExit(f"ROM 预测输入不能使用 runs/arx 下的目录：{schedule_dir}")
-    if (schedule_dir / "timeseries.csv").exists():
-        raise SystemExit(f"目录已有 timeseries.csv，请用验证入口处理已有 case：{schedule_dir}")
+    if has_timeseries(schedule_dir):
+        raise SystemExit(f"目录已有 timeseries，请用验证入口处理已有 case：{schedule_dir}")
 
     schedule_path = find_schedule(schedule_dir)
     out_dir = schedule_dir.as_posix()

@@ -195,6 +195,8 @@ def test_use_arx_rom_writes_checked_prediction_case(tmp_path):
     assert result.predicted_rows == 158
     report = json.loads(result.quality_report_path.read_text(encoding="utf-8"))
     assert report["check_mode"] == "arx_use"
+    assert report["check_profile"] == "mock"
+    assert "physics_consistency" not in report
     assert report["run_success_flag"] is True
 
 

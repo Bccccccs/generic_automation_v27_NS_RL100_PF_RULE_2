@@ -63,7 +63,7 @@ def main() -> None:
         "starccm_runtime_plan.json",
         "starccm_flow_control.log",
         "flow_control_timeseries.csv",
-        "timeseries.csv",
+        "processed/timeseries.csv",
         "quality_report.json",
     ]:
         print((selected_dir / name).as_posix())

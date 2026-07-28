@@ -452,10 +452,17 @@ class TestStarExportReader:
         assert any("Pitch_Moment" in e for e in result["errors"])
         assert any("Roll_Moment" in e for e in result["errors"])
         assert any("Jet_Reaction_Z" in e for e in result["errors"])
-        assert (tmp_path / "demo_case" / "timeseries.csv").exists()
+        assert (tmp_path / "demo_case" / "processed" / "timeseries.csv").exists()
         assert (tmp_path / "demo_case" / "figures").is_dir()
         assert (tmp_path / "demo_case" / "notes.md").exists()
         assert result["has_jet_data"] is False  # no jet columns
+        quality_report = json.loads((tmp_path / "demo_case" / "quality_report.json").read_text())
+        assert quality_report["check_profile"] == "ccm"
+        assert "ccm_ingest_contract" in quality_report
+        assert quality_report["ccm_ingest_contract"]["summary"]["run_success_flag"] is True
+        assert "physics_consistency" in quality_report
+        assert "CSV没有NaN" not in json.dumps(quality_report, ensure_ascii=False)
+        assert "CFD物理正确" not in json.dumps(quality_report, ensure_ascii=False)
 
     def test_missing_jet_exports_still_generate_all_four_figures(self, tmp_path):
         rows = _good_rows()

@@ -83,6 +83,47 @@ def find_schedule(case_dir: Path) -> Path:
     raise SystemExit(f"未找到动作表：{input_schedule} 或 {root_schedule}")
 
 
+def find_timeseries(case_dir: Path) -> Path:
+    processed = case_dir / "processed" / "timeseries.csv"
+    legacy = case_dir / "timeseries.csv"
+    if processed.is_file():
+        return processed
+    if legacy.is_file():
+        return legacy
+    raise SystemExit(f"未找到时序数据：{processed} 或 {legacy}")
+
+
+def discover_case_dirs_with_timeseries(root: Path = Path("runs")) -> list[Path]:
+    cases = set()
+    for timeseries in root.rglob("timeseries.csv"):
+        if "processed" in timeseries.parts and timeseries.parent.name == "processed":
+            candidate = timeseries.parent.parent
+        else:
+            candidate = timeseries.parent
+        if is_case_root(candidate):
+            cases.add(candidate)
+    return sorted(cases)
+
+
+def discover_case_dirs_with_quality_report(root: Path = Path("runs")) -> list[Path]:
+    return sorted(
+        path.parent
+        for path in root.rglob("quality_report.json")
+        if is_case_root(path.parent)
+    )
+
+
+def is_case_root(path: Path) -> bool:
+    if any(part in {"legacy", "logs", "figures", "raw_star", "processed", "input"} for part in path.parts):
+        return False
+    return (
+        (path / "case_manifest.yaml").is_file()
+        and (path / "actuation_schedule.csv").is_file()
+        and (path / "quality_report.json").is_file()
+        and ((path / "processed" / "timeseries.csv").is_file() or (path / "timeseries.csv").is_file())
+    )
+
+
 def list_dirs(paths: list[Path]) -> None:
     for path in paths:
         print(path.as_posix())

@@ -1,0 +1,261 @@
+{
+  "case_id": "E04_force_accounting_missing_vehicle_force",
+  "num_errors": 1,
+  "num_warnings": 1,
+  "errors": [
+    "Missing required column: Drag_Total"
+  ],
+  "warnings": [
+    "No-jet case confirmed: Jet_Reaction_Z ≈ 0.0 (expected physical result — NOT data loss)"
+  ],
+  "has_jet_data": false,
+  "check_mode": "ccm",
+  "check_profile": "ccm",
+  "validation_mode": "full_case",
+  "num_timeseries_rows": 4,
+  "num_timeseries_columns": 85,
+  "run_success_flag": false,
+  "source_files": [
+    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/error_examples/E04_force_accounting_missing_vehicle_force/raw_star/out_put/Fz_Monitor_fixture.csv"
+  ],
+  "ccm_ingest_contract": {
+    "schema_version": "B03_B33_ccm_ingest_contract_v1",
+    "case_id": "E04_force_accounting_missing_vehicle_force",
+    "summary": {
+      "blocking_issue_count": 0,
+      "run_success_flag": true
+    },
+    "checks": [
+      {
+        "name": "processed_timeseries",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard timeseries must be stored at processed/timeseries.csv",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/processed/timeseries.csv"
+      },
+      {
+        "name": "required_file_case_manifest.yaml",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires case_manifest.yaml",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/case_manifest.yaml"
+      },
+      {
+        "name": "required_file_actuation_schedule.csv",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires actuation_schedule.csv",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/actuation_schedule.csv"
+      },
+      {
+        "name": "required_file_quality_report.json",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires quality_report.json",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/quality_report.json"
+      },
+      {
+        "name": "required_dir_processed",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires processed/",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/processed"
+      },
+      {
+        "name": "required_dir_figures",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires figures/",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/figures"
+      },
+      {
+        "name": "required_dir_logs",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires logs/",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/logs"
+      },
+      {
+        "name": "source_evidence",
+        "status": "pass",
+        "severity": "info",
+        "message": "ccm/star ingest must keep evidence of raw STAR output or CCM runtime source files",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/raw_star, runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/raw_star/out_put"
+      },
+      {
+        "name": "raw_star_readonly_evidence",
+        "status": "pass",
+        "severity": "info",
+        "message": "declared raw_star_dir must exist and remain separate from processed outputs",
+        "path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/raw_star"
+      }
+    ]
+  },
+  "num_ccm_contract_blocking_issues": 0,
+  "physics_consistency": {
+    "schema_version": "B04_physics_consistency_v1",
+    "case_id": "E04_force_accounting_missing_vehicle_force",
+    "categories": {
+      "format_errors": [],
+      "name_or_coordinate_errors": [],
+      "massflow_errors": [],
+      "force_accounting_errors": [
+        {
+          "severity": "error",
+          "message": "Missing one or more force accounting series",
+          "present_series": {
+            "regional_lift_sum": true,
+            "jet_reaction": true,
+            "Fz_Total": true,
+            "Drag_Total": false,
+            "Pitch_Moment": true,
+            "Roll_Moment": true
+          }
+        }
+      ],
+      "numerical_instability_warnings": [],
+      "physical_questions_for_haokun": []
+    },
+    "summaries": {
+      "time_alignment": {
+        "paired_rows_checked": 4,
+        "sample_matches_t_start_rows": 0,
+        "sample_matches_t_end_rows": 4,
+        "sample_inside_window_rows": 4
+      },
+      "star_csv_alignment": {
+        "checked_source_csv_count": 0,
+        "checked_source_csvs": []
+      },
+      "massflow_tracking": {
+        "jet_columns_present": 24,
+        "cmd_massflow_columns_present": 24,
+        "actual_massflow_columns_present": 24,
+        "max_abs_cmd_minus_actual_by_jet": {
+          "actual_massflow_01": 0.0,
+          "actual_massflow_02": 0.0,
+          "actual_massflow_03": 0.0,
+          "actual_massflow_04": 0.0,
+          "actual_massflow_05": 0.0,
+          "actual_massflow_06": 0.0,
+          "actual_massflow_07": 0.0,
+          "actual_massflow_08": 0.0,
+          "actual_massflow_09": 0.0,
+          "actual_massflow_10": 0.0,
+          "actual_massflow_11": 0.0,
+          "actual_massflow_12": 0.0,
+          "actual_massflow_13": 0.0,
+          "actual_massflow_14": 0.0,
+          "actual_massflow_15": 0.0,
+          "actual_massflow_16": 0.0,
+          "actual_massflow_17": 0.0,
+          "actual_massflow_18": 0.0,
+          "actual_massflow_19": 0.0,
+          "actual_massflow_20": 0.0,
+          "actual_massflow_21": 0.0,
+          "actual_massflow_22": 0.0,
+          "actual_massflow_23": 0.0,
+          "actual_massflow_24": 0.0
+        },
+        "mean_abs_cmd_minus_actual_by_jet": {
+          "actual_massflow_01": 0.0,
+          "actual_massflow_02": 0.0,
+          "actual_massflow_03": 0.0,
+          "actual_massflow_04": 0.0,
+          "actual_massflow_05": 0.0,
+          "actual_massflow_06": 0.0,
+          "actual_massflow_07": 0.0,
+          "actual_massflow_08": 0.0,
+          "actual_massflow_09": 0.0,
+          "actual_massflow_10": 0.0,
+          "actual_massflow_11": 0.0,
+          "actual_massflow_12": 0.0,
+          "actual_massflow_13": 0.0,
+          "actual_massflow_14": 0.0,
+          "actual_massflow_15": 0.0,
+          "actual_massflow_16": 0.0,
+          "actual_massflow_17": 0.0,
+          "actual_massflow_18": 0.0,
+          "actual_massflow_19": 0.0,
+          "actual_massflow_20": 0.0,
+          "actual_massflow_21": 0.0,
+          "actual_massflow_22": 0.0,
+          "actual_massflow_23": 0.0,
+          "actual_massflow_24": 0.0
+        }
+      },
+      "force_accounting": {
+        "regional_lift_sum": {
+          "count": 4,
+          "min": 21.0,
+          "max": 21.0,
+          "mean": 21.0,
+          "median": 21.0,
+          "first": 21.0,
+          "last": 21.0
+        },
+        "vehicle_aerodynamics": {
+          "Fz_Total": {
+            "count": 4,
+            "min": 21.0,
+            "max": 21.0,
+            "mean": 21.0,
+            "median": 21.0,
+            "first": 21.0,
+            "last": 21.0
+          },
+          "Drag_Total": {
+            "count": 0
+          },
+          "Pitch_Moment": {
+            "count": 4,
+            "min": 1.0,
+            "max": 1.0,
+            "mean": 1.0,
+            "median": 1.0,
+            "first": 1.0,
+            "last": 1.0
+          },
+          "Roll_Moment": {
+            "count": 4,
+            "min": 2.0,
+            "max": 2.0,
+            "mean": 2.0,
+            "median": 2.0,
+            "first": 2.0,
+            "last": 2.0
+          }
+        },
+        "jet_reaction": {
+          "count": 4,
+          "min": 0.0,
+          "max": 0.0,
+          "mean": 0.0,
+          "median": 0.0,
+          "first": 0.0,
+          "last": 0.0
+        }
+      }
+    },
+    "inputs": {
+      "case_dir": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force",
+      "boundary_mapping_path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/mappings/boundary_mapping.csv",
+      "report_mapping_path": "runs/error_case/ccm_physics/E04_force_accounting_missing_vehicle_force/mappings/report_mapping.csv",
+      "zero_tolerance": 1e-08,
+      "time_tolerance": 1e-09
+    },
+    "summary": {
+      "category_counts": {
+        "format_errors": 0,
+        "name_or_coordinate_errors": 0,
+        "massflow_errors": 0,
+        "force_accounting_errors": 1,
+        "numerical_instability_warnings": 0,
+        "physical_questions_for_haokun": 0
+      },
+      "blocking_issue_count": 1,
+      "run_success_flag": false
+    }
+  },
+  "num_physics_blocking_issues": 1
+}

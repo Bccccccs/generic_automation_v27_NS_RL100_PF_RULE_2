@@ -20,6 +20,7 @@ from typing import Any
 
 import yaml
 
+from flow_control.case_paths import case_timeseries_path
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
@@ -60,7 +61,7 @@ def package_ccm_run_case(
     处理步骤:
     1. 读取 CCM 运行时 CSV 和驱动指令 CSV
     2. 将 CCM 列名转换为标准列名
-    3. 写入 timeseries.csv
+    3. 写入 processed/timeseries.csv
     4. 写入 actuation_schedule.csv
     5. 写入 case_manifest.yaml(自动填充默认值)
     6. 创建标准目录
@@ -75,12 +76,24 @@ def package_ccm_run_case(
     for directory_name in CASE_REQUIRED_DIRS:
         (case_path / directory_name).mkdir(exist_ok=True)
 
-    _write_csv(case_path / "timeseries.csv", _ordered_timeseries_columns(rows), rows)
+    timeseries_path = case_timeseries_path(case_path)
+    _write_csv(timeseries_path, _ordered_timeseries_columns(rows), rows)
     schedule_columns = list(schedule_rows[0]) if schedule_rows else ["physical_time"]
     _write_csv(case_path / "actuation_schedule.csv", schedule_columns, schedule_rows)
     _write_csv(case_path / "input" / "actuation_schedule.csv", schedule_columns, schedule_rows)
 
     manifest_data = dict(manifest or {})
+    manifest_data.setdefault(
+        "star",
+        {
+            "version": "待浩坤确认",
+            "sim_file": "待浩坤确认",
+            "sim_file_hash_sha256": "待浩坤确认",
+            "geometry_version": "待浩坤确认",
+            "mesh_version": "待浩坤确认",
+            "region_names": ["减运算"],
+        },
+    )
     manifest_data.setdefault("geometry_version", "starccm-runtime")
     manifest_data.setdefault("mesh_version", "unknown")
     manifest_data.setdefault("flow_velocity", 0.0)
@@ -121,7 +134,7 @@ def package_ccm_run_case(
     )
     return {
         "case_dir": case_path,
-        "timeseries_path": case_path / "timeseries.csv",
+        "timeseries_path": timeseries_path,
         "quality_report_path": case_path / "quality_report.json",
         "quality_report": quality_report,
     }

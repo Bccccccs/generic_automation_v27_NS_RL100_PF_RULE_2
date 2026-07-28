@@ -59,6 +59,7 @@ def downsample_by_max(values: np.ndarray, max_rows: int = 1200) -> np.ndarray:
 
 
 def ingest_case(case_dir: Path, schedule_path: Path) -> None:
+    from flow_control.case_paths import case_timeseries_path
     import numpy as np
     import yaml
 
@@ -123,7 +124,7 @@ def ingest_case(case_dir: Path, schedule_path: Path) -> None:
         write_final_quality_report=False,
     )
 
-    timeseries_path = case_dir / "timeseries.csv"
+    timeseries_path = case_timeseries_path(case_dir)
     timeseries_rows = read_csv_rows(timeseries_path)
     if len(timeseries_rows) != len(schedule_rows):
         raise SystemExit(

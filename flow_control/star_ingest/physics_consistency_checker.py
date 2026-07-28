@@ -17,6 +17,9 @@ from typing import Any
 
 import yaml
 
+from flow_control.case_paths import find_case_timeseries_path
+from flow_control.star_ingest.star_export_reader import read_star_export_csv
+
 
 REGIONAL_FORCE_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
 VEHICLE_FORCE_COLUMNS = ("Fz_Total", "Drag_Total", "Pitch_Moment", "Roll_Moment")
@@ -48,33 +51,49 @@ def check_case(
     """Run physics-facing checks for one standard case directory."""
 
     case_path = Path(case_dir)
-    boundary_path = Path(boundary_mapping_path) if boundary_mapping_path else Path("docs/week3/B02_boundary_mapping.csv")
-    report_path = Path(report_mapping_path) if report_mapping_path else Path("docs/week3/B02_report_mapping.csv")
-
     report = _empty_report(case_path)
-    timeseries = _read_csv_rows(case_path / "timeseries.csv")
+    timeseries_path = find_case_timeseries_path(case_path)
+    timeseries = _read_csv_rows(timeseries_path)
     schedule = _read_csv_rows(case_path / "actuation_schedule.csv")
     manifest = _read_yaml(case_path / "case_manifest.yaml")
     quality_report = _read_json(case_path / "quality_report.json")
+    boundary_path = _configured_mapping_path(
+        case_path,
+        explicit_path=boundary_mapping_path,
+        manifest=manifest,
+        key="boundary_mapping_file",
+        default_path="docs/week3/B02_boundary_mapping.csv",
+    )
+    report_path = _configured_mapping_path(
+        case_path,
+        explicit_path=report_mapping_path,
+        manifest=manifest,
+        key="report_mapping_file",
+        default_path="docs/week3/B02_report_mapping.csv",
+    )
 
     if not timeseries:
-        _add_issue(report, "format_errors", "error", "timeseries.csv is missing or empty")
+        _add_issue(report, "format_errors", "error", f"{timeseries_path.relative_to(case_path) if timeseries_path.is_relative_to(case_path) else timeseries_path} is missing or empty")
         return _finalize_report(report)
     if not manifest:
         _add_issue(report, "format_errors", "error", "case_manifest.yaml is missing or empty")
 
-    _check_monotonic_time(report, timeseries, "timeseries.csv", time_tolerance)
+    _check_monotonic_time(report, timeseries, str(timeseries_path.relative_to(case_path) if timeseries_path.is_relative_to(case_path) else timeseries_path), time_tolerance)
     if schedule:
         _check_monotonic_time(report, schedule, "actuation_schedule.csv", time_tolerance)
         _check_time_alignment(report, timeseries, schedule, time_tolerance)
     else:
         _add_issue(report, "format_errors", "error", "actuation_schedule.csv is missing or empty")
 
-    source_files = [Path(p) for p in quality_report.get("source_files", []) if isinstance(p, str)]
+    source_files = [
+        _resolve_case_relative_path(case_path, p)
+        for p in quality_report.get("source_files", [])
+        if isinstance(p, str)
+    ]
     if not source_files:
         source_dir = manifest.get("source_product_dir")
         if isinstance(source_dir, str):
-            source_files = sorted(Path(source_dir).glob("*.csv"))
+            source_files = sorted(_resolve_case_relative_path(case_path, source_dir).glob("*.csv"))
     _check_star_csv_alignment(report, source_files, timeseries, time_tolerance)
 
     boundary_rows = _read_csv_rows(boundary_path, parse_numbers=False)
@@ -142,6 +161,34 @@ def write_report(report: dict[str, Any], output_path: str | Path) -> None:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _resolve_case_relative_path(case_path: Path, value: str | Path) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    case_relative = case_path / path
+    if case_relative.exists():
+        return case_relative
+    return path
+
+
+def _configured_mapping_path(
+    case_path: Path,
+    *,
+    explicit_path: str | Path | None,
+    manifest: dict[str, Any],
+    key: str,
+    default_path: str,
+) -> Path:
+    if explicit_path is not None:
+        return Path(explicit_path)
+    configured = manifest.get(key)
+    if configured is None and isinstance(manifest.get("star"), dict):
+        configured = manifest["star"].get(key)
+    if isinstance(configured, str) and configured:
+        return _resolve_case_relative_path(case_path, configured)
+    return Path(default_path)
 
 
 def _empty_report(case_path: Path) -> dict[str, Any]:
@@ -303,8 +350,12 @@ def _check_star_csv_alignment(report: dict[str, Any], source_files: list[Path], 
     for path in source_files:
         if not path.exists() or path.name in {"timeseries.csv", "actuation_schedule.csv"}:
             continue
-        rows = _read_csv_rows(path)
-        if not rows or "physical_time" not in rows[0]:
+        try:
+            source_data = read_star_export_csv(path)
+        except (FileNotFoundError, ValueError):
+            continue
+        rows = source_data["rows"]
+        if not rows:
             continue
         times = [_num(row.get("physical_time")) for row in rows]
         times = [t for t in times if t is not None]

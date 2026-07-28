@@ -173,9 +173,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--check-mode",
-        default="star_ingest",
+        default="ccm",
         choices=("star_ingest", "mock", "arx_use", "ccm"),
-        help="Quality-check mode written to the manifest and quality report.",
+        help=(
+            "Data-check mode. Use ccm for real STAR/CCM data with B03/B04 checks, "
+            "mock for generated/mock data. star_ingest and arx_use are legacy aliases."
+        ),
     )
     args = parser.parse_args(argv)
 
@@ -245,6 +248,14 @@ def _default_manifest(case_type: str, *, check_mode: str) -> dict[str, Any]:
     return {
         "case_type": case_type,
         "check_mode": check_mode,
+        "star": {
+            "version": "待浩坤确认",
+            "sim_file": "待浩坤确认",
+            "sim_file_hash_sha256": "待浩坤确认",
+            "geometry_version": "待浩坤确认",
+            "mesh_version": "待浩坤确认",
+            "region_names": ["减运算"],
+        },
         "geometry_version": "unknown",
         "mesh_version": "unknown",
         "flow_velocity": 0.0,
@@ -315,7 +326,7 @@ def _print_output_paths(case_path: Path, result: dict[str, Any]) -> None:
     """
     print("\nOutput files:")
     print(f"  {case_path / 'case_manifest.yaml'}")
-    print(f"  {case_path / 'timeseries.csv'}")
+    print(f"  {case_path / 'processed' / 'timeseries.csv'}")
     print(f"  {case_path / 'actuation_schedule.csv'}")
     print(f"  {case_path / 'quality_report.json'}")
     print(f"  {case_path / 'figures' / ''}")

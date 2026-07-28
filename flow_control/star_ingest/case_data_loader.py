@@ -44,6 +44,12 @@ from typing import Any
 
 import yaml
 
+from flow_control.case_paths import (
+    case_timeseries_path,
+    find_case_timeseries_path,
+    legacy_case_timeseries_path,
+)
+
 from .star_export_reader import (
     discover_star_export_csvs,
     read_star_export_csv,
@@ -109,18 +115,21 @@ JET_REQUIRED_EXTRA_COLUMNS = (
     *ACTUAL_MASSFLOW_COLUMNS,
 )
 
-# 标准 Case 目录中必须存在的文件
+# 标准 Case 目录中必须存在的文件。timeseries 的当前标准位置是
+# processed/timeseries.csv，读取侧兼容旧根目录 timeseries.csv。
 CASE_REQUIRED_FILES = (
     "case_manifest.yaml",
     "actuation_schedule.csv",
-    "timeseries.csv",
     "quality_report.json",
 )
 
 # 可选文件
 CASE_OPTIONAL_FILES = ("notes.md",)
-# 必须存在的子目录
-CASE_REQUIRED_DIRS = ("input", "figures", "logs", "flow_snapshots")
+# 必须存在的子目录。input/ 和 flow_snapshots/ 是历史/可选目录。
+CASE_REQUIRED_DIRS = ("processed", "figures", "logs")
+
+MOCK_CHECK_MODES = {"mock", "arx_use"}
+CCM_CHECK_MODES = {"ccm", "star_ingest"}
 
 
 def load_case(
@@ -210,7 +219,7 @@ def load_case(
 
     # ── 3. Load timeseries ────────────────────────────────────────────────
     # 第 3 步:加载时间序列数据(力/力矩/喷气信号等)
-    timeseries_path = case_dir / "timeseries.csv"
+    timeseries_path = find_case_timeseries_path(case_dir)
     result["timeseries"] = _read_csv_rows(timeseries_path)
     if not result["timeseries"]:
         result["errors"].append("timeseries.csv is empty")
@@ -393,7 +402,7 @@ def ingest_star_export(
     present_cols = _ordered_columns_from_rows(rows) if rows else data["columns"]
 
     # 3. Write timeseries.csv / 写入时间序列 CSV
-    _write_csv_rows(case_path / "timeseries.csv", present_cols, rows)
+    _write_csv_rows(case_timeseries_path(case_path), present_cols, rows)
 
     # 4. Write actuation_schedule.csv.  The root copy is the standard case
     # schema; input/ keeps the backend command source for traceability.
@@ -410,6 +419,17 @@ def ingest_star_export(
 
     # 5. Write case_manifest.yaml / 写入 Case 元数据(自动填充默认值)
     manifest_data = manifest or {}
+    manifest_data.setdefault(
+        "star",
+        {
+            "version": "待浩坤确认",
+            "sim_file": "待浩坤确认",
+            "sim_file_hash_sha256": "待浩坤确认",
+            "geometry_version": "待浩坤确认",
+            "mesh_version": "待浩坤确认",
+            "region_names": ["减运算"],
+        },
+    )
     manifest_data.setdefault("geometry_version", "unknown")
     manifest_data.setdefault("mesh_version", "unknown")
     manifest_data.setdefault("flow_velocity", 0.0)
@@ -470,6 +490,9 @@ def ingest_star_export(
     quality_report["source_files"] = data["source_files"]
     quality_report["star_column_mapping"] = data["mapping"]
     quality_report["detected_units"] = data["units"]
+    if _should_run_physics_consistency(quality_report.get("check_mode")):
+        quality_report = _attach_ccm_ingest_contract_to_quality_report(case_path, quality_report)
+        quality_report = _attach_physics_consistency_to_quality_report(case_path, quality_report)
     with (case_path / "quality_report.json").open("w", encoding="utf-8") as f:
         json.dump(quality_report, f, indent=2, ensure_ascii=False)
 
@@ -524,6 +547,9 @@ def write_quality_report(
     for key in ("source_files", "star_column_mapping", "detected_units", "figures"):
         if key in existing:
             quality_report[key] = existing[key]
+    if _should_run_physics_consistency(quality_report.get("check_mode")):
+        quality_report = _attach_ccm_ingest_contract_to_quality_report(case_path, quality_report)
+        quality_report = _attach_physics_consistency_to_quality_report(case_path, quality_report)
     report_path.write_text(
         json.dumps(quality_report, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -622,7 +648,12 @@ def _check_files(case_dir: Path) -> list[str]:
     for file_name in CASE_REQUIRED_FILES:
         if not (case_dir / file_name).exists():
             missing.append(file_name)
+    if not find_case_timeseries_path(case_dir).is_file():
+        missing.append("processed/timeseries.csv")
+    legacy_timeseries_exists = legacy_case_timeseries_path(case_dir).is_file()
     for dir_name in CASE_REQUIRED_DIRS:
+        if dir_name == "processed" and legacy_timeseries_exists:
+            continue
         if not (case_dir / dir_name).is_dir():
             missing.append(f"{dir_name}/")
     return missing
@@ -789,6 +820,7 @@ def _build_quality_report(result: dict[str, Any]) -> dict[str, Any]:
         "warnings": result["warnings"],
         "has_jet_data": result["has_jet_data"],
         "check_mode": result.get("check_mode", "star_ingest"),
+        "check_profile": _quality_check_profile(result.get("check_mode", "star_ingest")),
         "validation_mode": (
             "full_case" if result.get("require_complete_schema") else "partial_timeseries"
         ),
@@ -796,3 +828,169 @@ def _build_quality_report(result: dict[str, Any]) -> dict[str, Any]:
         "num_timeseries_columns": len(result["timeseries"][0]) if result["timeseries"] else 0,
         "run_success_flag": len(result["errors"]) == 0,
     }
+
+
+def _attach_physics_consistency_to_quality_report(
+    case_path: Path,
+    quality_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Append B04 physics consistency results to the standard quality report."""
+
+    try:
+        from .physics_consistency_checker import check_case
+
+        physics_report = check_case(case_path)
+    except Exception as exc:  # pragma: no cover - defensive report preservation
+        physics_report = {
+            "schema_version": "B04_physics_consistency_v1",
+            "case_id": case_path.name,
+            "summary": {
+                "category_counts": {},
+                "blocking_issue_count": 1,
+                "run_success_flag": False,
+            },
+            "categories": {
+                "format_errors": [
+                    {
+                        "severity": "error",
+                        "message": f"physics consistency checker failed: {exc}",
+                    }
+                ]
+            },
+            "summaries": {},
+        }
+
+    quality_report["physics_consistency"] = physics_report
+    quality_report["num_physics_blocking_issues"] = int(
+        physics_report.get("summary", {}).get("blocking_issue_count", 0)
+    )
+    quality_report["run_success_flag"] = bool(quality_report.get("run_success_flag")) and bool(
+        physics_report.get("summary", {}).get("run_success_flag")
+    )
+    return quality_report
+
+
+def _attach_ccm_ingest_contract_to_quality_report(
+    case_path: Path,
+    quality_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Append B03/B33 real-CCM standard-directory contract checks."""
+
+    manifest = _read_manifest_yaml(case_path / "case_manifest.yaml")
+    checks: list[dict[str, Any]] = []
+    blocking = 0
+
+    def add(name: str, ok: bool, message: str, *, severity: str = "error", path: str | None = None) -> None:
+        nonlocal blocking
+        record = {
+            "name": name,
+            "status": "pass" if ok else "fail",
+            "severity": "info" if ok else severity,
+            "message": message,
+        }
+        if path is not None:
+            record["path"] = path
+        checks.append(record)
+        if not ok and severity == "error":
+            blocking += 1
+
+    timeseries_path = case_timeseries_path(case_path)
+    add(
+        "processed_timeseries",
+        timeseries_path.is_file(),
+        "standard timeseries must be stored at processed/timeseries.csv",
+        path=str(timeseries_path),
+    )
+    for file_name in ("case_manifest.yaml", "actuation_schedule.csv", "quality_report.json"):
+        file_path = case_path / file_name
+        add(
+            f"required_file_{file_name}",
+            file_path.is_file(),
+            f"standard case requires {file_name}",
+            path=str(file_path),
+        )
+    for dir_name in ("processed", "figures", "logs"):
+        dir_path = case_path / dir_name
+        add(
+            f"required_dir_{dir_name}",
+            dir_path.is_dir(),
+            f"standard case requires {dir_name}/",
+            path=str(dir_path),
+        )
+
+    raw_star_dir = _manifest_path(case_path, manifest.get("raw_star_dir"))
+    source_product_dir = _manifest_path(case_path, manifest.get("source_product_dir"))
+    source_ccm_timeseries = _manifest_path(case_path, manifest.get("source_ccm_timeseries"))
+    source_files = [
+        Path(value)
+        for value in quality_report.get("source_files", [])
+        if isinstance(value, str)
+    ]
+    source_evidence = [
+        path
+        for path in (raw_star_dir, source_product_dir, source_ccm_timeseries, *source_files)
+        if path is not None and path.exists()
+    ]
+    add(
+        "source_evidence",
+        bool(source_evidence),
+        "ccm/star ingest must keep evidence of raw STAR output or CCM runtime source files",
+        path=", ".join(str(path) for path in source_evidence) if source_evidence else None,
+    )
+
+    if raw_star_dir is not None:
+        add(
+            "raw_star_readonly_evidence",
+            raw_star_dir.is_dir(),
+            "declared raw_star_dir must exist and remain separate from processed outputs",
+            path=str(raw_star_dir),
+        )
+
+    quality_report["ccm_ingest_contract"] = {
+        "schema_version": "B03_B33_ccm_ingest_contract_v1",
+        "case_id": case_path.name,
+        "summary": {
+            "blocking_issue_count": blocking,
+            "run_success_flag": blocking == 0,
+        },
+        "checks": checks,
+    }
+    quality_report["num_ccm_contract_blocking_issues"] = blocking
+    quality_report["run_success_flag"] = bool(quality_report.get("run_success_flag")) and blocking == 0
+    return quality_report
+
+
+def _manifest_path(case_path: Path, value: Any) -> Path | None:
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    case_relative = case_path / path
+    if case_relative.exists():
+        return case_relative
+    return path
+
+
+def _read_manifest_yaml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as handle:
+        return yaml.safe_load(handle) or {}
+
+
+def _should_run_physics_consistency(check_mode: Any) -> bool:
+    """Return whether B04 STAR physics-interface checks apply to this report."""
+
+    return _quality_check_profile(check_mode) == "ccm"
+
+
+def _quality_check_profile(check_mode: Any) -> str:
+    """Map historical check modes to the two supported data-check profiles."""
+
+    normalized = str(check_mode or "ccm").strip().lower()
+    if normalized in MOCK_CHECK_MODES:
+        return "mock"
+    if normalized in CCM_CHECK_MODES:
+        return "ccm"
+    return "ccm"

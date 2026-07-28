@@ -1,0 +1,31 @@
+case_id: E04_force_accounting_missing_vehicle_force
+case_type: no_jet
+check_mode: ccm
+validation_mode: full_case
+source_product_dir: raw_star/out_put
+raw_star_dir: raw_star
+boundary_mapping_file: mappings/boundary_mapping.csv
+report_mapping_file: mappings/report_mapping.csv
+coordinates:
+  lift_direction_vector:
+  - 0.0
+  - 0.0
+  - 1.0
+  drag_direction_vector:
+  - 1.0
+  - 0.0
+  - 0.0
+  pitch_moment_axis:
+  - 0.0
+  - 1.0
+  - 0.0
+  roll_moment_axis:
+  - 1.0
+  - 0.0
+  - 0.0
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+sign_convention: fixture STAR monitor convention
+notes: Deliberate error fixture for ccm data quality checks.

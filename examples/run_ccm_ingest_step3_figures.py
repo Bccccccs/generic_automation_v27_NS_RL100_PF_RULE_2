@@ -4,13 +4,19 @@
 import json
 from pathlib import Path
 
-from _common import choose_path_or_prompt, configure_project_root, list_numbered_dirs, reexec_with_project_python
+from _common import (
+    choose_path_or_prompt,
+    configure_project_root,
+    discover_case_dirs_with_quality_report,
+    list_numbered_dirs,
+    reexec_with_project_python,
+)
 
 
 def main() -> None:
     reexec_with_project_python()
     configure_project_root()
-    case_dirs = sorted(path.parent for path in Path("runs").glob("*/quality_report.json"))
+    case_dirs = discover_case_dirs_with_quality_report()
     if not case_dirs:
         raise SystemExit("未找到可生成图片目录。需要目录中包含 quality_report.json。")
 
