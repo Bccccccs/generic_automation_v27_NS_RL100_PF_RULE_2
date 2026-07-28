@@ -22,7 +22,7 @@ solver_time:
   time_step: 0.0001
   inner_iterations_per_time_step: "待浩坤确认"
   sampling_interval: 0.0001
-  sampling_times_definition: "current temp STAR exports contain 30000 monitor samples from 0.0001 s to approximately 3.0 s; do not use solver iteration number as time"
+  sampling_times_definition: "current temp STAR exports contain 30000 monitor samples from 0.0001 s to approximately 3.0 s; each sample is the response at the end of the corresponding action window; do not use solver iteration number as time"
   output_time_column: physical_time
 
 actuation:
@@ -30,7 +30,8 @@ actuation:
   action_schedule_hash_sha256: "待运行时计算"
   window_duration: 0.0001
   window_count: 30000
-  window_rule: "row i defines t_start=i*0.0001 and t_end=(i+1)*0.0001 in physical seconds; current ingested temp cases align STAR sample t_end to the same row/window_id, pending STAR macro confirmation"
+  window_rule: "row i defines t_start=i*0.0001 and t_end=(i+1)*0.0001 in physical seconds; current CLI macro writes row i massflow before advancing this window and samples reports at t_end, so STAR sample t_end belongs to the same row/window_id"
+  sample_ownership_rule: "t_start < t_sample <= t_end for current CLI macro outputs; re-confirm if using STAR GUI table(time) profile or another macro"
   columns:
     time: [physical_time, window_id, t_start, t_end]
     switches: JET_01..JET_24
@@ -38,16 +39,19 @@ actuation:
     actual_massflow: actual_massflow_01..actual_massflow_24
 
 coordinates:
-  star_coordinate_system: "待浩坤确认"
+  star_report_coordinate_system: Laboratory
   algorithm_coordinate_system: "待浩坤确认"
   x_direction: "待浩坤确认"
   y_direction: "待浩坤确认"
   z_direction: "待浩坤确认"
-  lift_direction_vector: "待浩坤确认；不能由 Fz 列名推断"
-  drag_direction_vector: "待浩坤确认"
-  pitch_moment_axis: "待浩坤确认"
-  roll_moment_axis: "待浩坤确认"
-  moment_center: "待浩坤确认"
+  z_force_report_direction_vector: [0.0, 0.0, 1.0]
+  z_force_report_direction_applies_to: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R, Fz_Total, Jet_Reaction_Z]
+  lift_semantics: "待浩坤确认；Fz_Total 是 Laboratory +Z report，但是否作为项目升力使用仍需确认"
+  drag_direction_vector: [1.0, 0.0, 0.0]
+  pitch_moment_axis: [0.0, 1.0, 0.0]
+  roll_moment_axis: [1.0, 0.0, 0.0]
+  moment_center: [29.0, 0.0, 1.52]
+  moment_center_unit: m
 
 units:
   force: N
@@ -59,6 +63,8 @@ units:
 standard_columns:
   regional_forces: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R]
   vehicle_outputs: [Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z]
+  candidate_vehicle_outputs:
+    fz_no_tail_candidate: "STAR 中 fz 不含 tail；完整 report/header/积分面确认前不得替代 Fz_Total"
   jet_switches: JET_01..JET_24
   commanded_massflow: cmd_massflow_01..cmd_massflow_24
   actual_massflow: actual_massflow_01..actual_massflow_24

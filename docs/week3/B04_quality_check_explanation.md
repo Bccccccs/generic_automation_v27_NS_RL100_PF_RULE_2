@@ -2,6 +2,11 @@
 
 本检查是在原有数据体检基础上增加的物理接口一致性检查。原有检查回答“CSV 是否能被可靠读取”，B04 回答“读出来的数据和 case manifest、喷气边界、动作窗口、质量流量、力核算之间有没有明显矛盾”。它仍然不能证明 CFD 物理正确，只能发现接口层面的高风险问题。
 
+当前数据检查分为两个 profile：
+
+- `mock`：沿用原有 mock/ROM 数据检查，不要求真实 STAR 边界、方向向量或 `actual_massflow` 来源证明。
+- `ccm`：真实 STAR/CCM 数据检查，必须同时写入 B03/B33 标准目录合同检查 `ccm_ingest_contract` 和本文件说明的 B04 物理接口检查 `physics_consistency`。
+
 ## 结果分类
 
 ### 1. 格式错误
@@ -69,7 +74,9 @@
 
 `B04_physics_QC_report.json` 对两个当前真实样例运行：
 
-- `runs/temp_j01_3s_mass2p57_dt1e-4`
-- `runs/temp_no_jet_3s_dt1e-4`
+- `runs/real_star/G00_nojet_existing`
+- `runs/real_star/G01_JET01_existing`
 
-当前报告中，无喷气样例的 `Jet_Reaction_Z` 存在明显非零值，因此被归入质量流量/喷气反作用力错误。这不是 NaN 或缺列问题，而是物理接口定义需要核实的问题：无喷气 case 中该列应为 0 或明确不适用。
+当前报告中，`G00_nojet_existing` 的 `Jet_Reaction_Z` 存在明显非零值，因此被归入质量流量/喷气反作用力错误。这不是 NaN 或缺列问题，而是物理接口定义需要核实的问题：无喷气 case 中该列应为 0 或明确不适用。
+
+`G01_JET01_existing` 缺少 `actual_massflow_*`，B04 将其明确写成质量流量警告，并计算能够计算的指令/实际差异；程序不会把 `cmd_massflow_*` 复制成 `actual_massflow_*`。
