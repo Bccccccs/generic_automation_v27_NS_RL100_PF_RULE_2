@@ -1,5 +1,5 @@
 case_id: G01_JET01_existing
-source_product_dir: /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/temp_j01_3s_mass2p57_dt1e-4/out_put
+source_product_dir: raw_star/out_put
 status: incomplete_case_missing_required_data
 errors: 24
 warnings: 2

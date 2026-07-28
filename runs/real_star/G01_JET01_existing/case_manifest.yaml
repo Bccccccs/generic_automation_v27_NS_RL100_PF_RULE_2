@@ -1,6 +1,14 @@
 case_id: G01_JET01_existing
 case_type: jet_on
 description: existing JET_01 STAR monitor exports
+star:
+  version: 待浩坤确认
+  sim_file: 待浩坤确认
+  sim_file_hash_sha256: 待浩坤确认
+  geometry_version: 待浩坤确认
+  mesh_version: 待浩坤确认
+  region_names:
+  - 减运算
 source_product_dir: raw_star/out_put
 raw_star_dir: /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star
 processed_timeseries: processed/timeseries.csv

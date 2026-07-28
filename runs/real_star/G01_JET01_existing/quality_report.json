@@ -1,86 +1,42 @@
 {
   "case_id": "G01_JET01_existing",
-  "status": "incomplete_case_missing_required_data",
-  "run_success_flag": false,
-  "ingested_at_utc": "2026-07-27T00:34:20.356233+00:00",
-  "source_product_dir": "raw_star/out_put",
-  "raw_star_dir": "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star",
-  "processed_timeseries": "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/processed/timeseries.csv",
+  "num_errors": 25,
+  "num_warnings": 0,
+  "errors": [
+    "Missing required column: actual_massflow_01",
+    "Missing required column: actual_massflow_02",
+    "Missing required column: actual_massflow_03",
+    "Missing required column: actual_massflow_04",
+    "Missing required column: actual_massflow_05",
+    "Missing required column: actual_massflow_06",
+    "Missing required column: actual_massflow_07",
+    "Missing required column: actual_massflow_08",
+    "Missing required column: actual_massflow_09",
+    "Missing required column: actual_massflow_10",
+    "Missing required column: actual_massflow_11",
+    "Missing required column: actual_massflow_12",
+    "Missing required column: actual_massflow_13",
+    "Missing required column: actual_massflow_14",
+    "Missing required column: actual_massflow_15",
+    "Missing required column: actual_massflow_16",
+    "Missing required column: actual_massflow_17",
+    "Missing required column: actual_massflow_18",
+    "Missing required column: actual_massflow_19",
+    "Missing required column: actual_massflow_20",
+    "Missing required column: actual_massflow_21",
+    "Missing required column: actual_massflow_22",
+    "Missing required column: actual_massflow_23",
+    "Missing required column: actual_massflow_24",
+    "cmd_massflow columns found but actual_massflow columns missing — they must be stored separately"
+  ],
+  "warnings": [],
+  "has_jet_data": true,
+  "check_mode": "ccm",
+  "check_profile": "ccm",
+  "validation_mode": "full_case",
   "num_timeseries_rows": 30000,
   "num_timeseries_columns": 63,
-  "timeseries_columns": [
-    "physical_time",
-    "window_id",
-    "Fz_S1L",
-    "Fz_S1R",
-    "Fz_S2L",
-    "Fz_S2R",
-    "Fz_S3L",
-    "Fz_S3R",
-    "Fz_Total",
-    "Drag_Total",
-    "Pitch_Moment",
-    "Roll_Moment",
-    "Jet_Reaction_Z",
-    "solver_status",
-    "JET_01",
-    "JET_02",
-    "JET_03",
-    "JET_04",
-    "JET_05",
-    "JET_06",
-    "JET_07",
-    "JET_08",
-    "JET_09",
-    "JET_10",
-    "JET_11",
-    "JET_12",
-    "JET_13",
-    "JET_14",
-    "JET_15",
-    "JET_16",
-    "JET_17",
-    "JET_18",
-    "JET_19",
-    "JET_20",
-    "JET_21",
-    "JET_22",
-    "JET_23",
-    "JET_24",
-    "cmd_massflow_01",
-    "cmd_massflow_02",
-    "cmd_massflow_03",
-    "cmd_massflow_04",
-    "cmd_massflow_05",
-    "cmd_massflow_06",
-    "cmd_massflow_07",
-    "cmd_massflow_08",
-    "cmd_massflow_09",
-    "cmd_massflow_10",
-    "cmd_massflow_11",
-    "cmd_massflow_12",
-    "cmd_massflow_13",
-    "cmd_massflow_14",
-    "cmd_massflow_15",
-    "cmd_massflow_16",
-    "cmd_massflow_17",
-    "cmd_massflow_18",
-    "cmd_massflow_19",
-    "cmd_massflow_20",
-    "cmd_massflow_21",
-    "cmd_massflow_22",
-    "cmd_massflow_23",
-    "cmd_massflow_24",
-    "case_stage"
-  ],
-  "source_files_used_for_timeseries": [
-    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star/out_put/Drag_Monitor_绘图_image_30000.csv",
-    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star/out_put/FZ_image_30000.csv",
-    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star/out_put/Fz_Monitor_绘图_image_30000.csv",
-    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star/out_put/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
-    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star/out_put/Pitch_Moment_Monitor_绘图_image_30000.csv",
-    "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star/out_put/Roll_Moment_Monitor_绘图_image_30000.csv"
-  ],
+  "run_success_flag": false,
   "star_column_mapping": {
     "physical_time": "时间",
     "Drag_Total": "Drag Monitor: Drag Monitor (N)",
@@ -108,1342 +64,454 @@
     "Pitch_Moment": "N-m",
     "Roll_Moment": "N-m"
   },
-  "column_provenance": {
-    "physical_time": "star_monitor",
-    "Fz_S1L": "star_monitor",
-    "Fz_S1R": "star_monitor",
-    "Fz_S2L": "star_monitor",
-    "Fz_S2R": "star_monitor",
-    "Fz_S3L": "star_monitor",
-    "Fz_S3R": "star_monitor",
-    "Fz_Total": "star_monitor",
-    "Drag_Total": "star_monitor",
-    "Pitch_Moment": "star_monitor",
-    "Roll_Moment": "star_monitor",
-    "Jet_Reaction_Z": "star_monitor",
-    "window_id": "ingest_metadata",
-    "solver_status": "ingest_metadata",
-    "case_stage": "ingest_metadata",
-    "JET_01": "actuation_schedule",
-    "JET_02": "actuation_schedule",
-    "JET_03": "actuation_schedule",
-    "JET_04": "actuation_schedule",
-    "JET_05": "actuation_schedule",
-    "JET_06": "actuation_schedule",
-    "JET_07": "actuation_schedule",
-    "JET_08": "actuation_schedule",
-    "JET_09": "actuation_schedule",
-    "JET_10": "actuation_schedule",
-    "JET_11": "actuation_schedule",
-    "JET_12": "actuation_schedule",
-    "JET_13": "actuation_schedule",
-    "JET_14": "actuation_schedule",
-    "JET_15": "actuation_schedule",
-    "JET_16": "actuation_schedule",
-    "JET_17": "actuation_schedule",
-    "JET_18": "actuation_schedule",
-    "JET_19": "actuation_schedule",
-    "JET_20": "actuation_schedule",
-    "JET_21": "actuation_schedule",
-    "JET_22": "actuation_schedule",
-    "JET_23": "actuation_schedule",
-    "JET_24": "actuation_schedule",
-    "cmd_massflow_01": "actuation_schedule",
-    "cmd_massflow_02": "actuation_schedule",
-    "cmd_massflow_03": "actuation_schedule",
-    "cmd_massflow_04": "actuation_schedule",
-    "cmd_massflow_05": "actuation_schedule",
-    "cmd_massflow_06": "actuation_schedule",
-    "cmd_massflow_07": "actuation_schedule",
-    "cmd_massflow_08": "actuation_schedule",
-    "cmd_massflow_09": "actuation_schedule",
-    "cmd_massflow_10": "actuation_schedule",
-    "cmd_massflow_11": "actuation_schedule",
-    "cmd_massflow_12": "actuation_schedule",
-    "cmd_massflow_13": "actuation_schedule",
-    "cmd_massflow_14": "actuation_schedule",
-    "cmd_massflow_15": "actuation_schedule",
-    "cmd_massflow_16": "actuation_schedule",
-    "cmd_massflow_17": "actuation_schedule",
-    "cmd_massflow_18": "actuation_schedule",
-    "cmd_massflow_19": "actuation_schedule",
-    "cmd_massflow_20": "actuation_schedule",
-    "cmd_massflow_21": "actuation_schedule",
-    "cmd_massflow_22": "actuation_schedule",
-    "cmd_massflow_23": "actuation_schedule",
-    "cmd_massflow_24": "actuation_schedule"
-  },
-  "raw_file_inventory": [
-    {
-      "relative_path": "out_put/Drag_Monitor_绘图_image_30000.csv",
-      "bytes": 1118326,
-      "sha256": "095e8ef7c770844a7130c48d0bf32508271effe390719a9a42a7aa14c7742776",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Drag Monitor: Drag Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Drag_Total": "Drag Monitor: Drag Monitor (N)"
-      },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
+  "ccm_ingest_contract": {
+    "schema_version": "B03_B33_ccm_ingest_contract_v1",
+    "case_id": "G01_JET01_existing",
+    "summary": {
+      "blocking_issue_count": 0,
+      "run_success_flag": true
     },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/Drag_Monitor_绘图_image_30000.csv",
-      "bytes": 1118329,
-      "sha256": "fbad6b1cdfa6aca7bbd9cb98e396c20841c95a9910a8b0af4900e4aa1725fc97",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Drag Monitor: Drag Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Drag_Total": "Drag Monitor: Drag Monitor (N)"
+    "checks": [
+      {
+        "name": "processed_timeseries",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard timeseries must be stored at processed/timeseries.csv",
+        "path": "runs/real_star/G01_JET01_existing/processed/timeseries.csv"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/FZ_image_30000.csv",
-      "bytes": 3977096,
-      "sha256": "827a7cc2f4a760f6287058b5b1303b9b4ec68fbb7e6a08e3513e7eecbad269e6",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "S1L Monitor: S1L Monitor (N)",
-        "S1R Monitor: S1R Monitor (N)",
-        "S2L Monitor: S2L Monitor (N)",
-        "S2R Monitor: S2R Monitor (N)",
-        "S3L Monitor: S3L Monitor (N)",
-        "S3R Monitor: S3R Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Fz_S1L": "S1L Monitor: S1L Monitor (N)",
-        "Fz_S1R": "S1R Monitor: S1R Monitor (N)",
-        "Fz_S2L": "S2L Monitor: S2L Monitor (N)",
-        "Fz_S2R": "S2R Monitor: S2R Monitor (N)",
-        "Fz_S3L": "S3L Monitor: S3L Monitor (N)",
-        "Fz_S3R": "S3R Monitor: S3R Monitor (N)"
+      {
+        "name": "required_file_case_manifest.yaml",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires case_manifest.yaml",
+        "path": "runs/real_star/G01_JET01_existing/case_manifest.yaml"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/Fz_Monitor_绘图_image_30000.csv",
-      "bytes": 1110860,
-      "sha256": "88d1b7e38c4c8e54e5085819f3c90e1c922b22bae58430c234a94530b067276f",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Fz Monitor: Fz Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Fz_Total": "Fz Monitor: Fz Monitor (N)"
+      {
+        "name": "required_file_actuation_schedule.csv",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires actuation_schedule.csv",
+        "path": "runs/real_star/G01_JET01_existing/actuation_schedule.csv"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
-      "bytes": 1127032,
-      "sha256": "94771e4a90fbc1094fbb3ab386af070457b1358ab7861505d216226cb9d82221",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Jet_Reaction_Z": "Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)"
+      {
+        "name": "required_file_quality_report.json",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires quality_report.json",
+        "path": "runs/real_star/G01_JET01_existing/quality_report.json"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/Pitch_Moment_Monitor_绘图_image_30000.csv",
-      "bytes": 1138680,
-      "sha256": "1eab8053917b67cd077f50bb983069235774f0cfd880ee22719c873f1855cf09",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Pitch_Moment Monitor: Pitch_Moment Monitor (N-m)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Pitch_Moment": "Pitch_Moment Monitor: Pitch_Moment Monitor (N-m)"
+      {
+        "name": "required_dir_processed",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires processed/",
+        "path": "runs/real_star/G01_JET01_existing/processed"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/Roll_Moment_Monitor_绘图_image_30000.csv",
-      "bytes": 1127296,
-      "sha256": "c48a979bf8409944df7a2f27025e07c972d498d6d43c4965f7f81d913178a96c",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Roll_Moment Monitor: Roll_Moment Monitor (N-m)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Roll_Moment": "Roll_Moment Monitor: Roll_Moment Monitor (N-m)"
+      {
+        "name": "required_dir_figures",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires figures/",
+        "path": "runs/real_star/G01_JET01_existing/figures"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv",
-      "bytes": 6742613,
-      "sha256": "fd66feab7f80a4a06594b77f519e72f183d23eabad264ddfeab11fca0903d128",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "S1 Monitor: S1 Monitor (Pa)",
-        "S2 Monitor: S2 Monitor (Pa)",
-        "S3 Monitor: S3 Monitor (Pa)",
-        "入口 Monitor: 入口 Monitor (Pa)",
-        "出口 Monitor: 出口 Monitor (Pa)",
-        "右中 Monitor: 右中 Monitor (Pa)",
-        "右前 Monitor: 右前 Monitor (Pa)",
-        "右后 Monitor: 右后 Monitor (Pa)",
-        "左中 Monitor: 左中 Monitor (Pa)",
-        "左前 Monitor: 左前 Monitor (Pa)",
-        "左后 Monitor: 左后 Monitor (Pa)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间"
+      {
+        "name": "required_dir_logs",
+        "status": "pass",
+        "severity": "info",
+        "message": "standard case requires logs/",
+        "path": "runs/real_star/G01_JET01_existing/logs"
       },
-      "unmapped_columns": [
-        "S1 Monitor: S1 Monitor (Pa)",
-        "S2 Monitor: S2 Monitor (Pa)",
-        "S3 Monitor: S3 Monitor (Pa)",
-        "入口 Monitor: 入口 Monitor (Pa)",
-        "出口 Monitor: 出口 Monitor (Pa)",
-        "右中 Monitor: 右中 Monitor (Pa)",
-        "右前 Monitor: 右前 Monitor (Pa)",
-        "右后 Monitor: 右后 Monitor (Pa)",
-        "左中 Monitor: 左中 Monitor (Pa)",
-        "左前 Monitor: 左前 Monitor (Pa)",
-        "左后 Monitor: 左后 Monitor (Pa)"
-      ],
-      "classification": "time_only"
-    },
-    {
-      "relative_path": "out_put/FZ_image_30000.csv",
-      "bytes": 3977093,
-      "sha256": "903c9958c41c7a3194b559e034303cbbb0fdc330082fff7e23026b96db29eecf",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "S1L Monitor: S1L Monitor (N)",
-        "S1R Monitor: S1R Monitor (N)",
-        "S2L Monitor: S2L Monitor (N)",
-        "S2R Monitor: S2R Monitor (N)",
-        "S3L Monitor: S3L Monitor (N)",
-        "S3R Monitor: S3R Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Fz_S1L": "S1L Monitor: S1L Monitor (N)",
-        "Fz_S1R": "S1R Monitor: S1R Monitor (N)",
-        "Fz_S2L": "S2L Monitor: S2L Monitor (N)",
-        "Fz_S2R": "S2R Monitor: S2R Monitor (N)",
-        "Fz_S3L": "S3L Monitor: S3L Monitor (N)",
-        "Fz_S3R": "S3R Monitor: S3R Monitor (N)"
+      {
+        "name": "source_evidence",
+        "status": "pass",
+        "severity": "info",
+        "message": "ccm/star ingest must keep evidence of raw STAR output or CCM runtime source files",
+        "path": "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star, runs/real_star/G01_JET01_existing/raw_star/out_put"
       },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Fz_Monitor_绘图_image_30000.csv",
-      "bytes": 1110857,
-      "sha256": "7de9e56ef7502a4e9f3b939ac237e0d6229b57f6df64135b71721291313c783c",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Fz Monitor: Fz Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Fz_Total": "Fz Monitor: Fz Monitor (N)"
-      },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
-      "bytes": 1127029,
-      "sha256": "3eee51ef97485b7b311e0bc2f843305dd4b259adc34e196e229fc9769bc04132",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Jet_Reaction_Z": "Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)"
-      },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Pitch_Moment_Monitor_绘图_image_30000.csv",
-      "bytes": 1138677,
-      "sha256": "2f3d2564a02150b55ab9baf1ba606edf17052aed36c535716749ee4e570070c6",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Pitch_Moment Monitor: Pitch_Moment Monitor (N-m)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Pitch_Moment": "Pitch_Moment Monitor: Pitch_Moment Monitor (N-m)"
-      },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/Roll_Moment_Monitor_绘图_image_30000.csv",
-      "bytes": 1127293,
-      "sha256": "f407d1ea8a76624d20ddfedf9c4bd35ef40dbe73c753aba5fcc67f59dd4099d2",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "Roll_Moment Monitor: Roll_Moment Monitor (N-m)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间",
-        "Roll_Moment": "Roll_Moment Monitor: Roll_Moment Monitor (N-m)"
-      },
-      "unmapped_columns": [],
-      "classification": "timeseries_monitor"
-    },
-    {
-      "relative_path": "out_put/报告绘图_image_30000.csv",
-      "bytes": 6742610,
-      "sha256": "bc2ed6a929158b877e9bd766b0523af9f167532091438a982dec51d7ea14edcc",
-      "read_only": true,
-      "row_count": 30000,
-      "raw_columns": [
-        "时间",
-        "S1 Monitor: S1 Monitor (Pa)",
-        "S2 Monitor: S2 Monitor (Pa)",
-        "S3 Monitor: S3 Monitor (Pa)",
-        "入口 Monitor: 入口 Monitor (Pa)",
-        "出口 Monitor: 出口 Monitor (Pa)",
-        "右中 Monitor: 右中 Monitor (Pa)",
-        "右前 Monitor: 右前 Monitor (Pa)",
-        "右后 Monitor: 右后 Monitor (Pa)",
-        "左中 Monitor: 左中 Monitor (Pa)",
-        "左前 Monitor: 左前 Monitor (Pa)",
-        "左后 Monitor: 左后 Monitor (Pa)"
-      ],
-      "mapped_columns": {
-        "physical_time": "时间"
-      },
-      "unmapped_columns": [
-        "S1 Monitor: S1 Monitor (Pa)",
-        "S2 Monitor: S2 Monitor (Pa)",
-        "S3 Monitor: S3 Monitor (Pa)",
-        "入口 Monitor: 入口 Monitor (Pa)",
-        "出口 Monitor: 出口 Monitor (Pa)",
-        "右中 Monitor: 右中 Monitor (Pa)",
-        "右前 Monitor: 右前 Monitor (Pa)",
-        "右后 Monitor: 右后 Monitor (Pa)",
-        "左中 Monitor: 左中 Monitor (Pa)",
-        "左前 Monitor: 左前 Monitor (Pa)",
-        "左后 Monitor: 左后 Monitor (Pa)"
-      ],
-      "classification": "time_only"
-    }
-  ],
-  "schedule_merge": {
-    "schedule_source": "actuation_schedule.csv",
-    "schedule_rows": 30000,
-    "timeseries_rows_matched": 23335,
-    "timeseries_rows_unmatched": 6665,
-    "first_unmatched_times": [
-      2.3336000000005,
-      2.3337000000005004,
-      2.3338000000005006,
-      2.333900000000501,
-      2.334000000000501,
-      2.334100000000501,
-      2.3342000000005014,
-      2.3343000000005016,
-      2.334400000000502,
-      2.334500000000502
-    ],
-    "merged_columns": [
-      "JET_01",
-      "JET_02",
-      "JET_03",
-      "JET_04",
-      "JET_05",
-      "JET_06",
-      "JET_07",
-      "JET_08",
-      "JET_09",
-      "JET_10",
-      "JET_11",
-      "JET_12",
-      "JET_13",
-      "JET_14",
-      "JET_15",
-      "JET_16",
-      "JET_17",
-      "JET_18",
-      "JET_19",
-      "JET_20",
-      "JET_21",
-      "JET_22",
-      "JET_23",
-      "JET_24",
-      "cmd_massflow_01",
-      "cmd_massflow_02",
-      "cmd_massflow_03",
-      "cmd_massflow_04",
-      "cmd_massflow_05",
-      "cmd_massflow_06",
-      "cmd_massflow_07",
-      "cmd_massflow_08",
-      "cmd_massflow_09",
-      "cmd_massflow_10",
-      "cmd_massflow_11",
-      "cmd_massflow_12",
-      "cmd_massflow_13",
-      "cmd_massflow_14",
-      "cmd_massflow_15",
-      "cmd_massflow_16",
-      "cmd_massflow_17",
-      "cmd_massflow_18",
-      "cmd_massflow_19",
-      "cmd_massflow_20",
-      "cmd_massflow_21",
-      "cmd_massflow_22",
-      "cmd_massflow_23",
-      "cmd_massflow_24"
-    ],
-    "note": "JET_* and cmd_massflow_* columns are command/schedule values, not measured STAR actual_massflow. No actual_massflow column was synthesized."
-  },
-  "direction_status": {
-    "status": "unconfirmed",
-    "affected_columns": [
-      "Fz_S1L",
-      "Fz_S1R",
-      "Fz_S2L",
-      "Fz_S2R",
-      "Fz_S3L",
-      "Fz_S3R",
-      "Fz_Total",
-      "Drag_Total",
-      "Pitch_Moment",
-      "Roll_Moment",
-      "Jet_Reaction_Z"
+      {
+        "name": "raw_star_readonly_evidence",
+        "status": "pass",
+        "severity": "info",
+        "message": "declared raw_star_dir must exist and remain separate from processed outputs",
+        "path": "/Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G01_JET01_existing/raw_star"
+      }
     ]
   },
-  "missing_data_matrix": [
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_S1L",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_S1R",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_S2L",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_S2R",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_S3L",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_S3R",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Fz_Total",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Drag_Total",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Pitch_Moment",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Roll_Moment",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "Jet_Reaction_Z",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_01",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_02",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_03",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_04",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_05",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_06",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_07",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_08",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_09",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_10",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_11",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_12",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_13",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_14",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_15",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_16",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_17",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_18",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_19",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_20",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_21",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_22",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_23",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "JET_24",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_01",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_02",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_03",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_04",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_05",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_06",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_07",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_08",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_09",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_10",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_11",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_12",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_13",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_14",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_15",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_16",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_17",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_18",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_19",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_20",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_21",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_22",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_23",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "cmd_massflow_24",
-      "status": "present",
-      "category": "present",
-      "message": ""
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_01",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_01"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_02",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_02"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_03",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_03"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_04",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_04"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_05",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_05"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_06",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_06"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_07",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_07"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_08",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_08"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_09",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_09"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_10",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_10"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_11",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_11"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_12",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_12"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_13",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_13"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_14",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_14"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_15",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_15"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_16",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_16"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_17",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_17"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_18",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_18"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_19",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_19"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_20",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_20"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_21",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_21"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_22",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_22"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_23",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_23"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "actual_massflow_24",
-      "status": "missing",
-      "category": "column_absent",
-      "message": "Missing required column: actual_massflow_24"
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "S1 Monitor: S1 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "S2 Monitor: S2 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "S3 Monitor: S3 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "入口 Monitor: 入口 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "出口 Monitor: 出口 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "右中 Monitor: 右中 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "右前 Monitor: 右前 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "右后 Monitor: 右后 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "左中 Monitor: 左中 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "左前 Monitor: 左前 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "左后 Monitor: 左后 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/Excel兼容_UTF8_BOM/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "S1 Monitor: S1 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "S2 Monitor: S2 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "S3 Monitor: S3 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "入口 Monitor: 入口 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "出口 Monitor: 出口 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "右中 Monitor: 右中 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "右前 Monitor: 右前 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "右后 Monitor: 右后 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "左中 Monitor: 左中 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "左前 Monitor: 左前 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "左后 Monitor: 左后 Monitor (Pa)",
-      "status": "not_mapped_to_standard_schema",
-      "category": "column_name_unmapped",
-      "message": "Raw column exists in out_put/报告绘图_image_30000.csv but has no standard B03 mapping."
-    },
-    {
-      "case_id": "G01_JET01_existing",
-      "field": "load_direction_convention",
-      "status": "unconfirmed",
-      "category": "direction_unconfirmed",
-      "message": "STAR monitor values are preserved; positive aerodynamic direction is not independently confirmed."
-    }
-  ],
-  "data_abnormalities": [],
-  "num_errors": 24,
-  "num_warnings": 2,
-  "errors": [
-    "Missing required column: actual_massflow_01",
-    "Missing required column: actual_massflow_02",
-    "Missing required column: actual_massflow_03",
-    "Missing required column: actual_massflow_04",
-    "Missing required column: actual_massflow_05",
-    "Missing required column: actual_massflow_06",
-    "Missing required column: actual_massflow_07",
-    "Missing required column: actual_massflow_08",
-    "Missing required column: actual_massflow_09",
-    "Missing required column: actual_massflow_10",
-    "Missing required column: actual_massflow_11",
-    "Missing required column: actual_massflow_12",
-    "Missing required column: actual_massflow_13",
-    "Missing required column: actual_massflow_14",
-    "Missing required column: actual_massflow_15",
-    "Missing required column: actual_massflow_16",
-    "Missing required column: actual_massflow_17",
-    "Missing required column: actual_massflow_18",
-    "Missing required column: actual_massflow_19",
-    "Missing required column: actual_massflow_20",
-    "Missing required column: actual_massflow_21",
-    "Missing required column: actual_massflow_22",
-    "Missing required column: actual_massflow_23",
-    "Missing required column: actual_massflow_24"
-  ],
-  "warnings": [
-    "direction_not_confirmed: STAR monitor sign convention is preserved, but aerodynamic positive direction has not been independently confirmed.",
-    "schedule_columns_are_commands: JET_* and cmd_massflow_* come from existing actuation_schedule.csv, not from STAR monitor exports."
-  ],
-  "stop_reason": "Existing STAR exports do not contain all required data for a full jet case.",
-  "existing_run_products": {
-    "figures_copied": 11,
-    "log_files_copied": 9,
-    "copied_files": [
-      {
-        "source": "actuation_schedule.csv",
-        "target": "logs/run_products/actuation_schedule.csv",
-        "category": "log"
+  "num_ccm_contract_blocking_issues": 0,
+  "physics_consistency": {
+    "schema_version": "B04_physics_consistency_v1",
+    "case_id": "G01_JET01_existing",
+    "categories": {
+      "format_errors": [],
+      "name_or_coordinate_errors": [],
+      "massflow_errors": [
+        {
+          "severity": "warning",
+          "message": "actual_massflow columns are missing; cmd_massflow was not used as a substitute",
+          "missing_columns": [
+            "actual_massflow_01",
+            "actual_massflow_02",
+            "actual_massflow_03",
+            "actual_massflow_04",
+            "actual_massflow_05",
+            "actual_massflow_06",
+            "actual_massflow_07",
+            "actual_massflow_08",
+            "actual_massflow_09",
+            "actual_massflow_10",
+            "actual_massflow_11",
+            "actual_massflow_12",
+            "actual_massflow_13",
+            "actual_massflow_14",
+            "actual_massflow_15",
+            "actual_massflow_16",
+            "actual_massflow_17",
+            "actual_massflow_18",
+            "actual_massflow_19",
+            "actual_massflow_20",
+            "actual_massflow_21",
+            "actual_massflow_22",
+            "actual_massflow_23",
+            "actual_massflow_24"
+          ]
+        },
+        {
+          "severity": "warning",
+          "message": "JET is ON but actual_massflow is missing; cmd_massflow was not substituted",
+          "examples": [
+            {
+              "row": 0,
+              "jet": "JET_01",
+              "cmd_massflow": 2.57
+            },
+            {
+              "row": 1,
+              "jet": "JET_01",
+              "cmd_massflow": 2.57
+            },
+            {
+              "row": 2,
+              "jet": "JET_01",
+              "cmd_massflow": 2.57
+            },
+            {
+              "row": 3,
+              "jet": "JET_01",
+              "cmd_massflow": 2.57
+            },
+            {
+              "row": 4,
+              "jet": "JET_01",
+              "cmd_massflow": 2.57
+            }
+          ]
+        }
+      ],
+      "force_accounting_errors": [],
+      "numerical_instability_warnings": [],
+      "physical_questions_for_haokun": [
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 1
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 2
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 3
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 4
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 5
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 6
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 7
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 8
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 9
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 10
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 11
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 12
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 13
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 14
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 15
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 16
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 17
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 18
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 19
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 20
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 21
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 22
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 23
+        },
+        {
+          "severity": "warning",
+          "message": "Jet boundary still requires STAR confirmation",
+          "unified_jet_id": 24
+        },
+        {
+          "severity": "warning",
+          "message": "Fz_Total expected direction is missing from case_manifest; cannot validate STAR report direction",
+          "unified_column_name": "Fz_Total",
+          "actual_direction": [
+            0.0,
+            0.0,
+            1.0
+          ]
+        },
+        {
+          "severity": "warning",
+          "message": "Drag_Total expected direction is missing from case_manifest; cannot validate STAR report direction",
+          "unified_column_name": "Drag_Total",
+          "actual_direction": [
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "severity": "warning",
+          "message": "Pitch_Moment expected direction is missing from case_manifest; cannot validate STAR report direction",
+          "unified_column_name": "Pitch_Moment",
+          "actual_direction": [
+            0.0,
+            1.0,
+            0.0
+          ]
+        },
+        {
+          "severity": "warning",
+          "message": "Roll_Moment expected direction is missing from case_manifest; cannot validate STAR report direction",
+          "unified_column_name": "Roll_Moment",
+          "actual_direction": [
+            1.0,
+            0.0,
+            0.0
+          ]
+        },
+        {
+          "severity": "warning",
+          "message": "Fz_Total differs from six regional force sum; not treated as an error because they may be different STAR reports",
+          "examples": [
+            {
+              "row": 0,
+              "regional_lift_sum": 389.634945821432,
+              "Fz_Total": -23301.529346695024,
+              "difference": -23691.164292516456
+            },
+            {
+              "row": 1,
+              "regional_lift_sum": 865.7444399031566,
+              "Fz_Total": -35731.363608573956,
+              "difference": -36597.108048477116
+            },
+            {
+              "row": 2,
+              "regional_lift_sum": 1229.455552245725,
+              "Fz_Total": -41252.529295827786,
+              "difference": -42481.98484807351
+            },
+            {
+              "row": 3,
+              "regional_lift_sum": 1411.5717732954806,
+              "Fz_Total": -43234.30578042882,
+              "difference": -44645.8775537243
+            },
+            {
+              "row": 4,
+              "regional_lift_sum": 1449.4931920642757,
+              "Fz_Total": -44472.34960748589,
+              "difference": -45921.84279955017
+            }
+          ]
+        }
+      ]
+    },
+    "summaries": {
+      "time_alignment": {
+        "paired_rows_checked": 30000,
+        "sample_matches_t_start_rows": 0,
+        "sample_matches_t_end_rows": 30000,
+        "sample_inside_window_rows": 30000
       },
-      {
-        "source": "case_manifest.yaml",
-        "target": "logs/run_products/case_manifest.yaml",
-        "category": "log"
+      "star_csv_alignment": {
+        "checked_source_csv_count": 7,
+        "checked_source_csvs": [
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/Drag_Monitor_绘图_image_30000.csv",
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/FZ_image_30000.csv",
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/Fz_Monitor_绘图_image_30000.csv",
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/Pitch_Moment_Monitor_绘图_image_30000.csv",
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/Roll_Moment_Monitor_绘图_image_30000.csv",
+          "runs/real_star/G01_JET01_existing/raw_star/out_put/报告绘图_image_30000.csv"
+        ]
       },
-      {
-        "source": "figures/force_timeseries.png",
-        "target": "figures/run_figures/force_timeseries.png",
-        "category": "figure"
+      "massflow_tracking": {
+        "jet_columns_present": 24,
+        "cmd_massflow_columns_present": 24,
+        "actual_massflow_columns_present": 0,
+        "max_abs_cmd_minus_actual_by_jet": {},
+        "mean_abs_cmd_minus_actual_by_jet": {}
       },
-      {
-        "source": "figures/fz_regions.svg",
-        "target": "figures/run_figures/fz_regions.svg",
-        "category": "figure"
-      },
-      {
-        "source": "figures/fz_total.svg",
-        "target": "figures/run_figures/fz_total.svg",
-        "category": "figure"
-      },
-      {
-        "source": "figures/input_heatmap.svg",
-        "target": "figures/run_figures/input_heatmap.svg",
-        "category": "figure"
-      },
-      {
-        "source": "figures/jet_schedule.png",
-        "target": "figures/run_figures/jet_schedule.png",
-        "category": "figure"
-      },
-      {
-        "source": "figures/massflow_check.png",
-        "target": "figures/run_figures/massflow_check.png",
-        "category": "figure"
-      },
-      {
-        "source": "figures/quality_summary.png",
-        "target": "figures/run_figures/quality_summary.png",
-        "category": "figure"
-      },
-      {
-        "source": "figures/spatial_nonuniformity.svg",
-        "target": "figures/run_figures/spatial_nonuniformity.svg",
-        "category": "figure"
-      },
-      {
-        "source": "figures/total_massflow.svg",
-        "target": "figures/run_figures/total_massflow.svg",
-        "category": "figure"
-      },
-      {
-        "source": "input/actuation_heatmap.svg",
-        "target": "figures/input_figures/actuation_heatmap.svg",
-        "category": "figure"
-      },
-      {
-        "source": "input/actuation_schedule.csv",
-        "target": "logs/input_data/actuation_schedule.csv",
-        "category": "log"
-      },
-      {
-        "source": "input/config_summary.yaml",
-        "target": "logs/input_data/config_summary.yaml",
-        "category": "log"
-      },
-      {
-        "source": "input/total_mass_flow.csv",
-        "target": "logs/input_data/total_mass_flow.csv",
-        "category": "log"
-      },
-      {
-        "source": "input/total_mass_flow_curve.svg",
-        "target": "figures/input_figures/total_mass_flow_curve.svg",
-        "category": "figure"
-      },
-      {
-        "source": "input/validation_report.json",
-        "target": "logs/input_data/validation_report.json",
-        "category": "log"
-      },
-      {
-        "source": "notes.md",
-        "target": "logs/run_products/notes.md",
-        "category": "log"
-      },
-      {
-        "source": "quality_report.json",
-        "target": "logs/run_products/quality_report.json",
-        "category": "log"
-      },
-      {
-        "source": "timeseries.csv",
-        "target": "logs/run_products/timeseries.csv",
-        "category": "log"
+      "force_accounting": {
+        "regional_lift_sum": {
+          "count": 30000,
+          "min": -133083.93156453746,
+          "max": 59598.57538452703,
+          "mean": -24469.396199526294,
+          "median": -23177.130634681642,
+          "first": 389.634945821432,
+          "last": -16599.50295698727
+        },
+        "vehicle_aerodynamics": {
+          "Fz_Total": {
+            "count": 30000,
+            "min": -62369.87684348262,
+            "max": 121381.97292257451,
+            "mean": 57285.76084736008,
+            "median": 58595.19401717263,
+            "first": -23301.529346695024,
+            "last": 63431.016733220604
+          },
+          "Drag_Total": {
+            "count": 30000,
+            "min": 21994.627699864235,
+            "max": 431382.54376095167,
+            "mean": 33511.83798840493,
+            "median": 31736.59869293406,
+            "first": 387563.83818134875,
+            "last": 36227.84300064362
+          },
+          "Pitch_Moment": {
+            "count": 30000,
+            "min": -7112455.654134613,
+            "max": 1535535.267695272,
+            "mean": -505018.16965346696,
+            "median": -514303.02912722895,
+            "first": -6362876.790858828,
+            "last": -576429.0162489982
+          },
+          "Roll_Moment": {
+            "count": 30000,
+            "min": -2350.0114663398995,
+            "max": 3557.3258577146066,
+            "mean": 78.82355578232567,
+            "median": 83.14415017697064,
+            "first": 288.3260473282746,
+            "last": 639.3957766954828
+          }
+        },
+        "jet_reaction": {
+          "count": 30000,
+          "min": 29.61657640715034,
+          "max": 563.7806804358883,
+          "mean": 131.71429180581964,
+          "median": 130.28782404104066,
+          "first": 400.5646919919227,
+          "last": 144.49587315264526
+        }
       }
-    ],
-    "classification_rule": "run image files -> figures/run_figures; input image files -> figures/input_figures; run non-image derived files -> logs/run_products; input non-image files -> logs/input_data; STAR out_put exports -> raw_star/out_put",
-    "source_run_dir": "logs/run_products + figures/run_figures + input-derived products"
-  }
+    },
+    "inputs": {
+      "case_dir": "runs/real_star/G01_JET01_existing",
+      "boundary_mapping_path": "docs/week3/B02_boundary_mapping.csv",
+      "report_mapping_path": "docs/week3/B02_report_mapping.csv",
+      "zero_tolerance": 1e-08,
+      "time_tolerance": 1e-09
+    },
+    "summary": {
+      "category_counts": {
+        "format_errors": 0,
+        "name_or_coordinate_errors": 0,
+        "massflow_errors": 2,
+        "force_accounting_errors": 0,
+        "numerical_instability_warnings": 0,
+        "physical_questions_for_haokun": 29
+      },
+      "blocking_issue_count": 0,
+      "run_success_flag": true
+    }
+  },
+  "num_physics_blocking_issues": 0
 }
