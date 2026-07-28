@@ -62,6 +62,24 @@ runs/week3_pulse_singlejet/input/validation_report.json
 
 printf 'runs/week3_mock_full_demo\nmock\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
+
+printf 'runs/week3_mock_full_demo\n' | \
+  .venv/bin/python examples/run_ccm_ingest_step3_figures.py
+```
+
+执行完成后，`runs/week3_mock_full_demo` 下应包含：
+
+```text
+input/actuation_schedule.csv
+input/validation_report.json
+quality_report.json
+figures/force_timeseries.png
+figures/jet_schedule.png
+figures/massflow_check_01_06.png
+figures/massflow_check_07_12.png
+figures/massflow_check_13_18.png
+figures/massflow_check_19_24.png
+figures/quality_summary.png
 ```
 
 不要同时保留 `runs/B01_mock_full_demo` 或 `runs/readme_real_data_check` 作为 README 输出目录；它们只是历史复现或临时验证时用过的本地目录名。
@@ -147,6 +165,13 @@ printf 'runs/week3_mock_full_demo\nmock\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
 ```
 
+这一步只更新 `quality_report.json`。如果需要同时生成质量诊断图表，继续运行：
+
+```bash
+printf 'runs/week3_mock_full_demo\n' | \
+  .venv/bin/python examples/run_ccm_ingest_step3_figures.py
+```
+
 如果只想用编号交互选择，也可以直接运行脚本，然后在提示中选择 case 目录和检查模式：
 
 ```bash
@@ -158,6 +183,9 @@ printf 'runs/week3_mock_full_demo\nmock\n' | \
 ```bash
 printf 'runs/<case_dir>\nccm\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
+
+printf 'runs/<case_dir>\n' | \
+  .venv/bin/python examples/run_ccm_ingest_step3_figures.py
 ```
 
 例如真实 case 放在 `runs/real_star/G01_JET01_existing` 时：
@@ -165,9 +193,12 @@ printf 'runs/<case_dir>\nccm\n' | \
 ```bash
 printf 'runs/real_star/G01_JET01_existing\nccm\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
+
+printf 'runs/real_star/G01_JET01_existing\n' | \
+  .venv/bin/python examples/run_ccm_ingest_step3_figures.py
 ```
 
-检查项包括必选列、时间单调性、NaN、喷气开关和质量流量一致性、实际质量流量列、单位和方向提示。`ccm` 模式还会包含 B03/B04 真实 STAR/CCM 物理接口检查。
+Step2 检查项包括必选列、时间单调性、NaN、喷气开关和质量流量一致性、实际质量流量列、单位和方向提示。`ccm` 模式还会包含 B03/B04 真实 STAR/CCM 物理接口检查。Step3 会生成 `figures/force_timeseries.png`、`figures/jet_schedule.png`、`figures/massflow_check_*.png` 和 `figures/quality_summary.png`，并把图表路径写回 `quality_report.json`。
 
 ### 5.1 `mock` 和 `ccm` 的区别
 
