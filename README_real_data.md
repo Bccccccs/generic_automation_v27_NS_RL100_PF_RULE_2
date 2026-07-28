@@ -332,28 +332,40 @@ PY
 
 ## 7. 溯源规则
 
-回答某个标准 case 由哪个代码版本生成时，优先查看：
+回答某个标准 case 由哪个代码版本生成时，优先查看 `case_manifest.yaml`。下面命令默认查看第 3 节 mock 演示目录，可以直接点击运行：
 
 ```bash
+export CASE_DIR="${CASE_DIR:-runs/week3_mock_full_demo}"
 .venv/bin/python - <<'PY'
+import os
 import yaml
 from pathlib import Path
 
-manifest = yaml.safe_load(Path("runs/<case_dir>/case_manifest.yaml").read_text(encoding="utf-8"))
+case_dir = Path(os.environ["CASE_DIR"])
+manifest = yaml.safe_load((case_dir / "case_manifest.yaml").read_text(encoding="utf-8")) or {}
 print(manifest.get("git_commit"))
 PY
 ```
 
-动作表生成版本查看：
+动作表生成版本查看。下面命令同样默认查看 `runs/week3_mock_full_demo`：
 
 ```bash
+export CASE_DIR="${CASE_DIR:-runs/week3_mock_full_demo}"
 .venv/bin/python - <<'PY'
+import os
 import yaml
 from pathlib import Path
 
-summary = yaml.safe_load(Path("runs/<case_dir>/input/config_summary.yaml").read_text(encoding="utf-8"))
+case_dir = Path(os.environ["CASE_DIR"])
+summary = yaml.safe_load((case_dir / "input" / "config_summary.yaml").read_text(encoding="utf-8")) or {}
 print(summary.get("git_commit"))
 PY
+```
+
+如果要查看真实 STAR/CCM case，把 `CASE_DIR` 换成真实目录后再运行，例如：
+
+```bash
+export CASE_DIR=runs/real_star/G01_JET01_existing
 ```
 
 第二周冻结版本：`fe48df1c9b92279c3e10ccd560cf506372df99b7` / `week2_final_b31`。
