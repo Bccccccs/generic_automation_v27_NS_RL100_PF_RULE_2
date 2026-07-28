@@ -140,17 +140,30 @@ Step2 现在会先选择 case 目录，再选择检查模式。用管道输入�
 第 2 行：ccm 或 mock
 ```
 
-真实 STAR/CCM 标准 case：
+如果已经执行过第 3 节 mock 全流程演示，下面这条命令可以直接点击运行：
+
+```bash
+printf 'runs/week3_mock_full_demo\nmock\n' | \
+  .venv/bin/python examples/run_ccm_ingest_step2_check.py
+```
+
+如果只想用编号交互选择，也可以直接运行脚本，然后在提示中选择 case 目录和检查模式：
+
+```bash
+.venv/bin/python examples/run_ccm_ingest_step2_check.py
+```
+
+真实 STAR/CCM 标准 case 不能直接点击下面的模板运行，需要先把 `<case_dir>` 替换成真实目录名：
 
 ```bash
 printf 'runs/<case_dir>\nccm\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
 ```
 
-mock/ROM 标准 case：
+例如真实 case 放在 `runs/real_star/G01_JET01_existing` 时：
 
 ```bash
-printf 'runs/<case_dir>\nmock\n' | \
+printf 'runs/real_star/G01_JET01_existing\nccm\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
 ```
 
@@ -198,9 +211,16 @@ mock case 选 mock
   "check_profile": "mock 或 ccm",
   "num_errors": 0,
   "num_warnings": 0,
-  "num_ccm_contract_blocking_issues": 0,
-  "num_physics_blocking_issues": 0,
   "run_success_flag": true
+}
+```
+
+`ccm` 模式还需要看：
+
+```json
+{
+  "num_ccm_contract_blocking_issues": 0,
+  "num_physics_blocking_issues": 0
 }
 ```
 
@@ -214,6 +234,26 @@ ccm 通过：num_errors=0，num_ccm_contract_blocking_issues=0，num_physics_blo
 `warnings` 不一定阻塞，但必须阅读。比如 mock manifest 缺少 `units` 或 `sign_convention` 时会有 warning；真实 STAR/CCM 数据中，方向、边界或质量流量相关 warning 需要在 `docs/week3/B02_open_questions.md` 或 mapping 表里继续追踪。
 
 ### 5.3 直接查看报告摘要
+
+如果检查的是第 3 节 mock 演示目录，可以直接运行：
+
+```bash
+.venv/bin/python - <<'PY'
+import json
+from pathlib import Path
+
+report = json.loads(Path("runs/week3_mock_full_demo/quality_report.json").read_text(encoding="utf-8"))
+for key in [
+    "check_profile",
+    "num_errors",
+    "num_warnings",
+    "run_success_flag",
+]:
+    print(f"{key}={report.get(key)}")
+PY
+```
+
+真实 STAR/CCM case 需要先把 `<case_dir>` 替换成真实目录名：
 
 ```bash
 .venv/bin/python - <<'PY'
