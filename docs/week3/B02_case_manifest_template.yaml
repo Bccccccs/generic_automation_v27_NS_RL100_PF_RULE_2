@@ -37,6 +37,14 @@ actuation:
     switches: JET_01..JET_24
     commanded_massflow: cmd_massflow_01..cmd_massflow_24
     actual_massflow: actual_massflow_01..actual_massflow_24
+  jet_on_windows:
+    definition: "continuous intervals merged from consecutive action windows where JET_XX == 1 and cmd_massflow_XX != 0"
+    current_reference_j01:
+      jet: JET_01
+      t_start: 0.0
+      t_end: 3.0
+      source_case: G01_JET01_existing
+      note: "one continuous jet-on window represented by 30000 action windows; not 30000 separate jet events"
 
 coordinates:
   star_report_coordinate_system: Laboratory

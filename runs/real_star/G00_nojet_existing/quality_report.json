@@ -460,5 +460,25 @@
       "run_success_flag": false
     }
   },
-  "num_physics_blocking_issues": 1
+  "num_physics_blocking_issues": 1,
+  "status": "generated_timeseries_only",
+  "case_type": "no_jet",
+  "source_product_dir": "raw_star/out_put",
+  "source_schedule": "actuation_schedule.csv",
+  "git_commit": "e4d178d24db1e59b5c820707c755b03ff1884990",
+  "source_files": [
+    "raw_star/out_put/Drag_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/FZ_image_30000.csv",
+    "raw_star/out_put/Fz_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/Pitch_Moment_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/Roll_Moment_Monitor_绘图_image_30000.csv"
+  ],
+  "quick_figures": {
+    "input_heatmap": "figures/input_heatmap.svg",
+    "fz_regions": "figures/fz_regions.svg",
+    "fz_total": "figures/fz_total.svg",
+    "spatial_nonuniformity": "figures/spatial_nonuniformity.svg",
+    "total_massflow": "figures/total_massflow.svg"
+  }
 }

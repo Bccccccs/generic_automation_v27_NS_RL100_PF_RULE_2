@@ -68,6 +68,8 @@ def normalize_run_dir(value: str) -> Path:
     if not value:
         raise SystemExit("目录不能为空。")
     path = Path(value)
+    if path.is_absolute():
+        return path
     if not str(path).startswith("runs/") and path.parts[:1] != ("runs",):
         path = Path("runs") / path
     return path

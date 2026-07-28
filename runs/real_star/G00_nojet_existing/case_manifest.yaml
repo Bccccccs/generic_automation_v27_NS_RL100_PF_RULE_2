@@ -15,22 +15,13 @@ processed_timeseries: processed/timeseries.csv
 actuation_schedule: actuation_schedule.csv
 quality_report: quality_report.json
 figures_dir: figures
-git_commit: e2d7a583ef88e218bc57f31b9150e2f5bf5d1533
+git_commit: e4d178d24db1e59b5c820707c755b03ff1884990
 units:
-  Drag_Total: N
-  Fz_S1L: N
-  Fz_S1R: N
-  Fz_S2L: N
-  Fz_S2R: N
-  Fz_S3L: N
-  Fz_S3R: N
-  Fz_Total: N
-  Jet_Reaction_Z: N
-  Pitch_Moment: N-m
-  Roll_Moment: N-m
-sign_convention: STAR monitor export convention preserved; aerodynamic positive direction
-  unconfirmed.
-validation_mode: existing_data_evidence_ingest
+  force: N
+  moment: N-m
+  massflow: kg/s
+sign_convention: positive values follow the STAR-CCM+ monitor export convention
+validation_mode: full_case
 status: complete
 raw_csv_count: 7
 timeseries_csv_count: 6
@@ -45,3 +36,14 @@ source_run_products:
   input_figures: figures/input_figures
   derived_data: logs/run_products
   input_data: logs/input_data
+geometry_version: starccm-runtime
+mesh_version: unknown
+flow_velocity: 0.0
+gap: 0.0
+time_step: 0.0001
+jet_amplitude: 0.0
+window_duration: 0.0001
+random_seed: 0
+case_stage: starccm_output_ingest
+check_mode: ccm
+source_schedule: actuation_schedule.csv

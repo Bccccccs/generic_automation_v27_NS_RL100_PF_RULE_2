@@ -93,7 +93,17 @@ JET_01 ... JET_24,
 cmd_massflow_01 ... cmd_massflow_24
 ```
 
-每一行表示一个物理时间窗口，不是求解器迭代步。动作表本身的定义为：
+每一行表示一个物理时间窗口，不是求解器迭代步。这里必须区分两个概念：
+
+```text
+动作窗口 action window:
+  actuation_schedule.csv 的一行，是控制和采样对齐的最小时间格。
+
+喷气窗口 jet-on window:
+  某个喷口连续开启的一整段物理时间，由一个或多个连续动作窗口合并而成。
+```
+
+动作表本身的行定义为：
 
 ```text
 row i defines one physical action window from t_start to t_end seconds
@@ -101,6 +111,16 @@ physical_time == t_start
 ```
 
 也就是说，`t_start` 是本行动作开始生效的物理时间，`t_end` 是本行动作结束边界。STAR 内部可以在同一个物理窗口里做多个 time step 或内迭代，但后续训练和对齐只能使用物理时间 `s`，不能用 solver iteration 代替。
+
+喷气窗口不能直接等同于单行动作窗口。对喷口 `XX`，喷气窗口应由 `JET_XX == 1` 且 `cmd_massflow_XX != 0` 的连续动作窗口合并得到：
+
+```text
+jet-on window for JET_XX:
+  start = first active row.t_start
+  end   = last consecutive active row.t_end
+```
+
+当前 `G01_JET01_existing` 中，`JET_01` 和 `cmd_massflow_01=2.57 kg/s` 覆盖全部 30000 行，因此该 case 的 `JET_01` 喷气窗口是 `0.0-3.0 s`；它不是 30000 个独立的物理喷气事件，而是一段连续喷气，被 30000 个动作窗口离散表示。
 
 当前命令行 STAR 自动化宏的执行顺序是：
 
@@ -122,7 +142,7 @@ time_step:              0.0001 s
 sampling interval:      0.0001 s in these exports
 ```
 
-当前标准化 `timeseries.csv` 按行序把 STAR 第一个输出样本 `0.0001 s` 对齐到 `window_id=0`，即动作表第一行 `0.0-0.0001 s`。这等价于把窗口终点样本当作该窗口响应。这个行为符合当前两个 temp case 的 ingest 结果和当前命令行宏写法。
+当前标准化 `timeseries.csv` 按行序把 STAR 第一个输出样本 `0.0001 s` 对齐到 `window_id=0`，即动作表第一行 `0.0-0.0001 s`。这等价于把动作窗口终点样本当作该动作窗口响应。这个行为符合当前两个 temp case 的 ingest 结果和当前命令行宏写法。若分析喷气开启后的响应，应先由动作表合并得到喷气窗口，再用该喷气窗口的起点作为喷气开启时间。
 
 ## 5. 对齐规则
 
@@ -177,6 +197,8 @@ boundary/report mapping file versions
 | 控制候选边界 | 算法侧 `JET_01..JET_24` 控制候选对象应是 STAR `J01..J24`。 |
 | 当前 J01 边界状态 | `J01` 已确认可设为质量流量入口，质量流率方法为常数，值为 `2.57 kg/s`。 |
 | 动作窗口语义 | 每行表示物理时间窗口，`physical_time == t_start`。 |
+| 喷气窗口语义 | 某个喷口连续开启的一段物理时间，由连续的 active 动作窗口合并得到；不能把单行动作窗口直接称为一次喷气窗口。 |
+| 当前 JET_01 喷气窗口 | `G01_JET01_existing` 中 `JET_01=1` 且 `cmd_massflow_01=2.57 kg/s` 覆盖全部 30000 行，所以喷气窗口为 `0.0-3.0 s`。 |
 | 当前 CLI 采样归属 | 命令行宏在写入 row i 的质量流量后推进到 `t_end`，然后采样 report；`t_end` 样本归属同一个 `window_id=i`。 |
 | 当前真实样本 | 两个 temp case 均为 30000 个动作窗口和 30000 个 STAR 输出样本，`dt=0.0001 s`。 |
 | 当前 STAR 导出列 | 已确认 6 个区域力、总 Fz、Drag、Pitch、Roll、Jet_Reaction_Z 的 CSV header 和单位。 |

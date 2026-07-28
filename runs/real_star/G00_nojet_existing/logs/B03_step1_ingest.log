@@ -1,0 +1,6 @@
+source_product_dir=runs/real_star/G00_nojet_existing/raw_star/out_put
+source_schedule=runs/real_star/G00_nojet_existing/actuation_schedule.csv
+target_case_dir=runs/real_star/G00_nojet_existing
+case_type=no_jet
+source_csv_files=6
+actual_massflow columns were not synthesized from schedule commands.

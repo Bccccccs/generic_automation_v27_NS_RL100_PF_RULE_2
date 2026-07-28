@@ -1,0 +1,54 @@
+{
+  "case_id": "G01_JET01_existing",
+  "num_errors": 0,
+  "num_warnings": 0,
+  "errors": [],
+  "warnings": [],
+  "has_jet_data": true,
+  "check_mode": "ccm",
+  "validation_mode": "full_case",
+  "num_timeseries_rows": 30000,
+  "num_timeseries_columns": 87,
+  "run_success_flag": true,
+  "source_files": [
+    "raw_star/out_put/Drag_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/FZ_image_30000.csv",
+    "raw_star/out_put/Fz_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/Jet_Reaction_Z_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/Pitch_Moment_Monitor_绘图_image_30000.csv",
+    "raw_star/out_put/Roll_Moment_Monitor_绘图_image_30000.csv"
+  ],
+  "star_column_mapping": {
+    "physical_time": "时间",
+    "Drag_Total": "Drag Monitor: Drag Monitor (N)",
+    "Fz_S1L": "S1L Monitor: S1L Monitor (N)",
+    "Fz_S1R": "S1R Monitor: S1R Monitor (N)",
+    "Fz_S2L": "S2L Monitor: S2L Monitor (N)",
+    "Fz_S2R": "S2R Monitor: S2R Monitor (N)",
+    "Fz_S3L": "S3L Monitor: S3L Monitor (N)",
+    "Fz_S3R": "S3R Monitor: S3R Monitor (N)",
+    "Fz_Total": "Fz Monitor: Fz Monitor (N)",
+    "Jet_Reaction_Z": "Jet_Reaction_Z Monitor: Jet_Reaction_Z Monitor (N)",
+    "Pitch_Moment": "Pitch_Moment Monitor: Pitch_Moment Monitor (N-m)",
+    "Roll_Moment": "Roll_Moment Monitor: Roll_Moment Monitor (N-m)"
+  },
+  "detected_units": {
+    "Drag_Total": "N",
+    "Fz_S1L": "N",
+    "Fz_S1R": "N",
+    "Fz_S2L": "N",
+    "Fz_S2R": "N",
+    "Fz_S3L": "N",
+    "Fz_S3R": "N",
+    "Fz_Total": "N",
+    "Jet_Reaction_Z": "N",
+    "Pitch_Moment": "N-m",
+    "Roll_Moment": "N-m"
+  },
+  "figures": {
+    "force_timeseries": "figures/force_timeseries.png",
+    "jet_schedule": "figures/jet_schedule.png",
+    "massflow_check": "figures/massflow_check.png",
+    "quality_summary": "figures/quality_summary.png"
+  }
+}

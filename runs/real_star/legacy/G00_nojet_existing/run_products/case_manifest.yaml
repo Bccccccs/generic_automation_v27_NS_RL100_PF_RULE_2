@@ -1,0 +1,27 @@
+star:
+  version: 待浩坤确认
+  sim_file: 待浩坤确认
+  sim_file_hash_sha256: 待浩坤确认
+  geometry_version: 待浩坤确认
+  mesh_version: 待浩坤确认
+  region_names:
+  - 减运算
+geometry_version: starccm-runtime
+mesh_version: unknown
+flow_velocity: 0.0
+gap: 0.0
+time_step: 0.0001
+jet_amplitude: 0.0
+window_duration: 0.0001
+random_seed: 0
+case_type: no_jet
+case_stage: starccm_output_ingest
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+sign_convention: positive values follow the STAR-CCM+ monitor export convention
+check_mode: ccm
+validation_mode: full_case
+source_product_dir: raw_star/out_put
+source_schedule: logs/input_data/actuation_schedule.csv
