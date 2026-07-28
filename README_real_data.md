@@ -49,18 +49,18 @@ runs/week3_pulse_singlejet/input/validation_report.json
 ```bash
 .venv/bin/python -m flow_control.generator.schedule_generator \
   --config configs/actions/pulse_singlejet.yaml \
-  --output-dir runs/B01_mock_full_demo
+  --output-dir runs/week3_mock_full_demo
 
 .venv/bin/python -m flow_control.cli.run_mock_dynamic24x6 \
-  --schedule runs/B01_mock_full_demo/input/actuation_schedule.csv \
+  --schedule runs/week3_mock_full_demo/input/actuation_schedule.csv \
   --config configs/mock_dynamic24x6.yaml \
-  --out runs/B01_mock_full_demo
+  --out runs/week3_mock_full_demo
 
-printf 'runs/B01_mock_full_demo\nmock\n' | \
+printf 'runs/week3_mock_full_demo\nmock\n' | \
   .venv/bin/python examples/run_ccm_ingest_step2_check.py
 ```
 
-B01 已经从临时 clean clone 跑通过一次完整演示，命令和日志在：
+上面的 `runs/week3_mock_full_demo` 是后续本地演示建议使用的 case 目录。B01 是交付物编号；B01 clean clone 复现时已经跑通过一次完整演示，命令和日志在：
 
 ```text
 docs/week3/B01_mock_full_demo_from_clean_clone.md
