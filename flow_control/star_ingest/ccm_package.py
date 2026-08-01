@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,14 @@ from .case_data_loader import CASE_REQUIRED_DIRS, write_quality_report
 
 # 实际质量流量列名(24 个阀门)
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
+ACTUAL_MASSFLOW_PATTERN = re.compile(
+    r"^(?:actual|real)[_\s-]*mass[_\s-]*flow[_\s-]*(\d{1,2})$",
+    re.IGNORECASE,
+)
+STAR_JET_MASSFLOW_REPORT_PATTERN = re.compile(
+    r"^j[_\s-]?(\d{1,2})[_\s-]*mass[_\s-]*flow(?:[_\s-]*report)?$",
+    re.IGNORECASE,
+)
 
 # CCM 运行时报告列名  → 标准列名的映射表。
 # CCM 输出使用 "total"、"drag"、"fc_load_S1L" 等列名,
@@ -149,8 +158,8 @@ def _standard_timeseries_rows(
 
     转换逻辑:
     1. 从驱动指令表中按 window_id 获取喷气阀门状态和质量流量指令
-    2. 计算 actual_massflow = JET_NN × cmd_massflow_NN
-       (实际质量流量 = 阀门开关状态 × 指令流量)
+    2. 优先读取 CCM/STAR 回写的 actual_massflow_NN；只有完全没有真实回写列时，
+       才回退计算 actual_massflow = JET_NN × cmd_massflow_NN
     3. 将 CCM 的报告列名映射为标准列名
     4. 如果六个传感器都存在且 Fz_Total 缺失,则求和计算 Fz_Total
 
@@ -166,6 +175,11 @@ def _standard_timeseries_rows(
         int(float(row.get("window_id", idx))): row
         for idx, row in enumerate(schedule_rows)
     }
+    has_runtime_actual_massflow = any(
+        _is_actual_massflow_column(_standard_report_column(column))
+        for row in raw_rows
+        for column in row
+    )
     rows: list[dict[str, Any]] = []
     for idx, raw in enumerate(raw_rows):
         window_id = int(float(raw.get("window_id", idx)))
@@ -180,15 +194,15 @@ def _standard_timeseries_rows(
         # 从驱动指令表中复制指令质量流量
         for column in MASSFLOW_COLUMNS:
             record[column] = float(schedule.get(column, 0.0) or 0.0)
-        # 计算实际质量流量 = 阀门开关 × 指令流量
-        # 当阀门关闭(JET=0)时,实际流量为 0;
-        # 当阀门打开(JET=1)时,实际流量等于指令流量
-        for jet_column, cmd_column, actual_column in zip(
-            JET_COLUMNS,
-            MASSFLOW_COLUMNS,
-            ACTUAL_MASSFLOW_COLUMNS,
-        ):
-            record[actual_column] = float(record[jet_column]) * float(record[cmd_column])
+        # 兼容旧运行结果：如果 runtime CSV 完全没有真实 actual_massflow report，
+        # 才用指令值合成；一旦有真实回写列，就不再用 cmd 伪造缺失列。
+        if not has_runtime_actual_massflow:
+            for jet_column, cmd_column, actual_column in zip(
+                JET_COLUMNS,
+                MASSFLOW_COLUMNS,
+                ACTUAL_MASSFLOW_COLUMNS,
+            ):
+                record[actual_column] = float(record[jet_column]) * float(record[cmd_column])
 
         # 映射 CCM 报告列名为标准列名
         for raw_column, raw_value in raw.items():
@@ -211,15 +225,37 @@ def _standard_report_column(column: str) -> str | None:
     最后尝试去除 " Monitor" 后缀后查找映射。
     对于 physical_time 和 window_id 返回 None(不需要映射,直接使用)。
     """
-    if column in {"physical_time", "window_id"}:
+    normalized = _strip_monitor_suffix(column.strip())
+    if normalized in {"physical_time", "window_id"}:
         return None
-    if column in LOAD_COLUMNS or column in {"Fz_Total", "Drag_Total", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z"}:
-        return column
-    if column in REPORT_TO_STANDARD:
-        return REPORT_TO_STANDARD[column]
-    if column.endswith(" Monitor"):
-        return REPORT_TO_STANDARD.get(column[: -len(" Monitor")])
+    if normalized in ACTUAL_MASSFLOW_COLUMNS:
+        return normalized
+    actual_match = ACTUAL_MASSFLOW_PATTERN.match(normalized)
+    if actual_match:
+        idx = int(actual_match.group(1))
+        if 1 <= idx <= 24:
+            return f"actual_massflow_{idx:02d}"
+    star_report_match = STAR_JET_MASSFLOW_REPORT_PATTERN.match(normalized)
+    if star_report_match:
+        idx = int(star_report_match.group(1))
+        if 1 <= idx <= 24:
+            return f"actual_massflow_{idx:02d}"
+    if normalized in LOAD_COLUMNS or normalized in {"Fz_Total", "Drag_Total", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z"}:
+        return normalized
+    if normalized in REPORT_TO_STANDARD:
+        return REPORT_TO_STANDARD[normalized]
     return None
+
+
+def _strip_monitor_suffix(column: str) -> str:
+    suffix = " Monitor"
+    if column.endswith(suffix):
+        return column[: -len(suffix)]
+    return column
+
+
+def _is_actual_massflow_column(column: str | None) -> bool:
+    return bool(column and column in ACTUAL_MASSFLOW_COLUMNS)
 
 
 def _ordered_timeseries_columns(rows: list[dict[str, Any]]) -> list[str]:
