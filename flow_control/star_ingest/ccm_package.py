@@ -115,8 +115,8 @@ def package_ccm_run_case(
     manifest_data.setdefault("case_stage", "starccm_runtime")
     manifest_data["check_mode"] = "ccm"
     manifest_data["validation_mode"] = "full_case" if require_complete_schema else "partial_timeseries"
-    manifest_data["source_ccm_timeseries"] = str(ccm_timeseries_path)
-    manifest_data["source_schedule"] = str(schedule_path)
+    manifest_data.setdefault("source_ccm_timeseries", str(ccm_timeseries_path))
+    manifest_data.setdefault("source_schedule", str(schedule_path))
     manifest_data.setdefault("units", {"force": "N", "moment": "N-m", "massflow": "kg/s"})
     manifest_data.setdefault(
         "sign_convention",

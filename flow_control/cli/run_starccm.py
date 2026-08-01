@@ -15,7 +15,10 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
 import os
+import re
 from pathlib import Path
 
 from flow_control.adapters.starccm_runner import (
@@ -24,6 +27,7 @@ from flow_control.adapters.starccm_runner import (
 )
 from flow_control.generator import generate_from_yaml
 from flow_control.star_ingest import package_ccm_run_case
+from flow_control.star_ingest.case_data_loader import current_git_commit
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC
 
 
@@ -106,9 +110,12 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     # --- 输出报告 ---
+    standard_case_dir = _standard_case_dir_for_output(output_dir)
     print(f"macro: {result.macro_path}")
     print(f"runtime_plan: {result.runtime_plan_path}")
     print(f"log: {result.log_path}")
+    if standard_case_dir != output_dir:
+        print(f"standard_case_dir: {standard_case_dir}")
     # 如果生成了 timeseries，进行 case 打包和质量检查
     if result.timeseries_path is not None:
         print(f"timeseries: {result.timeseries_path}")
@@ -116,7 +123,13 @@ def main(argv: list[str] | None = None) -> int:
             checked_case = package_ccm_run_case(
                 ccm_timeseries_path=result.timeseries_path,
                 schedule_path=schedule_path,
-                case_dir=output_dir,
+                case_dir=standard_case_dir,
+                manifest=_build_runtime_manifest(
+                    args=args,
+                    result=result,
+                    schedule_path=schedule_path,
+                    raw_output_dir=output_dir,
+                ),
                 require_complete_schema=True,
             )
             print(f"standard_timeseries: {checked_case['timeseries_path']}")
@@ -128,6 +141,119 @@ def main(argv: list[str] | None = None) -> int:
     if result.returncode is not None:
         print(f"returncode: {result.returncode}")
     return 0
+
+
+def _standard_case_dir_for_output(output_dir: Path) -> Path:
+    """Use the parent directory as the standard case when --out ends in raw_star."""
+
+    if output_dir.name == "raw_star":
+        return output_dir.parent
+    return output_dir
+
+
+def _build_runtime_manifest(
+    *,
+    args: argparse.Namespace,
+    result: object,
+    schedule_path: Path,
+    raw_output_dir: Path,
+) -> dict[str, object]:
+    sim_path = Path(args.sim).expanduser().resolve()
+    starccm_path = str(args.starccm_path)
+    raw_dir = raw_output_dir.expanduser().resolve()
+    case_dir = _standard_case_dir_for_output(raw_output_dir).expanduser().resolve()
+    case_type = _infer_case_type(schedule_path)
+    return {
+        "case_id": case_dir.name,
+        "case_type": case_type,
+        "description": _case_description(case_dir.name, case_type),
+        "git_commit": current_git_commit(),
+        "source_product_dir": _manifest_path(case_dir, raw_dir),
+        "raw_star_dir": str(raw_dir),
+        "processed_timeseries": "processed/timeseries.csv",
+        "actuation_schedule": "actuation_schedule.csv",
+        "quality_report": "quality_report.json",
+        "figures_dir": "figures",
+        "source_schedule": "actuation_schedule.csv",
+        "raw_csv_count": _count_csv_files(raw_dir),
+        "timeseries_csv_count": 1 if result.timeseries_path is not None else 0,
+        "status": "complete" if case_type == "no_jet" else "runtime_output_pending_quality_check",
+        "star": {
+            "version": _infer_starccm_version(starccm_path),
+            "starccm_path": starccm_path,
+            "sim_file": str(sim_path),
+            "sim_file_name": sim_path.name,
+            "sim_file_hash_sha256": _sha256_file(sim_path),
+            "geometry_version": "starccm-runtime-template",
+            "mesh_version": "template_sim",
+            "region_names": [str(args.region)],
+        },
+        "runtime": {
+            "num_cores": int(args.np),
+            "podkey_set": bool(args.podkey),
+            "region": str(args.region),
+            "time_step_override": args.time_step,
+            "strict_boundaries": not bool(args.non_strict_boundaries),
+            "save_result_sim": not bool(args.no_save_result_sim),
+            "raw_output_dir": str(raw_dir),
+            "macro_path": str(result.macro_path),
+            "runtime_plan_path": str(result.runtime_plan_path),
+            "log_path": str(result.log_path),
+            "result_sim_path": str(result.result_sim_path) if result.result_sim_path is not None else "",
+            "command": list(result.command),
+        },
+    }
+
+
+def _case_description(case_id: str, case_type: str) -> str:
+    if case_type == "no_jet":
+        return f"{case_id} STAR-CCM+ no-jet runtime case"
+    return f"{case_id} STAR-CCM+ jet runtime case"
+
+
+def _infer_case_type(schedule_path: Path) -> str:
+    with Path(schedule_path).open("r", encoding="utf-8", newline="") as handle:
+        rows = csv.DictReader(handle)
+        for row in rows:
+            for idx in range(1, 25):
+                jet = _float_or_zero(row.get(f"JET_{idx:02d}"))
+                massflow = _float_or_zero(row.get(f"cmd_massflow_{idx:02d}"))
+                if abs(jet) > 0.5 or abs(massflow) > 1.0e-15:
+                    return "jet_on"
+    return "no_jet"
+
+
+def _float_or_zero(value: object) -> float:
+    try:
+        return float(value or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _infer_starccm_version(starccm_path: str) -> str:
+    match = re.search(r"(\d{2}\.\d{2}\.\d{3}(?:-[A-Za-z0-9]+)?)", starccm_path)
+    return match.group(1) if match else "unknown"
+
+
+def _manifest_path(case_dir: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(case_dir.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
+def _count_csv_files(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(1 for item in path.rglob("*.csv") if item.is_file())
 
 
 if __name__ == "__main__":
