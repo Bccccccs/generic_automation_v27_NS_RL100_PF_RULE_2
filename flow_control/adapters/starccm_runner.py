@@ -187,43 +187,39 @@ public class FlowControlRunMacro extends StarMacro {{
     static final boolean STRICT_BOUNDARIES = {str(strict_boundaries).lower()};
     static final double REQUESTED_TIME_STEP = {_java_float(effective_time_step)};
     static final String OUTPUT_DIR = "{_java_literal(str(csv_output_dir.resolve()).replace(os.sep, '/'))}";
+    static final String SCHEDULE_CSV_PATH = "{_java_literal(str((csv_output_dir / 'actuation_schedule.csv').resolve()).replace(os.sep, '/'))}";
     static final String RESULT_SIM_PATH = "{_java_literal(str(result_sim_path.resolve()).replace(os.sep, '/') if result_sim_path else '')}";
     static final String[] BOUNDARY_NAMES = new String[] {{{", ".join(_quoted(name) for name in boundary_names)}}};
     static final String[] REPORT_NAMES = new String[] {{{", ".join(_quoted(name) for name in report_names)}}};
-    static final int[] WINDOW_IDS = new int[] {{{", ".join(str(w.window_id) for w in windows)}}};
-    static final double[] T_START = new double[] {{{", ".join(_java_float(w.t_start) for w in windows)}}};
-    static final double[] T_END = new double[] {{{", ".join(_java_float(w.t_end) for w in windows)}}};
     static final boolean[] ACTIVE_JETS = new boolean[] {{{_java_active_jet_flags(windows)}}};
-    static final double[][] MASSFLOW = new double[][] {{
-{_java_massflow_rows(windows)}
-    }};
 
     public void execute() {{
         Simulation sim = getActiveSimulation();
         File outDir = new File(normalizeStarPath(OUTPUT_DIR));
         outDir.mkdirs();
+        ScheduleData schedule = readSchedule(new File(normalizeStarPath(SCHEDULE_CSV_PATH)));
         File csv = new File(outDir, "flow_control_timeseries.csv");
         writeHeader(csv);
-        for (int window = 0; window < WINDOW_IDS.length; window++) {{
-            double duration = T_END[window] - T_START[window];
+        for (int window = 0; window < schedule.windowIds.length; window++) {{
+            double duration = schedule.tEnd[window] - schedule.tStart[window];
             double step = REQUESTED_TIME_STEP > 0.0 ? REQUESTED_TIME_STEP : getTransientTimeStep(sim);
             if (step <= 0.0) {{
-                throw new RuntimeException("Non-positive time step at window " + WINDOW_IDS[window]);
+                throw new RuntimeException("Non-positive time step at window " + schedule.windowIds[window]);
             }}
             if (REQUESTED_TIME_STEP > 0.0) {{
                 setTransientTimeStep(sim, step);
             }}
             for (int jet = 0; jet < BOUNDARY_NAMES.length; jet++) {{
                 if (!ACTIVE_JETS[jet]) continue;
-                applyMassFlow(sim, BOUNDARY_NAMES[jet], MASSFLOW[window][jet]);
+                applyMassFlow(sim, BOUNDARY_NAMES[jet], schedule.massflow[window][jet]);
             }}
             int steps = Math.max(1, (int) Math.round(duration / step));
-            sim.println("[flow_control] window=" + WINDOW_IDS[window]
-                + " t=[" + T_START[window] + "," + T_END[window] + "]"
+            sim.println("[flow_control] window=" + schedule.windowIds[window]
+                + " t=[" + schedule.tStart[window] + "," + schedule.tEnd[window] + "]"
                 + " duration=" + duration + " step=" + step + " solverSteps=" + steps);
             sim.getSimulationIterator().run(steps);
-            appendRow(sim, csv, window);
-            sim.println("[flow_control] completed window=" + WINDOW_IDS[window]
+            appendRow(sim, csv, schedule.tEnd[window], schedule.windowIds[window]);
+            sim.println("[flow_control] completed window=" + schedule.windowIds[window]
                 + " csv=" + csv.getAbsolutePath());
         }}
         exportRequiredMonitorPlots(sim, outDir);
@@ -231,6 +227,112 @@ public class FlowControlRunMacro extends StarMacro {{
             sim.saveState(normalizeStarPath(RESULT_SIM_PATH));
             sim.println("[flow_control] saved result sim -> " + RESULT_SIM_PATH);
         }}
+    }}
+
+    static class ScheduleData {{
+        int[] windowIds;
+        double[] tStart;
+        double[] tEnd;
+        double[][] massflow;
+    }}
+
+    private ScheduleData readSchedule(File csv) {{
+        ArrayList<Integer> windowIds = new ArrayList<Integer>();
+        ArrayList<Double> tStart = new ArrayList<Double>();
+        ArrayList<Double> tEnd = new ArrayList<Double>();
+        ArrayList<double[]> massflow = new ArrayList<double[]>();
+        try {{
+            BufferedReader reader = new BufferedReader(new FileReader(csv));
+            String headerLine = reader.readLine();
+            if (headerLine == null) {{
+                reader.close();
+                throw new RuntimeException("empty schedule CSV: " + csv.getAbsolutePath());
+            }}
+            String[] headers = splitCsvLine(headerLine);
+            HashMap<String, Integer> index = new HashMap<String, Integer>();
+            for (int i = 0; i < headers.length; i++) {{
+                index.put(headers[i].trim(), Integer.valueOf(i));
+            }}
+            for (int jet = 1; jet <= BOUNDARY_NAMES.length; jet++) {{
+                requireColumn(index, "cmd_massflow_" + twoDigit(jet), csv);
+            }}
+            requireColumn(index, "window_id", csv);
+            requireColumn(index, "t_start", csv);
+            requireColumn(index, "t_end", csv);
+            String line;
+            while ((line = reader.readLine()) != null) {{
+                if (line.trim().isEmpty()) continue;
+                String[] values = splitCsvLine(line);
+                windowIds.add(Integer.valueOf((int) Math.round(parseCsvDouble(values, index, "window_id"))));
+                tStart.add(Double.valueOf(parseCsvDouble(values, index, "t_start")));
+                tEnd.add(Double.valueOf(parseCsvDouble(values, index, "t_end")));
+                double[] row = new double[BOUNDARY_NAMES.length];
+                for (int jet = 1; jet <= BOUNDARY_NAMES.length; jet++) {{
+                    row[jet - 1] = parseCsvDouble(values, index, "cmd_massflow_" + twoDigit(jet));
+                }}
+                massflow.add(row);
+            }}
+            reader.close();
+        }} catch (IOException e) {{
+            throw new RuntimeException("failed to read schedule CSV " + csv.getAbsolutePath() + ": " + e.getMessage());
+        }}
+        if (windowIds.isEmpty()) {{
+            throw new RuntimeException("schedule CSV contains no data rows: " + csv.getAbsolutePath());
+        }}
+        ScheduleData data = new ScheduleData();
+        data.windowIds = new int[windowIds.size()];
+        data.tStart = new double[tStart.size()];
+        data.tEnd = new double[tEnd.size()];
+        data.massflow = new double[massflow.size()][];
+        for (int i = 0; i < windowIds.size(); i++) {{
+            data.windowIds[i] = windowIds.get(i).intValue();
+            data.tStart[i] = tStart.get(i).doubleValue();
+            data.tEnd[i] = tEnd.get(i).doubleValue();
+            data.massflow[i] = massflow.get(i);
+        }}
+        return data;
+    }}
+
+    private void requireColumn(HashMap<String, Integer> index, String column, File csv) {{
+        if (!index.containsKey(column)) {{
+            throw new RuntimeException("schedule CSV missing column '" + column + "': " + csv.getAbsolutePath());
+        }}
+    }}
+
+    private double parseCsvDouble(String[] values, HashMap<String, Integer> index, String column) {{
+        Integer pos = index.get(column);
+        if (pos == null || pos.intValue() >= values.length) {{
+            throw new RuntimeException("schedule CSV missing value for column '" + column + "'");
+        }}
+        return Double.parseDouble(values[pos.intValue()].trim());
+    }}
+
+    private String twoDigit(int value) {{
+        return value < 10 ? "0" + value : String.valueOf(value);
+    }}
+
+    private String[] splitCsvLine(String line) {{
+        ArrayList<String> fields = new ArrayList<String>();
+        StringBuffer current = new StringBuffer();
+        boolean inQuotes = false;
+        for (int i = 0; i < line.length(); i++) {{
+            char ch = line.charAt(i);
+            if (ch == '"') {{
+                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {{
+                    current.append('"');
+                    i++;
+                }} else {{
+                    inQuotes = !inQuotes;
+                }}
+            }} else if (ch == ',' && !inQuotes) {{
+                fields.add(current.toString());
+                current.setLength(0);
+            }} else {{
+                current.append(ch);
+            }}
+        }}
+        fields.add(current.toString());
+        return fields.toArray(new String[fields.size()]);
     }}
 
     private void applyMassFlow(Simulation sim, String boundaryName, double value) {{
@@ -421,10 +523,10 @@ public class FlowControlRunMacro extends StarMacro {{
         }}
     }}
 
-    private void appendRow(Simulation sim, File csv, int window) {{
+    private void appendRow(Simulation sim, File csv, double physicalTime, int windowId) {{
         try {{
             PrintWriter writer = new PrintWriter(new FileWriter(csv, true));
-            writer.print(T_END[window] + "," + WINDOW_IDS[window]);
+            writer.print(physicalTime + "," + windowId);
             for (int i = 0; i < REPORT_NAMES.length; i++) {{
                 writer.print("," + reportValue(sim, REPORT_NAMES[i]));
             }}
@@ -749,14 +851,6 @@ def _float_field(row: dict[str, Any], name: str) -> float:
         return float(row.get(name, 0.0))
     except (TypeError, ValueError) as exc:
         raise ValueError(f"invalid numeric field {name}={row.get(name)!r}") from exc
-
-
-def _java_massflow_rows(windows: list[_ScheduleWindow]) -> str:
-    lines = []
-    for window in windows:
-        values = ", ".join(_java_float(value) for value in window.massflows)
-        lines.append(f"        new double[] {{{values}}}")
-    return ",\n".join(lines)
 
 
 def _java_active_jet_flags(windows: list[_ScheduleWindow]) -> str:

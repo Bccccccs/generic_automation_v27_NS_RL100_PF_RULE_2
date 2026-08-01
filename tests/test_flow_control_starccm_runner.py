@@ -14,7 +14,7 @@ from flow_control.excitation_patterns.common import ActuationConfig, write_patte
 from flow_control.excitation_patterns.pulse import generate as generate_pulse
 
 
-def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
+def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     windows = [
         type("Window", (), {
             "window_id": 0,
@@ -36,9 +36,12 @@ def test_build_flow_control_macro_embeds_massflow_windows(tmp_path):
 
     assert "public class FlowControlRunMacro" in macro
     assert '"J03"' in macro
-    assert "0.025" in macro
     assert '"drag"' in macro
     assert "MassFlowRateProfile" in macro
+    assert "static final String SCHEDULE_CSV_PATH" in macro
+    assert "ScheduleData schedule = readSchedule" in macro
+    assert "cmd_massflow_" in macro
+    assert "double[][] MASSFLOW" not in macro
     assert "static final String OUTPUT_DIR" in macro
     assert 'new File(normalizeStarPath(OUTPUT_DIR))' in macro
     assert "findReport(sim, reportName)" in macro
