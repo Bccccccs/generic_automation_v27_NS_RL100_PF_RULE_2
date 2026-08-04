@@ -1,0 +1,10 @@
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_windows: 10000
+  window_duration: 1.0e-4
+  time_step: 1.0e-4
+  mass_flow_rate: 0.0
+
+output:
+  run_dir: runs/temp_no_jet_1s_dt1e-4
