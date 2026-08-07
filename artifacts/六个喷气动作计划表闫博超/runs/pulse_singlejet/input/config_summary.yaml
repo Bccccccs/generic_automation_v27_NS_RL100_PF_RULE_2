@@ -1,0 +1,53 @@
+mode: pulse_singlejet
+git_commit: 8aeda38ecfe799c63edd801c1ccf4f5d43574c6c
+random_seed: 20260618
+n_jets: 24
+total_windows: 10
+window_duration_seconds: 0.1
+time_step_seconds: 0.1
+mass_flow_rate: 0.02
+max_active_jets_observed: 1
+max_total_mass_flow_observed: 0.02
+activation_counts:
+  JET_01: 0
+  JET_02: 0
+  JET_03: 1
+  JET_04: 0
+  JET_05: 0
+  JET_06: 0
+  JET_07: 0
+  JET_08: 0
+  JET_09: 0
+  JET_10: 0
+  JET_11: 0
+  JET_12: 0
+  JET_13: 0
+  JET_14: 0
+  JET_15: 0
+  JET_16: 0
+  JET_17: 0
+  JET_18: 0
+  JET_19: 0
+  JET_20: 0
+  JET_21: 0
+  JET_22: 0
+  JET_23: 0
+  JET_24: 0
+outputs:
+  schedule: actuation_schedule.csv
+  heatmap: actuation_heatmap.svg
+  total_mass_flow: total_mass_flow.csv
+  total_mass_flow_curve: total_mass_flow_curve.svg
+  validation_report: validation_report.json
+validation:
+  passed: true
+  errors: []
+notes:
+  time_columns: physical_time, t_start, and t_end are seconds, not solver iterations
+  switch_columns: JET_01..JET_24 are algorithm-side 0/1 nozzle switch columns
+  massflow_columns: cmd_massflow_01..cmd_massflow_24 target STAR J01..J24 nozzle mass
+    flow values
+extra:
+  jet_id: 3
+  pulse_windows:
+  - 1
