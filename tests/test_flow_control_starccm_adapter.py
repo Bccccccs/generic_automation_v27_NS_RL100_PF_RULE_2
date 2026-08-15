@@ -48,7 +48,7 @@ def test_flow_control_starccm_adapter_writes_runtime_plan_from_schedule(tmp_path
         command["value"]
         for command in set_boundary_commands
         if command["column"] == "JET_03"
-    ] == [0.0, 0.025, 0.0]
+    ] == [0.025, 0.0, 0.0]
 
 
 def test_flow_control_starccm_adapter_can_plan_rows_without_massflow_columns():

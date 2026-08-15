@@ -1,0 +1,63 @@
+schema_version: B01_final_star_contract_v1
+case_id: "<case_id>"
+created_time: "<ISO-8601 UTC>"
+contract_files:
+  j_jet_mapping: docs/week4/B01_J_JET_mapping.csv
+  report_mapping: docs/week4/B01_report_mapping.csv
+  mapping_version: B01_final_star_contract_v1
+star:
+  version: UNCONFIRMED
+  sim_file_identifier: UNCONFIRMED
+  geometry_version: UNCONFIRMED
+  mesh_version: UNCONFIRMED
+  coordinate_system: Laboratory
+coordinates:
+  x_positive: "Laboratory +X; vehicle forward direction must be confirmed"
+  y_positive: "Laboratory +Y; must be confirmed"
+  z_positive: "Laboratory +Z; lift report direction"
+  force_direction_vectors:
+    lift_z: [0.0, 0.0, 1.0]
+    drag_x: [1.0, 0.0, 0.0]
+  moment_axes:
+    pitch_y: [0.0, 1.0, 0.0]
+    roll_x: [1.0, 0.0, 0.0]
+  moment_center_m: [29.0, 0.0, 1.52]
+units:
+  time: s
+  massflow: kg/s
+  area: m^2
+  force: N
+  moment: N-m
+sign_convention:
+  jet_massflow: "Positive means injection from a JNN inlet into the flow domain. STAR inlet-report values are converted to non-negative magnitudes in processed data; raw STAR exports remain unchanged."
+solver_time:
+  time_step_s: UNCONFIRMED
+  inner_iterations_per_step: UNCONFIRMED
+  report_sampling_interval_s: UNCONFIRMED
+  sample_ownership_rule: "t_start < t_sample <= t_end"
+actuation:
+  schedule_file: actuation_schedule.csv
+  schedule_hash_sha256: UNCONFIRMED
+  window_columns: [window_id, t_start, t_end]
+  window_unit: s
+  window_semantics: "Set JNN command before t_start; sample reports at t_end."
+  channels: "Read all 24 exact rows from B01_J_JET_mapping.csv; JNN_switch and JNN_cmd_massflow_kg_s only target JNN."
+surface_mapping:
+  source: docs/week4/B01_J_JET_mapping.csv
+  jet_boundary_prefix: J
+  underbody_zone_prefix: JET
+  jet_area_and_normal: "Per-channel values are authoritative in B01_J_JET_mapping.csv."
+  underbody_area_and_normal: "Per-channel values are authoritative in B01_J_JET_mapping.csv."
+reports:
+  source: docs/week4/B01_report_mapping.csv
+  integration_method: "pressure_plus_shear; reference_pressure_pa=0"
+  final_mode_requires_confirmed_reports: true
+validation:
+  mode: final_strict
+  reject_columns: [Fz_Total, Jet_Reaction_Z, JET_01, cmd_massflow_01]
+  reject_ambiguous_or_unmapped_columns: true
+  reject_unconfirmed_final_reports: true
+  legacy_input_policy: "warn_then_error; explicit migration mapping required"
+provenance:
+  git_commit: UNCONFIRMED
+  generated_by: UNCONFIRMED

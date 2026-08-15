@@ -91,7 +91,14 @@ class FlowControlStarCCMTranslator:
             )
         )
         # 步骤 4：读取报告
-        commands.append(ReadReports(report_names=self.spec.load_report_names))
+        commands.append(
+            ReadReports(
+                report_names=(
+                    *self.spec.load_report_names,
+                    *(f"actual_massflow_{idx:02d}" for idx in range(1, 25)),
+                )
+            )
+        )
         return StarCCMCommandPlan(
             source="flow_control",
             commands=tuple(commands),

@@ -7,7 +7,9 @@ STAR-CCM+ export ingestion utilities.
 
 # === 导入子模块中需要对外暴露的函数 ===
 from .case_data_loader import ingest_star_export, ingest_star_product_dir, load_case
+from .b3_acceptance import validate_b3_case_set, write_b3_acceptance_report
 from .ccm_package import package_ccm_run_case
+from .final_contract import validate_final_contract_columns
 from .star_export_reader import (
     discover_star_export_csvs,
     read_star_export_bundle,
@@ -25,6 +27,9 @@ __all__ = [
     "discover_star_export_csvs",   # 发现 STAR 导出的 CSV 文件
     "read_star_export_bundle",     # 批量读取一组 STAR CSV 文件
     "read_star_export_csv",        # 读取单个 STAR CSV 文件
+    "validate_final_contract_columns",  # week4 最终命名契约校验
+    "validate_b3_case_set",       # week4 B3 三算例顺序验收
+    "write_b3_acceptance_report", # 写入 B3 验收报告
 ]
 
 

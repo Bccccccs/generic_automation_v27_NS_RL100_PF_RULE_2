@@ -29,6 +29,7 @@ from flow_control.star_ingest.case_data_loader import (
 )
 from flow_control.star_ingest.star_export_reader import (
     read_star_export_csv,
+    read_star_export_bundle,
     detect_star_column_mapping,
     compute_fz_total,
     STANDARD_LOAD_COLUMNS,
@@ -352,6 +353,16 @@ class TestStarExportReader:
         assert mapping["Fz_S3R"] == '"S3R Monitor: S3R Monitor (N)"'
         assert len(mapping) == 7
 
+    def test_bundle_rejects_duplicate_standard_quantity_sources(self, tmp_path):
+        first = tmp_path / "drag_a.csv"
+        second = tmp_path / "drag_b.csv"
+        content = '"时间","Drag Monitor: Drag Monitor (N)"\n0.0001,1.0\n'
+        first.write_text(content, encoding="utf-8")
+        second.write_text(content, encoding="utf-8")
+
+        with pytest.raises(ValueError, match="same standard column"):
+            read_star_export_bundle([first, second])
+
     def test_jet_column_mapping(self):
         """Verify JET_NN column detection."""
         headers = [
@@ -401,14 +412,27 @@ class TestStarExportReader:
         assert data["rows"][1]["Fz_S1R"] == 4.0
         assert data["units"].get("Fz_S1L") == "N"
 
+    def test_star_inlet_actual_massflow_is_normalized_positive(self, tmp_path):
+        csv_path = tmp_path / "massflow.csv"
+        csv_path.write_text(
+            '"时间","actual_massflow_02 Monitor: actual_massflow_02 Monitor (kg/s)"\n'
+            '0.0001,-1.0\n',
+            encoding="utf-8",
+        )
+
+        data = read_star_export_csv(csv_path)
+
+        assert data["rows"][0]["actual_massflow_02"] == pytest.approx(1.0)
+
     def test_compute_fz_total(self):
-        """Verify Fz_Total computation from sensor columns."""
+        """Verify underbody total computation without inventing vehicle lift."""
         rows = [
             {"Fz_S1L": 10.0, "Fz_S1R": 11.0, "Fz_S2L": 12.0, "Fz_S2R": 13.0,
              "Fz_S3L": 14.0, "Fz_S3R": 15.0},
         ]
         compute_fz_total(rows)
-        assert rows[0]["Fz_Total"] == pytest.approx(75.0)
+        assert rows[0]["underbody_6zone_lift"] == pytest.approx(75.0)
+        assert "Fz_Total" not in rows[0]
 
     def test_read_star_export_missing_time_raises(self, tmp_path):
         """CSV without a time column raises ValueError."""

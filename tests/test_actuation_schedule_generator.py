@@ -2,9 +2,12 @@ import csv
 from itertools import groupby
 from pathlib import Path
 
+import pytest
+
 from flow_control.excitation_patterns.common import (
     ActuationConfig,
     generate_pattern_table,
+    rows_from_table,
     write_pattern_outputs,
 )
 from flow_control.excitation_patterns.sparse_groups import (
@@ -133,8 +136,68 @@ def test_pulse_and_step_patterns_use_physical_time():
     )
     pulse_table, _, errors = generate_pattern_table(pulse)
     assert errors == []
-    assert [row[2] for row in pulse_table.switches] == [0, 1, 0, 0]
-    assert [row[2] for row in pulse_table.massflows] == [0.0, 0.02, 0.0, 0.0]
+    assert [row[2] for row in pulse_table.switches] == [1, 0, 0, 0]
+    assert [row[2] for row in pulse_table.massflows] == [0.02, 0.0, 0.0, 0.0]
+
+    fifth_window_pulse = ActuationConfig(
+        mode="pulse_singlejet",
+        total_windows=10,
+        window_duration=0.1,
+        time_step=1.0e-4,
+        mass_flow_rate=1.0,
+        jet_ids=(2,),
+        pulse_windows=(5,),
+    )
+    fifth_table, _, errors = generate_pattern_table(fifth_window_pulse)
+    assert errors == []
+    assert [idx for idx, row in enumerate(fifth_table.switches) if row[1]] == [4]
+
+
+def test_explicit_time_and_actuation_window_config_fields_are_separate():
+    config = ActuationConfig.from_mapping(
+        {
+            "actuation": {
+                "mode": "pulse_singlejet",
+                "total_actuation_windows": 10,
+                "actuation_window_duration": 0.1,
+                "solver_time_step": 1.0e-4,
+                "jet_ids": [2],
+                "pulse_window_numbers": [5],
+            }
+        }
+    )
+
+    assert config.total_actuation_windows == 10
+    assert config.actuation_window_duration == 0.1
+    assert config.solver_time_step == 1.0e-4
+    assert config.pulse_window_numbers == (5,)
+    table, _, errors = generate_pattern_table(config)
+    assert errors == []
+    assert [idx for idx, row in enumerate(table.switches) if row[1]] == [4]
+    rows = rows_from_table(config, table)
+    assert len(rows) == 10000
+    assert rows[0]["physical_time"] == 0.0
+    assert rows[1]["physical_time"] == 1.0e-4
+    assert rows[-1]["t_end"] == 1.0
+    pulse_rows = [row for row in rows if row["window_id"] == 4]
+    assert len(pulse_rows) == 1000
+    assert pulse_rows[0]["physical_time"] == 0.4
+    assert pulse_rows[-1]["t_start"] == 0.4999
+    assert pulse_rows[-1]["t_end"] == 0.5
+    assert all(row["JET_02"] == 1 for row in pulse_rows)
+
+
+def test_conflicting_new_and_legacy_time_fields_are_rejected():
+    with pytest.raises(ValueError, match="conflicting actuation fields"):
+        ActuationConfig.from_mapping(
+            {
+                "actuation": {
+                    "mode": "pulse_singlejet",
+                    "actuation_window_duration": 0.1,
+                    "window_duration": 1.0e-4,
+                }
+            }
+        )
 
     step = ActuationConfig(
         mode="step_singlejet",

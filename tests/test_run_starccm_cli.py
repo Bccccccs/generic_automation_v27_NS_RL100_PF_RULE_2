@@ -6,6 +6,7 @@ from flow_control.cli.run_starccm import (
     _build_runtime_manifest,
     _standard_case_dir_for_output,
 )
+from flow_control.sampling import resolve_schedule_time_step
 
 
 def test_standard_case_dir_uses_parent_when_output_is_raw_star(tmp_path):
@@ -65,3 +66,23 @@ def test_runtime_manifest_fills_starccm_version_and_sim_hash(tmp_path):
     assert manifest["star"]["sim_file_name"] == "cifu0.sim"
     assert manifest["star"]["sim_file_hash_sha256"] == hashlib.sha256(b"template sim").hexdigest()
     assert manifest["runtime"]["num_cores"] == 8
+
+
+def test_solver_time_step_is_read_separately_from_actuation_window(tmp_path):
+    input_dir = tmp_path / "case" / "input"
+    input_dir.mkdir(parents=True)
+    schedule_path = input_dir / "actuation_schedule.csv"
+    schedule_path.write_text(
+        "physical_time,window_id,t_start,t_end\n0.0,0,0.0,0.1\n",
+        encoding="utf-8",
+    )
+    (input_dir / "config_summary.yaml").write_text(
+        "actuation_window_duration_seconds: 0.1\n"
+        "solver_time_step_seconds: 0.0001\n",
+        encoding="utf-8",
+    )
+
+    time_step, source = resolve_schedule_time_step(schedule_path)
+
+    assert time_step == 1.0e-4
+    assert source == "config_summary"

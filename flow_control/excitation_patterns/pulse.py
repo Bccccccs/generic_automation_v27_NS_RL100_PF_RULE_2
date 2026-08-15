@@ -18,21 +18,31 @@ def generate(config: ActuationConfig) -> tuple[ScheduleTable, dict[str, object],
     """生成单喷口脉冲激励计划。
 
     Args:
-        config: 使用 jet_ids[0] 指定喷口，pulse_windows 指定脉冲时刻。
+        config: 使用 jet_ids[0] 指定喷口，pulse_windows 使用从 1 开始的
+            窗口编号。例如窗口 5 在 window_duration=0.1 s 时对应
+            [0.4, 0.5) s，写入动作表的 window_id=4。
 
     Returns:
         (ScheduleTable, extra_metadata, errors) 三元组。
     """
     # 默认使用 3 号喷口，在第 1 个窗口激活
     jet_id = config.jet_ids[0] if config.jet_ids else 3
-    pulse_windows = config.pulse_windows or (1,)
-    switches = empty_switches(config.total_windows, config.n_jets)
+    pulse_window_numbers = config.pulse_window_numbers or (1,)
+    switches = empty_switches(config.total_actuation_windows, config.n_jets)
     idx = jet_index(jet_id, config.n_jets)
     errors: list[str] = []
-    for window_id in pulse_windows:
-        if not 0 <= window_id < config.total_windows:
-            errors.append(f"pulse window {window_id} outside total_windows={config.total_windows}")
+    for window_number in pulse_window_numbers:
+        if not 1 <= window_number <= config.total_actuation_windows:
+            errors.append(
+                f"pulse window {window_number} outside "
+                f"1..{config.total_actuation_windows}"
+            )
             continue
+        window_id = window_number - 1
         switches[window_id][idx] = 1
     table = table_from_switches(switches, mass_flow_rate=config.mass_flow_rate)
-    return table, {"jet_id": jet_id, "pulse_windows": list(pulse_windows)}, errors
+    return table, {
+        "jet_id": jet_id,
+        "pulse_window_numbers": list(pulse_window_numbers),
+        "pulse_window_id_zero_based": [number - 1 for number in pulse_window_numbers],
+    }, errors

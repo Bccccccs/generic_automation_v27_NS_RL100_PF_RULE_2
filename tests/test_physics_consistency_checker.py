@@ -171,6 +171,25 @@ def test_missing_actual_massflow_warns_without_substitution(tmp_path):
     assert any("cmd_massflow was not used as a substitute" in issue["message"] for issue in report["categories"]["massflow_errors"])
 
 
+def test_no_jet_does_not_treat_legacy_j_surface_force_as_massflow(tmp_path):
+    rows = _rows()
+    for row in rows:
+        for jet_idx in range(1, 25):
+            row[f"JET_{jet_idx:02d}"] = 0
+            row[f"cmd_massflow_{jet_idx:02d}"] = 0.0
+            row[f"actual_massflow_{jet_idx:02d}"] = 0.0
+        row["Jet_Reaction_Z"] = 123.0
+    case_dir = _write_case(tmp_path, rows=rows, manifest={"case_type": "no_jet"})
+    boundary_path = tmp_path / "boundary.csv"
+    report_path = tmp_path / "reports.csv"
+    _write_boundary_mapping(boundary_path)
+    _write_report_mapping(report_path)
+
+    report = check_case(case_dir, boundary_mapping_path=boundary_path, report_mapping_path=report_path)
+
+    assert not report["categories"]["massflow_errors"]
+
+
 def test_duplicate_boundary_mapping_is_error(tmp_path):
     case_dir = _write_case(tmp_path)
     boundary_path = tmp_path / "boundary.csv"

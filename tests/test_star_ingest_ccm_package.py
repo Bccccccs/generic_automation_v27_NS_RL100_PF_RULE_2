@@ -83,7 +83,7 @@ def test_package_ccm_run_case_generates_standard_timeseries_and_quality_report(t
     with result["timeseries_path"].open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert rows[0]["Fz_Total"] == "21.0"
-    assert rows[0]["actual_massflow_01"] == "0.02"
+    assert "actual_massflow_01" not in rows[0]
 
 
 def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
@@ -113,8 +113,8 @@ def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
             {
                 "physical_time": 0.1,
                 "window_id": 0,
-                "j01_mass_flow_report": 0.0185,
-                "actual_massflow_02 Monitor": 0.001,
+                "j01_mass_flow_report": -0.0185,
+                "actual_massflow_02 Monitor": -0.001,
                 "fc_load_S1L": 1.0,
                 "fc_load_S1R": 2.0,
                 "fc_load_S2L": 3.0,
@@ -136,3 +136,20 @@ def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
     assert rows[0]["actual_massflow_01"] == "0.0185"
     assert rows[0]["actual_massflow_02"] == "0.001"
     assert "actual_massflow_03" not in rows[0]
+
+
+def test_package_ccm_run_case_marks_missing_actual_massflow_as_incomplete(tmp_path):
+    schedule_path = tmp_path / "actuation_schedule.csv"
+    raw_timeseries_path = tmp_path / "flow_control_timeseries.csv"
+    case_dir = tmp_path / "ccm_case"
+    _write_single_jet_schedule(schedule_path)
+    raw_timeseries_path.write_text("physical_time,window_id\n0.1,0\n", encoding="utf-8")
+
+    result = package_ccm_run_case(
+        ccm_timeseries_path=raw_timeseries_path,
+        schedule_path=schedule_path,
+        case_dir=case_dir,
+        require_complete_schema=False,
+    )
+
+    assert any("actual_massflow" in error for error in result["quality_report"]["errors"])

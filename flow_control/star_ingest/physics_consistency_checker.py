@@ -509,8 +509,8 @@ def _check_massflow(
         _add_issue(
             report,
             "massflow_errors",
-            "warning",
-            "actual_massflow columns are missing; cmd_massflow was not used as a substitute",
+            "error",
+            "actual_massflow columns are missing; the jet case is incomplete and cmd_massflow was not used as a substitute",
             missing_columns=missing,
         )
 
@@ -542,7 +542,7 @@ def _check_massflow(
     if off_leak_examples:
         _add_issue(report, "massflow_errors", "error", "JET is OFF but actual_massflow is not near zero", examples=off_leak_examples, tolerance=zero_tolerance)
     if on_missing_examples:
-        _add_issue(report, "massflow_errors", "warning", "JET is ON but actual_massflow is missing; cmd_massflow was not substituted", examples=on_missing_examples)
+        _add_issue(report, "massflow_errors", "error", "JET is ON but actual_massflow is missing; cmd_massflow was not substituted", examples=on_missing_examples)
 
     if not has_jet_case:
         _check_no_jet_massflow_and_reaction(report, timeseries, zero_tolerance)
@@ -559,14 +559,16 @@ def _check_massflow(
 def _check_no_jet_massflow_and_reaction(report: dict[str, Any], rows: list[dict[str, Any]], zero_tolerance: float) -> None:
     examples: list[dict[str, Any]] = []
     for row_index, row in enumerate(rows):
-        for col in (*JET_COLUMNS, *CMD_MASSFLOW_COLUMNS, *ACTUAL_MASSFLOW_COLUMNS, "Jet_Reaction_Z"):
+        # Historical Jet_Reaction_Z is a J-surface pressure/shear force, not
+        # momentum reaction, so a no-jet case does not require it to be zero.
+        for col in (*JET_COLUMNS, *CMD_MASSFLOW_COLUMNS, *ACTUAL_MASSFLOW_COLUMNS):
             if col not in row or row.get(col) in {"", "NA", "N/A", "not_applicable"}:
                 continue
             value = _num(row.get(col))
             if value is not None and abs(value) > zero_tolerance and len(examples) < 5:
                 examples.append({"row": row_index, "column": col, "value": value})
     if examples:
-        _add_issue(report, "massflow_errors", "error", "No-jet case has non-zero jet massflow/switch/reaction values", examples=examples, tolerance=zero_tolerance)
+        _add_issue(report, "massflow_errors", "error", "No-jet case has non-zero jet massflow/switch values", examples=examples, tolerance=zero_tolerance)
 
 
 def _check_force_accounting(

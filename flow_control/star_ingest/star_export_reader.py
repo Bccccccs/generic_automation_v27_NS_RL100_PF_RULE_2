@@ -50,9 +50,10 @@ from typing import Any
 # 正则表达式同时兼容中英文,以便处理不同语言版本的 STAR 导出文件。
 STAR_COLUMN_PATTERNS: dict[str, re.Pattern] = {
     "physical_time": re.compile(r"时间|time|physical.?time|Time", re.IGNORECASE),
-    # Keep the STAR total-force monitor separate from the six local sensors.
-    # 保留 STAR 总力监视器,与六个局部传感器区分开。
-    "Fz_Total": re.compile(r"(?:^|[\s:\"])Fz\s*Monitor", re.IGNORECASE),
+    # Current STAR files contain both ``fz Monitor`` (underbody six-region
+    # total) and ``Fz Monitor`` (whole vehicle).  Letter case is significant.
+    "legacy_underbody_report_force_z": re.compile(r"^fz\s*Monitor:"),
+    "Fz_Total": re.compile(r"^Fz\s*Monitor:"),
     "Fz_S1L": re.compile(r"S1L.*Monitor", re.IGNORECASE),
     "Fz_S1R": re.compile(r"S1R.*Monitor", re.IGNORECASE),
     "Fz_S2L": re.compile(r"S2L.*Monitor", re.IGNORECASE),
@@ -73,7 +74,9 @@ STAR_COLUMN_PATTERNS: dict[str, re.Pattern] = {
 # 指令质量流量(cmd_massflow_xx)和实际质量流量(actual_massflow_xx)。
 # JET_xx 表示第 xx 号喷气口控制通道的开关状态(0/1),
 # cmd_massflow_xx 是控制系统发出的质量流量指令,
-# actual_massflow_xx 是仿真计算返回的实际质量流量。
+# actual_massflow_xx 是仿真计算返回的实际质量流量。项目标准将
+# “从喷口流入流场”定义为正；STAR 质量流量入口 report 可能按边界
+# 外法向输出负值，因此标准 actual_massflow 存储为非负的流量大小。
 #
 # 注意:STAR 中 JET01..JET24 是底部受力区域,不是喷气口;不能把 JET01
 # 这样的 STAR 边界名映射成算法侧 JET_01 开关列。
@@ -88,7 +91,14 @@ MASSFLOW_ACTUAL_PATTERN = re.compile(r"(?:actual|real).*mass.?flow[_\s]?(\d{1,2}
 # GLOBAL_COLUMNS: 全局力和力矩(总力、阻力、俯仰力矩、滚转力矩、喷气反力)
 # STANDARD_LOAD_COLUMNS: 所有载荷列的组合
 FZ_SENSOR_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
-GLOBAL_COLUMNS = ("Fz_Total", "Drag_Total", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z")
+GLOBAL_COLUMNS = (
+    "legacy_underbody_report_force_z",
+    "Fz_Total",
+    "Drag_Total",
+    "Pitch_Moment",
+    "Roll_Moment",
+    "Jet_Reaction_Z",
+)
 STANDARD_LOAD_COLUMNS = (*FZ_SENSOR_COLUMNS, *GLOBAL_COLUMNS)
 
 # 24 个算法喷气开关列名,格式为 JET_01 ~ JET_24(开关信号)
@@ -97,6 +107,17 @@ JET_COLUMNS = tuple(f"JET_{idx:02d}" for idx in range(1, 25))
 CMD_MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{idx:02d}" for idx in range(1, 25))
 # 24 个喷气口实际质量流量列名 actual_massflow_01 ~ actual_massflow_24
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
+
+
+def normalize_actual_massflow(value: float) -> float:
+    """Return project-standard jet mass flow with injection defined positive.
+
+    STAR inlet reports may be negative because their sign follows the boundary
+    outward normal.  The flow-control contract instead stores the physical
+    injection rate as a non-negative magnitude.  Raw STAR files remain
+    untouched; normalization happens only while building standard products.
+    """
+    return abs(float(value))
 
 # 需要忽略的 STAR 产品目录下的 CSV 文件名模式。
 # "报告"和"pressure"类型的文件与力/力矩时间序列无关,跳过。
@@ -280,7 +301,10 @@ def read_star_export_csv(path: str | Path) -> dict[str, Any]:
                 # Try numeric conversion
                 # 尝试转换为浮点数;转换失败则保留原始字符串(如 "NaN"、"success" 等)
                 if _is_float(raw):
-                    normalized[standard_name] = float(raw)
+                    value = float(raw)
+                    if standard_name in ACTUAL_MASSFLOW_COLUMNS:
+                        value = normalize_actual_massflow(value)
+                    normalized[standard_name] = value
                 else:
                     normalized[standard_name] = raw  # keep as string (e.g. "NaN", "success")
             rows.append(normalized)
@@ -317,6 +341,23 @@ def read_star_export_bundle(file_paths: list[str | Path]) -> dict[str, Any]:
 
     if not datasets:
         raise ValueError("at least one STAR export file is required")
+
+    # One physical quantity must have exactly one source.  Silent overwrite is
+    # especially dangerous for STAR reports whose names differ only by case.
+    owners: dict[str, list[str]] = {}
+    for dataset in datasets:
+        source = dataset["source_files"][0]
+        for column in dataset["columns"]:
+            if column == "physical_time":
+                continue
+            owners.setdefault(column, []).append(source)
+    duplicates = {column: sources for column, sources in owners.items() if len(sources) > 1}
+    if duplicates:
+        details = "; ".join(
+            f"{column} <- {', '.join(sources)}"
+            for column, sources in sorted(duplicates.items())
+        )
+        raise ValueError(f"multiple STAR exports map to the same standard column: {details}")
 
     # Collect all columns
     # 收集所有数据集中出现的列名,去重后按标准顺序排列
@@ -375,13 +416,14 @@ def read_star_export_bundle(file_paths: list[str | Path]) -> dict[str, Any]:
 
 
 def compute_fz_total(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Compute ``Fz_Total`` from individual sensor columns if absent.
+    """Compute the underbody six-region total from its regions if absent.
 
     Modifies rows in place and returns them.
-    ``Fz_Total = Fz_S1L + Fz_S1R + Fz_S2L + Fz_S2R + Fz_S3L + Fz_S3R``.
+    ``underbody_6zone_lift = Fz_S1L + ... + Fz_S3R``.
+    ``Fz_Total`` remains the independently exported whole-vehicle lift.
     The total is computed only when all six sensor values are present.
 
-    如果数据中缺少 Fz_Total 列(总法向力),则通过六个底部传感器
+    如果数据中缺少车底六区合力列,则通过六个底部传感器
     的 Fz 值求和计算得到。只有当全部六个传感器的值都存在且合法时
     才进行计算,避免不完整数据的累计误差。
 
@@ -389,7 +431,7 @@ def compute_fz_total(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     兼顾性能和链式调用便利性。
     """
     for row in rows:
-        if "Fz_Total" in row and row["Fz_Total"] is not None:
+        if "underbody_6zone_lift" in row and row["underbody_6zone_lift"] is not None:
             continue  # already present / 已存在总力值则跳过
         values: list[float] = []
         for col in FZ_SENSOR_COLUMNS:
@@ -398,7 +440,7 @@ def compute_fz_total(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 values.append(v)
         # 只有当六个传感器的值全部有效时才求和
         if len(values) == len(FZ_SENSOR_COLUMNS):
-            row["Fz_Total"] = sum(values)
+            row["underbody_6zone_lift"] = sum(values)
     return rows
 
 

@@ -1,0 +1,15 @@
+final_column,quantity_group,star_report_name,unit,coordinate_system,direction_or_axis_xyz,moment_center_m,integrated_surfaces,calculation,status,legacy_name,legacy_handling,notes
+underbody_lift_s1l,regional_lift,S1L Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET01,JET02,JET05,JET06",pressure_plus_shear,confirmed,,,
+underbody_lift_s1r,regional_lift,S1R Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET03,JET04,JET07,JET08",pressure_plus_shear,confirmed,,,
+underbody_lift_s2l,regional_lift,S2L Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET09,JET10,JET13,JET14",pressure_plus_shear,confirmed,,,
+underbody_lift_s2r,regional_lift,S2R Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET11,JET12,JET15,JET16",pressure_plus_shear,confirmed,,,
+underbody_lift_s3l,regional_lift,S3L Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET17,JET18,JET21,JET22",pressure_plus_shear,confirmed,,,
+underbody_lift_s3r,regional_lift,S3R Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET19,JET20,JET23,JET24",pressure_plus_shear,confirmed,,,
+underbody_6zone_lift,underbody_6zone_resultant,derived,N,Laboratory,"[0.0, 0.0, 1.0]",,"union of six regional report surfaces",sum(underbody_lift_s1l..underbody_lift_s3r),confirmed,,,"Not interchangeable with the historical Fz_Total report."
+vehicle_lift,vehicle_force,Vehicle Lift Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,vehicle_all_external_surfaces,pressure_plus_shear,UNCONFIRMED,,,"Create/confirm this report before final production; Fz Monitor has insufficient surface scope."
+vehicle_drag,vehicle_force,Vehicle Drag Monitor,N,Laboratory,"[1.0, 0.0, 0.0]",,vehicle_all_external_surfaces,pressure_plus_shear,UNCONFIRMED,Drag_Total,reject_in_final,"Historical Drag Monitor integrates J01..J24 and JET01..JET24 only."
+vehicle_pitch_moment,vehicle_moment,Vehicle Pitch Moment Monitor,N-m,Laboratory,"[0.0, 1.0, 0.0]","[29.0, 0.0, 1.52]",vehicle_all_external_surfaces,pressure_plus_shear,UNCONFIRMED,Pitch_Moment,reject_in_final,"Historical report is limited to JET01..JET24."
+vehicle_roll_moment,vehicle_moment,Vehicle Roll Moment Monitor,N-m,Laboratory,"[1.0, 0.0, 0.0]","[29.0, 0.0, 1.52]",vehicle_all_external_surfaces,pressure_plus_shear,UNCONFIRMED,Roll_Moment,reject_in_final,"Historical report is limited to JET01..JET24."
+j_surface_force_z,j_surface_force,J Surface Force Z Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,J01..J24,pressure_plus_shear,confirmed,Jet_Reaction_Z,migrate_with_warning,"Historical Jet_Reaction_Z actually means the J-surface +Z force; it is not momentum reaction."
+jet_momentum_reaction_z,jet_momentum_reaction,derived,N,Laboratory,"[0.0, 0.0, 1.0]",,J01..J24,"-sum(actual_massflow_kg_s * exit_velocity_z_m_s)",UNCONFIRMED,,required_before_final,"Use signed STAR mass-flow and velocity convention recorded in manifest; never infer it from j_surface_force_z."
+legacy_underbody_plus_tail_force_z,legacy_only,Fz Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,"JET01..JET24,tail",pressure_plus_shear,legacy_only,Fz_Total,reject_in_final,"Exact historical meaning of Fz_Total. It is retained solely to audit old data and must never be emitted as a final column."

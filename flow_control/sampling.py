@@ -98,11 +98,15 @@ def read_schedule_config_time_step(schedule_path: str | Path) -> float | None:
         data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
         if not isinstance(data, dict):
             continue
-        value = data.get("time_step_seconds")
+        value = data.get("solver_time_step_seconds")
+        if value is None:
+            value = data.get("time_step_seconds")
         if value is None:
             value = data.get("time_step")
         if value is None and isinstance(data.get("actuation"), dict):
-            value = data["actuation"].get("time_step")
+            value = data["actuation"].get(
+                "solver_time_step", data["actuation"].get("time_step")
+            )
         if value in (None, ""):
             continue
         time_step = float(value)

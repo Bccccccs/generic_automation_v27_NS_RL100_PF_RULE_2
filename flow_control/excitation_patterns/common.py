@@ -35,6 +35,27 @@ SUPPORTED_ACTUATION_MODES = {
 }
 
 
+def _config_alias(
+    data: dict[str, Any],
+    canonical_name: str,
+    legacy_name: str,
+    default: Any,
+) -> Any:
+    """读取新旧配置名称，并拒绝同时给出两个值的歧义配置。"""
+    if canonical_name in data and legacy_name in data:
+        if data[canonical_name] != data[legacy_name]:
+            raise ValueError(
+                f"conflicting actuation fields: {canonical_name}={data[canonical_name]!r} "
+                f"and legacy {legacy_name}={data[legacy_name]!r}"
+            )
+        return data[canonical_name]
+    if canonical_name in data:
+        return data[canonical_name]
+    if legacy_name in data:
+        return data[legacy_name]
+    return default
+
+
 def current_git_commit() -> str:
     """Return the current repository commit for generated-data provenance."""
     try:
@@ -63,14 +84,14 @@ class ActuationConfig:
     mass_flow_rate: float = 1.0    # 单喷口质量流量幅值 (kg/s)
     command_amplitude: float | None = None  # 命令幅值（与 mass_flow_rate 同义）
     window_duration: float = 0.1   # 每个时间窗口的持续时间（秒）
-    time_step: float = 0.1         # ROM/Mock/CCM 输出响应采样时间步（秒）
+    time_step: float = 0.0         # 求解器物理时间步；0 表示与动作窗口等长
     random_seed: int = 20260618    # 随机种子，保证可复现性
     output_dir: Path = Path("runs/schedule_examples/sparse24")  # 输出目录
     total_windows: int = 10        # 总窗口数（对 sparse_groups 按 n_excitation + n_reference 计算）
 
     # --- 单喷口模式参数 ---
     jet_ids: tuple[int, ...] = ()          # 指定 JET 编号列表
-    pulse_windows: tuple[int, ...] = ()    # 脉冲发生的窗口索引
+    pulse_windows: tuple[int, ...] = ()    # 脉冲发生的窗口编号（从 1 开始）
     step_start_window: int = 1             # 阶跃起始窗口
     step_end_window: int | None = None     # 阶跃结束窗口
 
@@ -101,11 +122,43 @@ class ActuationConfig:
             object.__setattr__(self, "output_dir", Path(self.output_dir))
         if self.time_step <= 0.0:
             object.__setattr__(self, "time_step", float(self.window_duration))
+        if self.window_duration <= 0.0:
+            raise ValueError("actuation_window_duration must be positive")
+        if self.time_step > self.window_duration + 1e-12:
+            raise ValueError(
+                "solver_time_step must not exceed actuation_window_duration"
+            )
+        steps_per_window = self.window_duration / self.time_step
+        if not math.isclose(steps_per_window, round(steps_per_window), abs_tol=1e-9):
+            raise ValueError(
+                "actuation_window_duration must be an integer multiple of "
+                "solver_time_step"
+            )
 
     @property
     def jet_names(self) -> list[str]:
         """返回算法侧喷气开关列名列表，如 ['JET_01', 'JET_02', ...]。"""
         return [f"JET_{idx:02d}" for idx in range(1, self.n_jets + 1)]
+
+    @property
+    def solver_time_step(self) -> float:
+        """求解器在一个喷气控制窗口内使用的物理时间步。"""
+        return self.time_step
+
+    @property
+    def actuation_window_duration(self) -> float:
+        """一行动作命令（喷气控制窗口）的持续时间。"""
+        return self.window_duration
+
+    @property
+    def total_actuation_windows(self) -> int:
+        """动作表中喷气控制窗口的总数。"""
+        return self.total_windows
+
+    @property
+    def pulse_window_numbers(self) -> tuple[int, ...]:
+        """脉冲开启的喷气窗口编号，从 1 开始。"""
+        return self.pulse_windows
 
     @property
     def massflow_names(self) -> list[str]:
@@ -165,25 +218,48 @@ class ActuationConfig:
                 f"{sorted(SUPPORTED_ACTUATION_MODES)}"
             )
 
-        total_windows = int(
-            actuation.get(
-                "total_windows",
-                int(actuation.get("n_excitation_windows", 72))
+        default_total_windows = (
+            int(actuation.get("n_excitation_windows", 72))
                 + int(actuation.get("n_reference_windows", 8))
-                if mode == "sparse_random_groups"
-                else 10,
+            if mode == "sparse_random_groups"
+            else 10
+        )
+        total_windows = int(
+            _config_alias(
+                actuation,
+                "total_actuation_windows",
+                "total_windows",
+                default_total_windows,
             )
         )
         jet_ids = actuation.get("jet_ids", actuation.get("key_jets", []))
-        pulse_windows = actuation.get("pulse_windows", [])
+        pulse_windows = _config_alias(
+            actuation, "pulse_window_numbers", "pulse_windows", []
+        )
+        actuation_window_duration = float(
+            _config_alias(
+                actuation,
+                "actuation_window_duration",
+                "window_duration",
+                0.1,
+            )
+        )
+        solver_time_step = float(
+            _config_alias(
+                actuation,
+                "solver_time_step",
+                "time_step",
+                actuation_window_duration,
+            )
+        )
         return cls(
             n_jets=int(actuation.get("n_jets", 24)),
             mode=mode,
             mass_flow_rate=float(
                 actuation.get("mass_flow_rate", actuation.get("command_amplitude", 1.0))
             ),
-            window_duration=float(actuation.get("window_duration", 0.1)),
-            time_step=float(actuation.get("time_step", actuation.get("window_duration", 0.1))),
+            window_duration=actuation_window_duration,
+            time_step=solver_time_step,
             random_seed=int(actuation.get("random_seed", system.get("random_seed", 20260618))),
             output_dir=Path(output.get("run_dir", f"runs/schedule_examples/{mode}")),
             total_windows=total_windows,
@@ -284,25 +360,36 @@ def jet_index(jet_id: int, n_jets: int) -> int:
 def rows_from_table(config: ActuationConfig, table: ScheduleTable) -> list[dict[str, Any]]:
     """将 ScheduleTable 转换为 CSV 行的字典列表。
 
+    ScheduleTable 中一行是一个喷气控制窗口；CSV 中一行是一个
+    求解器时间步。因此同一 window_id 会持续
+    actuation_window_duration / solver_time_step 行。
+
     每行包含：physical_time, window_id, t_start, t_end,
     算法侧 JET_01..JET_NN 的 0/1 开关值，cmd_massflow_01..cmd_massflow_NN 的质量流量值。
     这里的 JET_XX 是表格列名；落到 STAR 时必须映射到 JXX 喷气口，不能映射到 JETXX 底面区域。
     """
     rows: list[dict[str, Any]] = []
+    steps_per_window = round(
+        config.actuation_window_duration / config.solver_time_step
+    )
     for window_id, (switch_row, massflow_row) in enumerate(zip(table.switches, table.massflows)):
-        start = round(window_id * config.window_duration, 12)
-        end = round(start + config.window_duration, 12)
-        record: dict[str, Any] = {
-            "physical_time": start,
-            "window_id": window_id,
-            "t_start": start,
-            "t_end": end,
-        }
-        for idx, column in enumerate(config.jet_names):
-            record[column] = int(switch_row[idx]) if idx < len(switch_row) else 0
-        for idx, column in enumerate(config.massflow_names):
-            record[column] = float(massflow_row[idx]) if idx < len(massflow_row) else 0.0
-        rows.append(record)
+        window_start = window_id * config.actuation_window_duration
+        for step_in_window in range(steps_per_window):
+            start = round(
+                window_start + step_in_window * config.solver_time_step, 12
+            )
+            end = round(start + config.solver_time_step, 12)
+            record: dict[str, Any] = {
+                "physical_time": start,
+                "window_id": window_id,
+                "t_start": start,
+                "t_end": end,
+            }
+            for idx, column in enumerate(config.jet_names):
+                record[column] = int(switch_row[idx]) if idx < len(switch_row) else 0
+            for idx, column in enumerate(config.massflow_names):
+                record[column] = float(massflow_row[idx]) if idx < len(massflow_row) else 0.0
+            rows.append(record)
     return rows
 
 
@@ -334,6 +421,13 @@ def write_config_summary(
         "total_windows": table.n_windows,
         "window_duration_seconds": config.window_duration,
         "time_step_seconds": config.time_step,
+        "total_actuation_windows": table.n_windows,
+        "actuation_window_duration_seconds": config.window_duration,
+        "solver_time_step_seconds": config.time_step,
+        "solver_steps_per_actuation_window": round(
+            config.actuation_window_duration / config.solver_time_step
+        ),
+        "schedule_row_count": len(rows_from_table(config, table)),
         "mass_flow_rate": config.mass_flow_rate,
         "max_active_jets_observed": max((sum(row) for row in table.switches), default=0),
         "max_total_mass_flow_observed": max(total_massflows, default=0.0),
@@ -353,6 +447,8 @@ def write_config_summary(
         },
         "notes": {
             "time_columns": "physical_time, t_start, and t_end are seconds, not solver iterations",
+            "time_model": "Each CSV row is one actuation window; the solver advances inside it using solver_time_step_seconds.",
+            "pulse_numbering": "pulse_window_numbers are 1-based; CSV window_id is 0-based.",
             "switch_columns": "JET_01..JET_24 are algorithm-side 0/1 nozzle switch columns",
             "massflow_columns": "cmd_massflow_01..cmd_massflow_24 target STAR J01..J24 nozzle mass flow values",
         },
@@ -370,17 +466,17 @@ def write_total_mass_flow_csv(config: ActuationConfig, table: ScheduleTable) -> 
     with (config.output_dir / "total_mass_flow.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(["physical_time", "window_id", "t_start", "t_end", "active_jets", "total_mass_flow"])
-        for window_id, (switch_row, massflow_row) in enumerate(zip(table.switches, table.massflows)):
-            start = round(window_id * config.window_duration, 12)
-            end = round(start + config.window_duration, 12)
+        for row in rows_from_table(config, table):
+            switch_values = [int(row[name]) for name in config.jet_names]
+            massflow_values = [float(row[name]) for name in config.massflow_names]
             writer.writerow(
                 [
-                    start,
-                    window_id,
-                    start,
-                    end,
-                    sum(switch_row),
-                    sum(massflow_row),
+                    row["physical_time"],
+                    row["window_id"],
+                    row["t_start"],
+                    row["t_end"],
+                    sum(switch_values),
+                    sum(massflow_values),
                 ]
             )
 

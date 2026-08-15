@@ -17,6 +17,9 @@ from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC, JET_COLUMNS
 
 
+_EXECUTION_MODES = {"run", "dry-run", "package-only", "validate-only"}
+
+
 _STAR_BOTTOM_JET_BOUNDARY_RE = re.compile(r"^JET_?\d{1,2}$", re.IGNORECASE)
 
 
@@ -35,6 +38,9 @@ class FlowControlStarCCMRunConfig:
     save_result_sim: bool = True
     keep_macro: bool = True
     dry_run: bool = False
+    execution_mode: str = "run"
+    case_dir: Path | None = None
+    require_complete_schema: bool = True
 
 
 @dataclass(frozen=True)
@@ -69,7 +75,10 @@ class FlowControlStarCCMRunner:
         output_dir = config.output_dir.expanduser().resolve()
         if not schedule_path.exists():
             raise FileNotFoundError(f"actuation schedule not found: {schedule_path}")
-        if not sim_path.exists():
+        mode = "dry-run" if config.dry_run else config.execution_mode.strip().lower()
+        if mode not in _EXECUTION_MODES:
+            raise ValueError(f"unsupported execution_mode {config.execution_mode!r}; expected one of {sorted(_EXECUTION_MODES)}")
+        if mode == "run" and not sim_path.exists():
             raise FileNotFoundError(f"STAR-CCM+ .sim file not found: {sim_path}")
 
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -110,7 +119,7 @@ class FlowControlStarCCMRunner:
             pod_key=config.pod_key,
         )
         log_path = output_dir / "starccm_flow_control.log"
-        if config.dry_run:
+        if mode == "dry-run":
             _print_progress("dry-run 完成，已生成宏和运行计划")
             return FlowControlStarCCMRunResult(
                 macro_path=macro_path,
@@ -120,6 +129,20 @@ class FlowControlStarCCMRunner:
                 result_sim_path=result_sim_path if config.save_result_sim else None,
                 timeseries_path=timeseries_path,
             )
+
+        # These modes intentionally do not invoke STAR.  They make it possible
+        # to debug packaging and acceptance checks against an already-exported
+        # runtime CSV without consuming a STAR license.
+        if mode == "package-only":
+            case_dir = config.case_dir or output_dir / "case_package"
+            _package_runtime_csv(timeseries_path, copied_schedule, case_dir, config.require_complete_schema)
+            _print_progress(f"package-only 完成，Case: {case_dir}")
+            return FlowControlStarCCMRunResult(macro_path, runtime_plan_path, log_path, tuple(command), timeseries_path=timeseries_path)
+        if mode == "validate-only":
+            case_dir = config.case_dir or output_dir / "case_package"
+            _validate_case(case_dir, config.require_complete_schema)
+            _print_progress(f"validate-only 完成，Case: {case_dir}")
+            return FlowControlStarCCMRunResult(macro_path, runtime_plan_path, log_path, tuple(command), timeseries_path=timeseries_path)
 
         _print_progress(f"开始启动 STAR-CCM+，日志: {log_path}")
         with log_path.open("w", encoding="utf-8") as log_file:
@@ -177,6 +200,7 @@ def build_flow_control_macro(
     csv_output_dir = output_dir or (result_sim_path.parent if result_sim_path else Path("."))
     return f"""import star.common.*;
 import star.base.report.*;
+import star.base.neo.*;
 import star.flow.*;
 import star.vis.*;
 import java.io.*;
@@ -191,6 +215,7 @@ public class FlowControlRunMacro extends StarMacro {{
     static final String RESULT_SIM_PATH = "{_java_literal(str(result_sim_path.resolve()).replace(os.sep, '/') if result_sim_path else '')}";
     static final String[] BOUNDARY_NAMES = new String[] {{{", ".join(_quoted(name) for name in boundary_names)}}};
     static final String[] REPORT_NAMES = new String[] {{{", ".join(_quoted(name) for name in report_names)}}};
+    static final String[] ACTUAL_MASSFLOW_REPORT_NAMES = new String[] {{{", ".join(_quoted(f"actual_massflow_{idx:02d}") for idx in range(1, 25))}}};
     static final boolean[] ACTIVE_JETS = new boolean[] {{{_java_active_jet_flags(windows)}}};
 
     public void execute() {{
@@ -199,6 +224,7 @@ public class FlowControlRunMacro extends StarMacro {{
         outDir.mkdirs();
         ScheduleData schedule = readSchedule(new File(normalizeStarPath(SCHEDULE_CSV_PATH)));
         File csv = new File(outDir, "flow_control_timeseries.csv");
+        ensureActualMassFlowReports(sim);
         writeHeader(csv);
         for (int window = 0; window < schedule.windowIds.length; window++) {{
             double duration = schedule.tEnd[window] - schedule.tStart[window];
@@ -210,7 +236,6 @@ public class FlowControlRunMacro extends StarMacro {{
                 setTransientTimeStep(sim, step);
             }}
             for (int jet = 0; jet < BOUNDARY_NAMES.length; jet++) {{
-                if (!ACTIVE_JETS[jet]) continue;
                 applyMassFlow(sim, BOUNDARY_NAMES[jet], schedule.massflow[window][jet]);
             }}
             int steps = Math.max(1, (int) Math.round(duration / step));
@@ -218,7 +243,7 @@ public class FlowControlRunMacro extends StarMacro {{
                 + " t=[" + schedule.tStart[window] + "," + schedule.tEnd[window] + "]"
                 + " duration=" + duration + " step=" + step + " solverSteps=" + steps);
             sim.getSimulationIterator().run(steps);
-            appendRow(sim, csv, schedule.tEnd[window], schedule.windowIds[window]);
+            appendRow(sim, csv, schedule.tEnd[window], schedule.windowIds[window], step, duration, duration, schedule.massflow[window]);
             sim.println("[flow_control] completed window=" + schedule.windowIds[window]
                 + " csv=" + csv.getAbsolutePath());
         }}
@@ -342,11 +367,9 @@ public class FlowControlRunMacro extends StarMacro {{
                 + "'. Use J01..J24 nozzle boundaries for actuation."
             );
         }}
-        boolean requiresBoundary = Math.abs(value) > 1.0e-15;
         Boundary boundary = findBoundary(sim, boundaryName);
         if (boundary == null) {{
-            if (!requiresBoundary) return;
-            String message = "Boundary '" + boundaryName + "' not found for nonzero mass flow "
+            String message = "Boundary '" + boundaryName + "' not found while setting mass flow "
                 + value + ". Available boundaries: " + availableBoundaryNames(sim);
             if (STRICT_BOUNDARIES) throw new RuntimeException(message);
             sim.println("WARNING: " + message + " Skipping mass-flow update.");
@@ -512,7 +535,13 @@ public class FlowControlRunMacro extends StarMacro {{
     private void writeHeader(File csv) {{
         try {{
             PrintWriter writer = new PrintWriter(new FileWriter(csv, false));
-            writer.print("physical_time,window_id");
+            writer.print("physical_time,window_id,solver_dt_s,action_window_s,sample_interval_s");
+            for (int i = 0; i < BOUNDARY_NAMES.length; i++) {{
+                writer.print(",cmd_massflow_" + twoDigit(i + 1));
+            }}
+            for (int i = 0; i < ACTUAL_MASSFLOW_REPORT_NAMES.length; i++) {{
+                writer.print("," + ACTUAL_MASSFLOW_REPORT_NAMES[i]);
+            }}
             for (int i = 0; i < REPORT_NAMES.length; i++) {{
                 writer.print("," + REPORT_NAMES[i]);
             }}
@@ -523,10 +552,15 @@ public class FlowControlRunMacro extends StarMacro {{
         }}
     }}
 
-    private void appendRow(Simulation sim, File csv, double physicalTime, int windowId) {{
+    private void appendRow(Simulation sim, File csv, double physicalTime, int windowId,
+        double solverDt, double actionWindow, double sampleInterval, double[] commandMassflow) {{
         try {{
             PrintWriter writer = new PrintWriter(new FileWriter(csv, true));
-            writer.print(physicalTime + "," + windowId);
+            writer.print(physicalTime + "," + windowId + "," + solverDt + "," + actionWindow + "," + sampleInterval);
+            for (int i = 0; i < commandMassflow.length; i++) writer.print("," + commandMassflow[i]);
+            for (int i = 0; i < ACTUAL_MASSFLOW_REPORT_NAMES.length; i++) {{
+                writer.print("," + requiredReportValue(sim, ACTUAL_MASSFLOW_REPORT_NAMES[i]));
+            }}
             for (int i = 0; i < REPORT_NAMES.length; i++) {{
                 writer.print("," + reportValue(sim, REPORT_NAMES[i]));
             }}
@@ -547,6 +581,33 @@ public class FlowControlRunMacro extends StarMacro {{
         }} catch (Exception e) {{
             sim.println("WARNING: report '" + reportName + "' unavailable: " + e.getMessage());
             return Double.NaN;
+        }}
+    }}
+
+    private double requiredReportValue(Simulation sim, String reportName) {{
+        Report report = findReport(sim, reportName);
+        if (report instanceof ScalarReport) return ((ScalarReport) report).getValue();
+        return report.getReportMonitorValue();
+    }}
+
+    private void ensureActualMassFlowReports(Simulation sim) {{
+        for (int jet = 0; jet < BOUNDARY_NAMES.length; jet++) {{
+            Boundary boundary = findBoundary(sim, BOUNDARY_NAMES[jet]);
+            if (boundary == null) {{
+                throw new RuntimeException("Cannot create actual mass-flow report: boundary '" + BOUNDARY_NAMES[jet]
+                    + "' is missing. Available boundaries: " + availableBoundaryNames(sim));
+            }}
+            String reportName = ACTUAL_MASSFLOW_REPORT_NAMES[jet];
+            try {{
+                Report existing = findReport(sim, reportName);
+                if (existing instanceof MassFlowReport) continue;
+                throw new RuntimeException("Report '" + reportName + "' exists but is not a MassFlowReport");
+            }} catch (RuntimeException missing) {{
+                if (!missing.getMessage().startsWith("report not found:")) throw missing;
+            }}
+            MassFlowReport report = sim.getReportManager().createReport(MassFlowReport.class);
+            report.setPresentationName(reportName);
+            report.setParts(new NeoObjectVector(new Object[] {{boundary}}));
         }}
     }}
 
@@ -885,3 +946,29 @@ def _tail_text(path: Path, line_count: int = 80) -> str:
         return "".join(path.read_text(encoding="utf-8", errors="replace").splitlines(True)[-line_count:]).strip()
     except Exception:
         return "(log not readable)"
+
+
+def _package_runtime_csv(
+    timeseries_path: Path, schedule_path: Path, case_dir: Path, require_complete_schema: bool
+) -> None:
+    if not timeseries_path.is_file():
+        raise FileNotFoundError(f"package-only requires an existing runtime CSV: {timeseries_path}")
+    from flow_control.star_ingest.ccm_package import package_ccm_run_case
+
+    result = package_ccm_run_case(
+        ccm_timeseries_path=timeseries_path,
+        schedule_path=schedule_path,
+        case_dir=case_dir,
+        require_complete_schema=require_complete_schema,
+    )
+    errors = result["quality_report"].get("errors", [])
+    if errors:
+        raise RuntimeError("package-only produced an incomplete case: " + "; ".join(errors))
+
+
+def _validate_case(case_dir: Path, require_complete_schema: bool) -> None:
+    from flow_control.star_ingest.case_data_loader import load_case
+
+    result = load_case(case_dir, require_complete_schema=require_complete_schema, check_mode="ccm")
+    if result["errors"]:
+        raise RuntimeError("validate-only failed: " + "; ".join(result["errors"]))

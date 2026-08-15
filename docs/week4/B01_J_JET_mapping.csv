@@ -1,0 +1,25 @@
+channel_id,star_jet_boundary,star_underbody_zone,action_switch_column,commanded_massflow_column,actual_massflow_column,jet_area_m2,jet_normal_laboratory_xyz,underbody_area_m2,underbody_normal_laboratory_xyz,star_region,status
+01,J01,JET01,J01_switch,J01_cmd_massflow_kg_s,J01_actual_massflow_kg_s,0.04642108,"[0.0, 0.0, 1.0]",2.116935,"[0.0, 0.0, 1.0]",减运算,confirmed
+02,J02,JET02,J02_switch,J02_cmd_massflow_kg_s,J02_actual_massflow_kg_s,0.05199447,"[0.0, 0.0, 1.0]",2.412277,"[0.0, 0.0, 1.0]",减运算,confirmed
+03,J03,JET03,J03_switch,J03_cmd_massflow_kg_s,J03_actual_massflow_kg_s,0.06488007,"[0.0, 0.0, 1.0]",2.399391,"[0.0, 0.0, 1.0]",减运算,confirmed
+04,J04,JET04,J04_switch,J04_cmd_massflow_kg_s,J04_actual_massflow_kg_s,0.05843526,"[0.0, 0.0, 1.0]",2.104921,"[0.0, 0.0, 1.0]",减运算,confirmed
+05,J05,JET05,J05_switch,J05_cmd_massflow_kg_s,J05_actual_massflow_kg_s,0.06992938,"[0.0, 0.0, 1.0]",2.260785,"[0.0, 0.0, 1.0]",减运算,confirmed
+06,J06,JET06,J06_switch,J06_cmd_massflow_kg_s,J06_actual_massflow_kg_s,0.05784352,"[0.0, 0.0, 1.0]",2.406428,"[0.0, 0.0, 1.0]",减运算,confirmed
+07,J07,JET07,J07_switch,J07_cmd_massflow_kg_s,J07_actual_massflow_kg_s,0.06472045,"[0.0, 0.0, 1.0]",2.399551,"[0.0, 0.0, 1.0]",减运算,confirmed
+08,J08,JET08,J08_switch,J08_cmd_massflow_kg_s,J08_actual_massflow_kg_s,0.06653956,"[0.0, 0.0, 1.0]",2.264175,"[0.0, 0.0, 1.0]",减运算,confirmed
+09,J09,JET09,J09_switch,J09_cmd_massflow_kg_s,J09_actual_massflow_kg_s,0.09745591,"[0.0, 0.0, 1.0]",3.642305,"[0.0, 0.0, 1.0]",减运算,confirmed
+10,J10,JET10,J10_switch,J10_cmd_massflow_kg_s,J10_actual_massflow_kg_s,0.09012416,"[0.0, 0.0, 1.0]",3.916720,"[0.0, 0.0, 1.0]",减运算,confirmed
+11,J11,JET11,J11_switch,J11_cmd_massflow_kg_s,J11_actual_massflow_kg_s,0.11125130,"[0.0, 0.0, 1.0]",3.895593,"[0.0, 0.0, 1.0]",减运算,confirmed
+12,J12,JET12,J12_switch,J12_cmd_massflow_kg_s,J12_actual_massflow_kg_s,0.08951224,"[0.0, 0.0, 1.0]",3.650251,"[0.0, 0.0, 1.0]",减运算,confirmed
+13,J13,JET13,J13_switch,J13_cmd_massflow_kg_s,J13_actual_massflow_kg_s,0.08983166,"[0.0, 0.0, 1.0]",3.649898,"[0.0, 0.0, 1.0]",减运算,confirmed
+14,J14,JET14,J14_switch,J14_cmd_massflow_kg_s,J14_actual_massflow_kg_s,0.09199432,"[0.0, 0.0, 1.0]",3.914845,"[0.0, 0.0, 1.0]",减运算,confirmed
+15,J15,JET15,J15_switch,J15_cmd_massflow_kg_s,J15_actual_massflow_kg_s,0.11124970,"[0.0, 0.0, 1.0]",3.895590,"[0.0, 0.0, 1.0]",减运算,confirmed
+16,J16,JET16,J16_switch,J16_cmd_massflow_kg_s,J16_actual_massflow_kg_s,0.08382078,"[0.0, 0.0, 1.0]",3.655909,"[0.0, 0.0, 1.0]",减运算,confirmed
+17,J17,JET17,J17_switch,J17_cmd_massflow_kg_s,J17_actual_massflow_kg_s,0.04880286,"[0.0, 0.0, 1.0]",2.281902,"[0.0, 0.0, 1.0]",减运算,confirmed
+18,J18,JET18,J18_switch,J18_cmd_massflow_kg_s,J18_actual_massflow_kg_s,0.05638349,"[0.0, 0.0, 1.0]",2.407886,"[0.0, 0.0, 1.0]",减运算,confirmed
+19,J19,JET19,J19_switch,J19_cmd_massflow_kg_s,J19_actual_massflow_kg_s,0.06077749,"[0.0, 0.0, 1.0]",2.403492,"[0.0, 0.0, 1.0]",减运算,confirmed
+20,J20,JET20,J20_switch,J20_cmd_massflow_kg_s,J20_actual_massflow_kg_s,0.04960240,"[0.0, 0.0, 1.0]",2.281103,"[0.0, 0.0, 1.0]",减运算,confirmed
+21,J21,JET21,J21_switch,J21_cmd_massflow_kg_s,J21_actual_massflow_kg_s,0.05670849,"[0.0, 0.0, 1.0]",2.106647,"[0.0, 0.0, 1.0]",减运算,confirmed
+22,J22,JET22,J22_switch,J22_cmd_massflow_kg_s,J22_actual_massflow_kg_s,0.06688731,"[0.0, 0.0, 1.0]",2.397382,"[0.0, 0.0, 1.0]",减运算,confirmed
+23,J23,JET23,J23_switch,J23_cmd_massflow_kg_s,J23_actual_massflow_kg_s,0.07348810,"[0.0, 0.0, 1.0]",2.390781,"[0.0, 0.0, 1.0]",减运算,confirmed
+24,J24,JET24,J24_switch,J24_cmd_massflow_kg_s,J24_actual_massflow_kg_s,0.04608636,"[0.0, 0.0, 1.0]",2.117270,"[0.0, 0.0, 1.0]",减运算,confirmed

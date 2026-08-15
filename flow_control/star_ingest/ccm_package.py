@@ -26,6 +26,7 @@ from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 from .case_data_loader import CASE_REQUIRED_DIRS, write_quality_report
+from .star_export_reader import normalize_actual_massflow
 
 # 实际质量流量列名(24 个阀门)
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
@@ -120,7 +121,11 @@ def package_ccm_run_case(
     manifest_data.setdefault("units", {"force": "N", "moment": "N-m", "massflow": "kg/s"})
     manifest_data.setdefault(
         "sign_convention",
-        "positive values follow the STAR-CCM+ report convention exported by the runtime macro",
+        (
+            "jet massflow is positive for injection into the flow domain; "
+            "negative STAR inlet-report values are normalized to positive magnitudes; "
+            "force and moment values preserve the STAR-CCM+ report convention"
+        ),
     )
     (case_path / "case_manifest.yaml").write_text(
         yaml.safe_dump(manifest_data, sort_keys=False, allow_unicode=True),
@@ -158,8 +163,7 @@ def _standard_timeseries_rows(
 
     转换逻辑:
     1. 从驱动指令表中按 window_id 获取喷气阀门状态和质量流量指令
-    2. 优先读取 CCM/STAR 回写的 actual_massflow_NN；只有完全没有真实回写列时，
-       才回退计算 actual_massflow = JET_NN × cmd_massflow_NN
+    2. 只读取 CCM/STAR 回写的 actual_massflow_NN；绝不由 cmd_massflow 合成。
     3. 将 CCM 的报告列名映射为标准列名
     4. 如果六个传感器都存在且 Fz_Total 缺失,则求和计算 Fz_Total
 
@@ -175,11 +179,6 @@ def _standard_timeseries_rows(
         int(float(row.get("window_id", idx))): row
         for idx, row in enumerate(schedule_rows)
     }
-    has_runtime_actual_massflow = any(
-        _is_actual_massflow_column(_standard_report_column(column))
-        for row in raw_rows
-        for column in row
-    )
     rows: list[dict[str, Any]] = []
     for idx, raw in enumerate(raw_rows):
         window_id = int(float(raw.get("window_id", idx)))
@@ -194,21 +193,14 @@ def _standard_timeseries_rows(
         # 从驱动指令表中复制指令质量流量
         for column in MASSFLOW_COLUMNS:
             record[column] = float(schedule.get(column, 0.0) or 0.0)
-        # 兼容旧运行结果：如果 runtime CSV 完全没有真实 actual_massflow report，
-        # 才用指令值合成；一旦有真实回写列，就不再用 cmd 伪造缺失列。
-        if not has_runtime_actual_massflow:
-            for jet_column, cmd_column, actual_column in zip(
-                JET_COLUMNS,
-                MASSFLOW_COLUMNS,
-                ACTUAL_MASSFLOW_COLUMNS,
-            ):
-                record[actual_column] = float(record[jet_column]) * float(record[cmd_column])
-
         # 映射 CCM 报告列名为标准列名
         for raw_column, raw_value in raw.items():
             standard = _standard_report_column(raw_column)
             if standard is not None and raw_value not in {None, ""}:
-                record[standard] = float(raw_value)
+                value = float(raw_value)
+                if _is_actual_massflow_column(standard):
+                    value = normalize_actual_massflow(value)
+                record[standard] = value
         # 如果六传感器都存在但 Fz_Total 缺失,手动求和
         if all(column in record for column in LOAD_COLUMNS) and "Fz_Total" not in record:
             record["Fz_Total"] = sum(float(record[column]) for column in LOAD_COLUMNS)

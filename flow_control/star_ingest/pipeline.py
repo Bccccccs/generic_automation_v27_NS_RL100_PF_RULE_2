@@ -270,6 +270,8 @@ def _default_manifest(case_type: str, *, check_mode: str) -> dict[str, Any]:
             "massflow": "kg/s",
         },
         "sign_convention": (
+            "jet massflow is positive for injection into the flow domain; "
+            "negative STAR inlet-report values are normalized to positive magnitudes; "
             "positive Fz = lift upward; "
             "positive Drag = downstream; "
             "positive Pitch = nose up; "

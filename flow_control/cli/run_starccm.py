@@ -26,6 +26,7 @@ from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunner,
 )
 from flow_control.generator import generate_from_yaml
+from flow_control.sampling import resolve_schedule_time_step
 from flow_control.star_ingest import package_ccm_run_case
 from flow_control.star_ingest.case_data_loader import current_git_commit
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC
@@ -58,7 +59,10 @@ def main(argv: list[str] | None = None) -> int:
         "--time-step",
         type=float,
         default=None,
-        help="Solver time step inside each control window. Default: one solver step per CSV window.",
+        help=(
+            "Solver time step inside each actuation window. Priority: this argument, "
+            "then schedule config_summary, then the template simulation setting."
+        ),
     )
     parser.add_argument(
         "--report",
@@ -91,6 +95,10 @@ def main(argv: list[str] | None = None) -> int:
         ).output_dir
         / "actuation_schedule.csv"
     )
+    solver_time_step, solver_time_step_source = resolve_schedule_time_step(
+        schedule_path,
+        explicit_time_step=args.time_step,
+    )
 
     # 运行 STAR-CCM+ 仿真，生成宏、运行计划和结果
     result = FlowControlStarCCMRunner().run(
@@ -102,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
             num_cores=args.np,
             pod_key=args.podkey,
             region_name=args.region,
-            time_step=args.time_step,
+            time_step=solver_time_step,
             report_names=tuple(args.report) or DEFAULT_STARCCM_SPEC.load_report_names,
             strict_boundaries=not args.non_strict_boundaries,
             save_result_sim=not args.no_save_result_sim,
@@ -129,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
                     result=result,
                     schedule_path=schedule_path,
                     raw_output_dir=output_dir,
+                    solver_time_step=solver_time_step,
+                    solver_time_step_source=solver_time_step_source,
                 ),
                 require_complete_schema=True,
             )
@@ -157,6 +167,8 @@ def _build_runtime_manifest(
     result: object,
     schedule_path: Path,
     raw_output_dir: Path,
+    solver_time_step: float | None = None,
+    solver_time_step_source: str = "template_simulation",
 ) -> dict[str, object]:
     sim_path = Path(args.sim).expanduser().resolve()
     starccm_path = str(args.starccm_path)
@@ -193,6 +205,8 @@ def _build_runtime_manifest(
             "podkey_set": bool(args.podkey),
             "region": str(args.region),
             "time_step_override": args.time_step,
+            "solver_time_step": solver_time_step,
+            "solver_time_step_source": solver_time_step_source,
             "strict_boundaries": not bool(args.non_strict_boundaries),
             "save_result_sim": not bool(args.no_save_result_sim),
             "raw_output_dir": str(raw_dir),

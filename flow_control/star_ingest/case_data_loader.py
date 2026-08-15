@@ -493,6 +493,7 @@ def ingest_star_export(
     if _should_run_physics_consistency(quality_report.get("check_mode")):
         quality_report = _attach_ccm_ingest_contract_to_quality_report(case_path, quality_report)
         quality_report = _attach_physics_consistency_to_quality_report(case_path, quality_report)
+    quality_report = _attach_final_contract_to_quality_report(case_path, quality_report)
     with (case_path / "quality_report.json").open("w", encoding="utf-8") as f:
         json.dump(quality_report, f, indent=2, ensure_ascii=False)
 
@@ -550,6 +551,7 @@ def write_quality_report(
     if _should_run_physics_consistency(quality_report.get("check_mode")):
         quality_report = _attach_ccm_ingest_contract_to_quality_report(case_path, quality_report)
         quality_report = _attach_physics_consistency_to_quality_report(case_path, quality_report)
+    quality_report = _attach_final_contract_to_quality_report(case_path, quality_report)
     report_path.write_text(
         json.dumps(quality_report, indent=2, ensure_ascii=False),
         encoding="utf-8",
@@ -603,6 +605,8 @@ def ingest_star_product_dir(
     manifest_data.setdefault(
         "sign_convention",
         (
+            "jet massflow is positive for injection into the flow domain; "
+            "negative STAR inlet-report values are normalized to positive magnitudes; "
             "positive Fz = STAR monitor convention; "
             "positive Drag = STAR drag monitor convention; "
             "positive Pitch/Roll = STAR moment monitor convention"
@@ -867,6 +871,48 @@ def _attach_physics_consistency_to_quality_report(
     quality_report["run_success_flag"] = bool(quality_report.get("run_success_flag")) and bool(
         physics_report.get("summary", {}).get("run_success_flag")
     )
+    return quality_report
+
+
+def _attach_final_contract_to_quality_report(
+    case_path: Path,
+    quality_report: dict[str, Any],
+) -> dict[str, Any]:
+    """Apply the week4 naming contract when the manifest requests final_strict."""
+
+    manifest = _read_manifest_yaml(case_path / "case_manifest.yaml")
+    validation = manifest.get("validation")
+    mode = validation.get("mode") if isinstance(validation, dict) else manifest.get("validation_mode")
+    if str(mode or "").strip().lower() != "final_strict":
+        return quality_report
+
+    from .final_contract import validate_final_contract_columns
+
+    diagnostics: list[str] = []
+    for path, table_kind in (
+        (case_timeseries_path(case_path), "timeseries"),
+        (case_path / "actuation_schedule.csv", "actuation"),
+    ):
+        if not path.is_file():
+            diagnostics.append(f"final_strict required file missing: {path}")
+            continue
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            columns = next(csv.reader(handle), [])
+        diagnostics.extend(
+            validate_final_contract_columns(columns, table_kind=table_kind, strict=False)
+        )
+
+    quality_report["final_contract"] = {
+        "schema_version": "B01_final_star_contract_v1",
+        "mode": "final_strict",
+        "diagnostics": diagnostics,
+        "blocking_issue_count": len(diagnostics),
+        "run_success_flag": not diagnostics,
+    }
+    if diagnostics:
+        quality_report.setdefault("errors", []).extend(diagnostics)
+        quality_report["num_errors"] = len(quality_report["errors"])
+        quality_report["run_success_flag"] = False
     return quality_report
 
 

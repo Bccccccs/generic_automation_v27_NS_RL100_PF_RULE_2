@@ -3,7 +3,7 @@
 验证规则：
   1. 列顺序必须与 B02 统一格式一致
   2. 至少包含一个窗口
-  3. window_id 必须连续递增（步长 1）
+  3. window_id 必须保持不变或连续递增（每次最多增加 1）
   4. physical_time 必须等于 t_start
   5. t_end 必须大于 t_start
   6. 时间窗口必须连续（t_start 等于上一行的 t_end）
@@ -68,8 +68,13 @@ def validate_actuation_schedule_csv(
         except (KeyError, TypeError, ValueError) as exc:
             errors.append(f"row {row_idx} has invalid time/window fields: {exc}")
             continue
-        if previous_window_id is not None and window_id != previous_window_id + 1:
-            errors.append(f"row {row_idx} window_id must increase by 1")
+        if previous_window_id is not None and window_id not in {
+            previous_window_id,
+            previous_window_id + 1,
+        }:
+            errors.append(
+                f"row {row_idx} window_id must stay unchanged or increase by 1"
+            )
         if abs(physical_time - t_start) > 1e-12:
             errors.append(f"row {row_idx} physical_time must equal t_start")
         if t_end <= t_start:

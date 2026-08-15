@@ -65,7 +65,11 @@ def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     assert '"Jet_Reaction_Z_Monitor_绘图_image.csv"' in macro
     assert "static final boolean[] ACTIVE_JETS" in macro
     assert "false, false, true, false" in macro
-    assert "if (!ACTIVE_JETS[jet]) continue;" in macro
+    assert "if (!ACTIVE_JETS[jet]) continue;" not in macro
+    assert "ensureActualMassFlowReports(sim);" in macro
+    assert '"actual_massflow_01"' in macro
+    assert "solver_dt_s,action_window_s,sample_interval_s" in macro
+    assert "requiredReportValue(sim, ACTUAL_MASSFLOW_REPORT_NAMES[i])" in macro
     assert "setBoundaryType(MassFlowBoundary.class)" in macro
     assert "[flow_control] completed window=" in macro
     assert "normalizeStarPath(RESULT_SIM_PATH)" in macro
