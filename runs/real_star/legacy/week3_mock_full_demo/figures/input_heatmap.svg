@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="294" viewBox="0 0 240 294">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="8" y="16" font-family="Arial, sans-serif" font-size="13" fill="#1f2328">Jet input heatmap</text>
+<text x="6" y="34" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_01</text>
+<rect x="64" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="26" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="26" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="44" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_02</text>
+<rect x="64" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="36" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="36" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="54" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_03</text>
+<rect x="64" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="46" width="9" height="9" fill="#1864ab"/>
+<rect x="84" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="46" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="46" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="64" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_04</text>
+<rect x="64" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="56" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="56" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="74" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_05</text>
+<rect x="64" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="66" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="66" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="84" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_06</text>
+<rect x="64" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="76" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="76" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="94" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_07</text>
+<rect x="64" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="86" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="86" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="104" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_08</text>
+<rect x="64" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="96" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="96" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="114" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_09</text>
+<rect x="64" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="106" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="106" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="124" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_10</text>
+<rect x="64" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="116" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="116" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="134" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_11</text>
+<rect x="64" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="126" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="126" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="144" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_12</text>
+<rect x="64" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="136" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="136" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="154" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_13</text>
+<rect x="64" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="146" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="146" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="164" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_14</text>
+<rect x="64" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="156" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="156" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="174" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_15</text>
+<rect x="64" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="166" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="166" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="184" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_16</text>
+<rect x="64" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="176" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="176" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="194" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_17</text>
+<rect x="64" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="186" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="186" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="204" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_18</text>
+<rect x="64" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="196" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="196" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="214" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_19</text>
+<rect x="64" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="206" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="206" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="224" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_20</text>
+<rect x="64" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="216" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="216" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="234" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_21</text>
+<rect x="64" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="226" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="226" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="244" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_22</text>
+<rect x="64" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="236" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="236" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="254" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_23</text>
+<rect x="64" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="246" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="246" width="9" height="9" fill="#f4f7fb"/>
+<text x="6" y="264" font-family="Arial, sans-serif" font-size="8" fill="#2b2f33">JET_24</text>
+<rect x="64" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="74" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="84" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="94" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="104" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="114" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="124" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="134" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="144" y="256" width="9" height="9" fill="#f4f7fb"/>
+<rect x="154" y="256" width="9" height="9" fill="#f4f7fb"/>
+</svg>

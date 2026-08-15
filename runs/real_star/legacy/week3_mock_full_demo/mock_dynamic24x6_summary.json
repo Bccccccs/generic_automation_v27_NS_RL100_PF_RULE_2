@@ -1,0 +1,32 @@
+{
+  "case_id": "week3_mock_full_demo",
+  "run_dir": "runs/week3_mock_full_demo",
+  "outputs": {
+    "timeseries": "timeseries.csv",
+    "actuation_schedule": "actuation_schedule.csv",
+    "case_manifest": "case_manifest.yaml",
+    "quality_report": "quality_report.json",
+    "input_heatmap": "figures/input_heatmap.svg",
+    "fz_regions": "figures/fz_regions.svg",
+    "fz_total": "figures/fz_total.svg",
+    "spatial_nonuniformity": "figures/spatial_nonuniformity.svg",
+    "total_massflow": "figures/total_massflow.svg"
+  },
+  "quality_report": {
+    "case_id": "week3_mock_full_demo",
+    "num_errors": 0,
+    "num_warnings": 2,
+    "errors": [],
+    "warnings": [
+      "Units not documented in manifest — add 'units' or 'force_units' field (e.g. 'N' for force, 'Nm' for moment)",
+      "Sign/direction convention not documented in manifest — add 'sign_convention' field describing positive force direction (e.g. 'positive Fz = lift upward')"
+    ],
+    "has_jet_data": true,
+    "check_mode": "mock",
+    "check_profile": "mock",
+    "validation_mode": "full_case",
+    "num_timeseries_rows": 10,
+    "num_timeseries_columns": 87,
+    "run_success_flag": true
+  }
+}

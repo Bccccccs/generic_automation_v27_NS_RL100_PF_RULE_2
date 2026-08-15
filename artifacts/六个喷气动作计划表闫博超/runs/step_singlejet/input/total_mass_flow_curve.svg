@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="860" height="300" viewBox="0 0 860 300">
-<rect width="100%" height="100%" fill="#ffffff"/>
-<text x="12" y="20" font-family="Arial" font-size="14" fill="#1f2328">step_singlejet total commanded mass flow</text>
-<rect x="58" y="34" width="776" height="212" fill="#fbfcfe" stroke="#d0d7de"/>
-<polyline fill="none" stroke="#1864ab" stroke-width="2" points="58.00,246.00 144.22,49.70 230.44,49.70 316.67,49.70 402.89,49.70 489.11,49.70 575.33,49.70 661.56,49.70 747.78,246.00 834.00,246.00"/>
-</svg>

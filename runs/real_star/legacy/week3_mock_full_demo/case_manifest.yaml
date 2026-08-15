@@ -1,0 +1,13 @@
+geometry_version: mock-dynamic24x6
+mesh_version: not-applicable
+flow_velocity: 0.0
+gap: 0.0
+time_step: 0.1
+jet_amplitude: 0.02
+window_duration: 0.1
+random_seed: 20260618
+case_stage: mock_dynamic24x6
+check_mode: mock
+time_step_source: config_summary
+git_commit: ea95d008411a69940e7dfc846a66aa7cc50723e9
+created_time: '2026-07-28T12:05:37.722464+00:00'

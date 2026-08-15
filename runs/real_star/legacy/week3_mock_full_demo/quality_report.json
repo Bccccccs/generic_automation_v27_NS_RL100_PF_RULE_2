@@ -1,0 +1,26 @@
+{
+  "case_id": "week3_mock_full_demo",
+  "num_errors": 0,
+  "num_warnings": 2,
+  "errors": [],
+  "warnings": [
+    "Units not documented in manifest — add 'units' or 'force_units' field (e.g. 'N' for force, 'Nm' for moment)",
+    "Sign/direction convention not documented in manifest — add 'sign_convention' field describing positive force direction (e.g. 'positive Fz = lift upward')"
+  ],
+  "has_jet_data": true,
+  "check_mode": "mock",
+  "check_profile": "mock",
+  "validation_mode": "full_case",
+  "num_timeseries_rows": 10,
+  "num_timeseries_columns": 87,
+  "run_success_flag": true,
+  "figures": {
+    "force_timeseries": "figures/force_timeseries.png",
+    "jet_schedule": "figures/jet_schedule.png",
+    "massflow_check_01_06": "figures/massflow_check_01_06.png",
+    "massflow_check_07_12": "figures/massflow_check_07_12.png",
+    "massflow_check_13_18": "figures/massflow_check_13_18.png",
+    "massflow_check_19_24": "figures/massflow_check_19_24.png",
+    "quality_summary": "figures/quality_summary.png"
+  }
+}
