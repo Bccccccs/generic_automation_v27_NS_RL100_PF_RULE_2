@@ -136,7 +136,8 @@ class FlowControlStarCCMRunner:
         if mode == "package-only":
             case_dir = config.case_dir or output_dir / "case_package"
             _package_runtime_csv(timeseries_path, copied_schedule, case_dir, config.require_complete_schema)
-            _print_progress(f"package-only 完成，Case: {case_dir}")
+            _validate_case(case_dir, config.require_complete_schema)
+            _print_progress(f"package-only 完成，已打包并校验 Case: {case_dir}")
             return FlowControlStarCCMRunResult(macro_path, runtime_plan_path, log_path, tuple(command), timeseries_path=timeseries_path)
         if mode == "validate-only":
             case_dir = config.case_dir or output_dir / "case_package"

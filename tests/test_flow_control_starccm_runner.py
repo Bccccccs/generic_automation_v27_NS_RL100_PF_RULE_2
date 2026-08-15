@@ -165,6 +165,41 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     assert str(sim_path.resolve()) == result.command[-1]
 
 
+def test_package_only_packages_and_validates_in_one_mode(tmp_path):
+    config = ActuationConfig(
+        mode="no_jet_reference",
+        total_windows=1,
+        window_duration=0.1,
+        output_dir=tmp_path / "schedule",
+    )
+    table, extra, errors = generate_pulse(config)
+    assert errors == []
+    write_pattern_outputs(config, table, extra=extra)
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    (output_dir / "flow_control_timeseries.csv").write_text(
+        "physical_time,window_id\n0.1,0\n", encoding="utf-8"
+    )
+    case_dir = tmp_path / "case"
+
+    with (
+        patch("flow_control.adapters.starccm_runner._package_runtime_csv") as package,
+        patch("flow_control.adapters.starccm_runner._validate_case") as validate,
+    ):
+        FlowControlStarCCMRunner().run(
+            FlowControlStarCCMRunConfig(
+                schedule_path=config.output_dir / "actuation_schedule.csv",
+                sim_path=tmp_path / "not-needed.sim",
+                output_dir=output_dir,
+                execution_mode="package-only",
+                case_dir=case_dir,
+            )
+        )
+
+    package.assert_called_once()
+    validate.assert_called_once_with(case_dir, True)
+
+
 def test_run_starccm_command_wraps_windows_batch_launchers(tmp_path):
     log_file = Mock()
     proc = Mock()

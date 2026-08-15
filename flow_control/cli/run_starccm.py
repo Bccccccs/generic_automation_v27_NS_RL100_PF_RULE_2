@@ -81,10 +81,28 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Do not save flow_control_result.sim at the end.",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Generate files and print command without launching CCM.")
+    parser.add_argument(
+        "--execution-mode",
+        choices=("run", "dry-run", "package-only", "validate-only"),
+        default="run",
+        help=(
+            "run launches STAR; dry-run only generates the macro; package-only "
+            "packages and validates an existing runtime CSV; validate-only keeps "
+            "compatibility for validating an already packaged case."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Compatibility alias for --execution-mode dry-run.",
+    )
     args = parser.parse_args(argv)
+    if args.dry_run and args.execution_mode not in {"run", "dry-run"}:
+        parser.error("--dry-run cannot be combined with package-only or validate-only")
+    execution_mode = "dry-run" if args.dry_run else args.execution_mode
 
     output_dir = Path(args.out)
+    standard_case_dir = _standard_case_dir_for_output(output_dir)
     # 确定激励计划 CSV 的路径：来自已有文件或实时生成
     schedule_path = (
         Path(args.schedule)
@@ -114,18 +132,23 @@ def main(argv: list[str] | None = None) -> int:
             report_names=tuple(args.report) or DEFAULT_STARCCM_SPEC.load_report_names,
             strict_boundaries=not args.non_strict_boundaries,
             save_result_sim=not args.no_save_result_sim,
-            dry_run=args.dry_run,
+            execution_mode=execution_mode,
+            case_dir=standard_case_dir,
         )
     )
     # --- 输出报告 ---
-    standard_case_dir = _standard_case_dir_for_output(output_dir)
     print(f"macro: {result.macro_path}")
     print(f"runtime_plan: {result.runtime_plan_path}")
     print(f"log: {result.log_path}")
     if standard_case_dir != output_dir:
         print(f"standard_case_dir: {standard_case_dir}")
     # 如果生成了 timeseries，进行 case 打包和质量检查
-    if result.timeseries_path is not None:
+    if execution_mode == "package-only":
+        print(f"standard_timeseries: {standard_case_dir / 'processed' / 'timeseries.csv'}")
+        print(f"quality_report: {standard_case_dir / 'quality_report.json'}")
+    elif execution_mode == "validate-only":
+        print(f"quality_report: {standard_case_dir / 'quality_report.json'}")
+    elif result.timeseries_path is not None:
         print(f"timeseries: {result.timeseries_path}")
         if result.timeseries_path.exists():
             checked_case = package_ccm_run_case(
