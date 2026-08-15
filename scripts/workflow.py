@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""喷气流程唯一启动入口。"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Callable
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+
+def _actions(argv: list[str]) -> int:
+    from flow_control.generator.schedule_generator import main
+
+    original = sys.argv
+    try:
+        sys.argv = ["workflow.py actions", *argv]
+        main()
+    finally:
+        sys.argv = original
+    return 0
+
+
+def _mock(argv: list[str]) -> int:
+    from flow_control.cli.run_mock_dynamic24x6 import main
+
+    return main(argv)
+
+
+def _ccm(argv: list[str]) -> int:
+    from flow_control.cli.run_starccm import main
+
+    return main(argv)
+
+
+def _organize(argv: list[str]) -> int:
+    from flow_control.cli.organize_outputs import main
+
+    return main(argv)
+
+
+def _check(argv: list[str]) -> int:
+    from flow_control.cli.check_case import main
+
+    return main(argv)
+
+
+COMMANDS: dict[str, tuple[str, Callable[[list[str]], int]]] = {
+    "actions": ("根据 YAML 生成动作表", _actions),
+    "mock": ("对动作输入运行 MockDynamic24x6", _mock),
+    "ccm": ("生成 Java 宏并启动或 dry-run STAR-CCM+", _ccm),
+    "organize": ("将 CCM 输出整理为标准 Case", _organize),
+    "check": ("执行质量检查并生成诊断图", _check),
+}
+
+
+def _print_help() -> None:
+    print("usage: python scripts/workflow.py <command> [options]\n")
+    print("commands:")
+    for name, (description, _) in COMMANDS.items():
+        print(f"  {name:10s} {description}")
+    print("\nUse 'python scripts/workflow.py <command> --help' for command options.")
+
+
+def main(argv: list[str] | None = None) -> int:
+    values = list(sys.argv[1:] if argv is None else argv)
+    if not values or values[0] in {"-h", "--help"}:
+        _print_help()
+        return 0
+    command = values.pop(0)
+    if command not in COMMANDS:
+        _print_help()
+        print(f"\nerror: unknown command {command!r}", file=sys.stderr)
+        return 2
+    return COMMANDS[command][1](values)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

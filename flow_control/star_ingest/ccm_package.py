@@ -6,7 +6,7 @@ Package CCM runtime output into a standard case and run star_ingest checks.
 
 CCM 运行时输出与 STAR 导出的 CSV 格式不同:
 - CCM 的输出列使用 REPORT_TO_STANDARD 映射中的名称
-- 喷气阀的实际质量流量需要根据开关状态和指令流量计算
+- 喷气阀的实际质量流量必须来自 STAR actual_massflow 报告，不得由指令流量合成
 - CCM 的检查模式为 "ccm"(允许 cmd=actual 在某些场景中)
 """
 
@@ -25,7 +25,8 @@ from flow_control.case_paths import case_timeseries_path
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
-from .case_data_loader import CASE_REQUIRED_DIRS, write_quality_report
+from .case_data_loader import CASE_REQUIRED_DIRS, load_case, write_quality_report
+from .figures_generator import generate_all_figures
 from .star_export_reader import normalize_actual_massflow
 
 # 实际质量流量列名(24 个阀门)
@@ -62,6 +63,7 @@ def package_ccm_run_case(
     manifest: dict[str, Any] | None = None,
     require_complete_schema: bool = True,
     run_quality_check: bool = True,
+    generate_figures: bool = True,
 ) -> dict[str, Any]:
     """Write standard case files from CCM's raw runtime CSV and check them.
 
@@ -76,6 +78,7 @@ def package_ccm_run_case(
     5. 写入 case_manifest.yaml(自动填充默认值)
     6. 创建标准目录
     7. 执行 write_quality_report 验证
+    8. 生成力、喷气时序、质量流量对齐和质量摘要图
     """
 
     raw_rows = _read_csv_rows(ccm_timeseries_path)
@@ -134,7 +137,7 @@ def package_ccm_run_case(
     (case_path / "quality_report.json").write_text("{}", encoding="utf-8")
     (case_path / "notes.md").write_text(
         "# STAR-CCM+ runtime case\n\n"
-        "Generated from flow_control_timeseries.csv and actuation_schedule.csv, then checked by star_ingest.\n",
+        "Generated from STAR runtime reports and actuation_schedule.csv, then checked by star_ingest.\n",
         encoding="utf-8",
     )
     quality_report = (
@@ -146,11 +149,28 @@ def package_ccm_run_case(
         if run_quality_check
         else {}
     )
+    figures: dict[str, Path | None] = {}
+    if generate_figures:
+        checked_case = load_case(
+            case_path,
+            require_complete_schema=require_complete_schema,
+            check_mode="ccm",
+        )
+        figures = generate_all_figures(checked_case, case_path / "figures")
+        quality_report["figures"] = {
+            name: str(path.relative_to(case_path)) if path else None
+            for name, path in figures.items()
+        }
+        (case_path / "quality_report.json").write_text(
+            json.dumps(quality_report, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
     return {
         "case_dir": case_path,
         "timeseries_path": timeseries_path,
         "quality_report_path": case_path / "quality_report.json",
         "quality_report": quality_report,
+        "figures": figures,
     }
 
 

@@ -9,7 +9,7 @@ One-step STAR ingest pipeline.
 2. 写入 quality_report.json(质量验证)
 3. 写入诊断图表
 
-此模块是自动化的一键入口；人工操作入口在 examples/run_ccm_ingest_step*.py。
+该模块保留为内部 Python API；用户流程统一从 scripts/workflow.py 启动。
 """
 
 from __future__ import annotations

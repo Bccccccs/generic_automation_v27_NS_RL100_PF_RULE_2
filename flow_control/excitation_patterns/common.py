@@ -360,9 +360,9 @@ def jet_index(jet_id: int, n_jets: int) -> int:
 def rows_from_table(config: ActuationConfig, table: ScheduleTable) -> list[dict[str, Any]]:
     """将 ScheduleTable 转换为 CSV 行的字典列表。
 
-    ScheduleTable 中一行是一个喷气控制窗口；CSV 中一行是一个
-    求解器时间步。因此同一 window_id 会持续
-    actuation_window_duration / solver_time_step 行。
+    ScheduleTable 中一行是一个喷气动作窗口；CSV 中一行是一个
+    求解器物理时间步。因此同一 window_id 会持续
+    actuation_window_duration / solver_time_step 行，且这些行的喷气指令完全相同。
 
     每行包含：physical_time, window_id, t_start, t_end,
     算法侧 JET_01..JET_NN 的 0/1 开关值，cmd_massflow_01..cmd_massflow_NN 的质量流量值。
@@ -447,7 +447,7 @@ def write_config_summary(
         },
         "notes": {
             "time_columns": "physical_time, t_start, and t_end are seconds, not solver iterations",
-            "time_model": "Each CSV row is one actuation window; the solver advances inside it using solver_time_step_seconds.",
+            "time_model": "Each CSV row is one solver physical-time step; consecutive rows sharing window_id form one actuation window.",
             "pulse_numbering": "pulse_window_numbers are 1-based; CSV window_id is 0-based.",
             "switch_columns": "JET_01..JET_24 are algorithm-side 0/1 nozzle switch columns",
             "massflow_columns": "cmd_massflow_01..cmd_massflow_24 target STAR J01..J24 nozzle mass flow values",

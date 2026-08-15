@@ -146,6 +146,7 @@ def main(argv: list[str] | None = None) -> int:
     if execution_mode == "package-only":
         print(f"standard_timeseries: {standard_case_dir / 'processed' / 'timeseries.csv'}")
         print(f"quality_report: {standard_case_dir / 'quality_report.json'}")
+        print(f"figures: {standard_case_dir / 'figures'}")
     elif execution_mode == "validate-only":
         print(f"quality_report: {standard_case_dir / 'quality_report.json'}")
     elif result.timeseries_path is not None:
@@ -167,6 +168,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"standard_timeseries: {checked_case['timeseries_path']}")
             print(f"quality_report: {checked_case['quality_report_path']}")
+            print(f"figures: {standard_case_dir / 'figures'}")
             print(f"run_success_flag: {checked_case['quality_report'].get('run_success_flag')}")
     print("command:", " ".join(result.command))
     if result.result_sim_path is not None:

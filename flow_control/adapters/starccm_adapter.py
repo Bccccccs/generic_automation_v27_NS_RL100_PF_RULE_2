@@ -117,9 +117,10 @@ class FlowControlStarCCMAdapter:
         Raises:
             ValueError: 计划为空或行数据无效时抛出。
         """
-        schedule_rows = [dict(row) for row in rows]
-        if not schedule_rows:
+        raw_schedule_rows = [dict(row) for row in rows]
+        if not raw_schedule_rows:
             raise ValueError("actuation schedule must contain at least one row")
+        schedule_rows = self._group_schedule_rows(raw_schedule_rows)
 
         commands: list[StarCCMCommand] = []
         window_ids: list[int] = []
@@ -148,6 +149,7 @@ class FlowControlStarCCMAdapter:
         metadata: dict[str, Any] = {
             "schedule_path": str(Path(schedule_path)) if schedule_path is not None else None,
             "window_count": len(schedule_rows),
+            "schedule_row_count": len(raw_schedule_rows),
             "window_ids": window_ids,
             "active_jets": sorted(active_jets),
             "command_source": "cmd_massflow_columns",  # 命令来源：质量流量列
@@ -164,6 +166,46 @@ class FlowControlStarCCMAdapter:
             commands=tuple(commands),
             metadata=metadata,
         )
+
+    def _group_schedule_rows(
+        self, rows: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """按连续 window_id 合并求解器时间步行。
+
+        同一喷气窗口内的时间必须连续，且 24 路质量流量指令必须保持不变。
+        """
+        grouped: list[dict[str, Any]] = []
+        grouped_commands: list[dict[str, float]] = []
+        for row_idx, source in enumerate(rows):
+            row = dict(source)
+            window_id = self._window_id(row, row_idx)
+            commands = self._jet_commands(row)
+            if not grouped or self._window_id(grouped[-1], len(grouped) - 1) != window_id:
+                if grouped:
+                    previous_id = self._window_id(grouped[-1], len(grouped) - 1)
+                    if window_id != previous_id + 1:
+                        raise ValueError(
+                            f"row {row_idx} window_id must increase from {previous_id} to {previous_id + 1}"
+                        )
+                    if "t_start" in row and "t_end" in grouped[-1]:
+                        if abs(self._float_field(row, "t_start") - self._float_field(grouped[-1], "t_end")) > 1.0e-12:
+                            raise ValueError(f"row {row_idx} starts outside the previous action window end")
+                grouped.append(row)
+                grouped_commands.append(commands)
+                continue
+
+            previous = grouped[-1]
+            if "t_start" in row and "t_end" in previous:
+                if abs(self._float_field(row, "t_start") - self._float_field(previous, "t_end")) > 1.0e-12:
+                    raise ValueError(f"row {row_idx} is not contiguous inside window_id {window_id}")
+            for column, value in commands.items():
+                if abs(value - grouped_commands[-1][column]) > 1.0e-12:
+                    raise ValueError(
+                        f"row {row_idx} changes {column} inside window_id {window_id}"
+                    )
+            if "t_end" in row:
+                previous["t_end"] = row["t_end"]
+        return grouped
 
     def _jet_commands(self, row: dict[str, Any]) -> dict[str, float]:
         """从一行数据中提取喷气指令值。

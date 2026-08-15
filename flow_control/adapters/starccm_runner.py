@@ -95,7 +95,7 @@ class FlowControlStarCCMRunner:
 
         windows = _read_schedule(copied_schedule)
         result_sim_path = output_dir / "flow_control_result.sim"
-        timeseries_path = output_dir / "flow_control_timeseries.csv"
+        timeseries_path = output_dir / "timeseries.csv"
         macro_path = output_dir / "FlowControlRunMacro.java"
         macro_path.write_text(
             build_flow_control_macro(
@@ -224,7 +224,7 @@ public class FlowControlRunMacro extends StarMacro {{
         File outDir = new File(normalizeStarPath(OUTPUT_DIR));
         outDir.mkdirs();
         ScheduleData schedule = readSchedule(new File(normalizeStarPath(SCHEDULE_CSV_PATH)));
-        File csv = new File(outDir, "flow_control_timeseries.csv");
+        File csv = new File(outDir, "timeseries.csv");
         ensureActualMassFlowReports(sim);
         writeHeader(csv);
         for (int window = 0; window < schedule.windowIds.length; window++) {{
@@ -289,14 +289,46 @@ public class FlowControlRunMacro extends StarMacro {{
             while ((line = reader.readLine()) != null) {{
                 if (line.trim().isEmpty()) continue;
                 String[] values = splitCsvLine(line);
-                windowIds.add(Integer.valueOf((int) Math.round(parseCsvDouble(values, index, "window_id"))));
-                tStart.add(Double.valueOf(parseCsvDouble(values, index, "t_start")));
-                tEnd.add(Double.valueOf(parseCsvDouble(values, index, "t_end")));
+                int parsedWindowId = (int) Math.round(parseCsvDouble(values, index, "window_id"));
+                double parsedStart = parseCsvDouble(values, index, "t_start");
+                double parsedEnd = parseCsvDouble(values, index, "t_end");
+                if (parsedEnd <= parsedStart) {{
+                    throw new RuntimeException("non-positive physical time step in window " + parsedWindowId);
+                }}
                 double[] row = new double[BOUNDARY_NAMES.length];
                 for (int jet = 1; jet <= BOUNDARY_NAMES.length; jet++) {{
                     row[jet - 1] = parseCsvDouble(values, index, "cmd_massflow_" + twoDigit(jet));
                 }}
-                massflow.add(row);
+                if (windowIds.isEmpty() || windowIds.get(windowIds.size() - 1).intValue() != parsedWindowId) {{
+                    if (!windowIds.isEmpty()) {{
+                        int previous = windowIds.get(windowIds.size() - 1).intValue();
+                        if (parsedWindowId != previous + 1) {{
+                            throw new RuntimeException("window_id must increase continuously: "
+                                + previous + " -> " + parsedWindowId);
+                        }}
+                        double previousEnd = tEnd.get(tEnd.size() - 1).doubleValue();
+                        if (Math.abs(parsedStart - previousEnd) > 1.0e-12) {{
+                            throw new RuntimeException("physical time is not continuous before window " + parsedWindowId);
+                        }}
+                    }}
+                    windowIds.add(Integer.valueOf(parsedWindowId));
+                    tStart.add(Double.valueOf(parsedStart));
+                    tEnd.add(Double.valueOf(parsedEnd));
+                    massflow.add(row);
+                }} else {{
+                    int last = windowIds.size() - 1;
+                    if (Math.abs(parsedStart - tEnd.get(last).doubleValue()) > 1.0e-12) {{
+                        throw new RuntimeException("physical time is not continuous inside window " + parsedWindowId);
+                    }}
+                    double[] command = massflow.get(last);
+                    for (int jet = 0; jet < command.length; jet++) {{
+                        if (Math.abs(row[jet] - command[jet]) > 1.0e-12) {{
+                            throw new RuntimeException("mass-flow command changes inside window "
+                                + parsedWindowId + " at jet " + twoDigit(jet + 1));
+                        }}
+                    }}
+                    tEnd.set(last, Double.valueOf(parsedEnd));
+                }}
             }}
             reader.close();
         }} catch (IOException e) {{
@@ -822,13 +854,37 @@ def _read_schedule(path: Path) -> list[_ScheduleWindow]:
         values: list[float] = []
         for jet_column, massflow_column in zip(JET_COLUMNS, MASSFLOW_COLUMNS):
             values.append(_float_field(row, massflow_column if has_massflow else jet_column))
-        windows.append(
-            _ScheduleWindow(
-                window_id=window_id,
-                t_start=t_start,
-                t_end=t_end,
-                massflows=tuple(values),
+        massflows = tuple(values)
+        if not windows or windows[-1].window_id != window_id:
+            if windows:
+                previous = windows[-1]
+                if window_id != previous.window_id + 1:
+                    raise ValueError(
+                        f"row {fallback_idx} window_id must increase from "
+                        f"{previous.window_id} to {previous.window_id + 1}"
+                    )
+                if abs(t_start - previous.t_end) > 1.0e-12:
+                    raise ValueError(f"row {fallback_idx} is not contiguous with the previous window")
+            windows.append(
+                _ScheduleWindow(
+                    window_id=window_id,
+                    t_start=t_start,
+                    t_end=t_end,
+                    massflows=massflows,
+                )
             )
+            continue
+
+        previous = windows[-1]
+        if abs(t_start - previous.t_end) > 1.0e-12:
+            raise ValueError(f"row {fallback_idx} is not contiguous inside window_id {window_id}")
+        if any(abs(current - expected) > 1.0e-12 for current, expected in zip(massflows, previous.massflows)):
+            raise ValueError(f"row {fallback_idx} changes mass flow inside window_id {window_id}")
+        windows[-1] = _ScheduleWindow(
+            window_id=window_id,
+            t_start=previous.t_start,
+            t_end=t_end,
+            massflows=previous.massflows,
         )
     return windows
 

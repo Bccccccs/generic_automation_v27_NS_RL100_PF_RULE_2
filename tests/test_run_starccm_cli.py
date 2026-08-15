@@ -30,7 +30,7 @@ def test_runtime_manifest_fills_starccm_version_and_sim_hash(tmp_path):
         writer.writerow({"window_id": 0, "JET_01": 1, "cmd_massflow_01": 2.57})
 
     raw_dir = schedule_path.parents[1]
-    raw_timeseries = raw_dir / "flow_control_timeseries.csv"
+    raw_timeseries = raw_dir / "timeseries.csv"
     raw_timeseries.write_text("physical_time,window_id\n0.0,0\n", encoding="utf-8")
     result = argparse.Namespace(
         timeseries_path=raw_timeseries,

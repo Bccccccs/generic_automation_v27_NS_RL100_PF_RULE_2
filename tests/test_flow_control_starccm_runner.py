@@ -6,6 +6,7 @@ import pytest
 from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
+    _read_schedule,
     build_flow_control_macro,
     _progress_from_starccm_line,
     _run_starccm_command,
@@ -70,6 +71,7 @@ def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     assert '"actual_massflow_01"' in macro
     assert "solver_dt_s,action_window_s,sample_interval_s" in macro
     assert "requiredReportValue(sim, ACTUAL_MASSFLOW_REPORT_NAMES[i])" in macro
+    assert "mass-flow command changes inside window" in macro
     assert "setBoundaryType(MassFlowBoundary.class)" in macro
     assert "[flow_control] completed window=" in macro
     assert "normalizeStarPath(RESULT_SIM_PATH)" in macro
@@ -134,6 +136,7 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
         mode="pulse_singlejet",
         total_windows=2,
         window_duration=0.2,
+        time_step=0.1,
         mass_flow_rate=0.025,
         jet_ids=(3,),
         pulse_windows=(1,),
@@ -159,10 +162,15 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
 
     assert result.macro_path.exists()
     assert result.runtime_plan_path.exists()
-    assert result.timeseries_path == tmp_path / "run" / "flow_control_timeseries.csv"
+    assert result.timeseries_path == tmp_path / "run" / "timeseries.csv"
     assert result.returncode is None
     assert result.command[:3] == ("/path/to/starccm+", "-np", "4")
     assert str(sim_path.resolve()) == result.command[-1]
+    windows = _read_schedule(config.output_dir / "actuation_schedule.csv")
+    assert [(window.window_id, window.t_start, window.t_end) for window in windows] == [
+        (0, 0.0, 0.2),
+        (1, 0.2, 0.4),
+    ]
 
 
 def test_package_only_packages_and_validates_in_one_mode(tmp_path):
@@ -177,7 +185,7 @@ def test_package_only_packages_and_validates_in_one_mode(tmp_path):
     write_pattern_outputs(config, table, extra=extra)
     output_dir = tmp_path / "run"
     output_dir.mkdir()
-    (output_dir / "flow_control_timeseries.csv").write_text(
+    (output_dir / "timeseries.csv").write_text(
         "physical_time,window_id\n0.1,0\n", encoding="utf-8"
     )
     case_dir = tmp_path / "case"

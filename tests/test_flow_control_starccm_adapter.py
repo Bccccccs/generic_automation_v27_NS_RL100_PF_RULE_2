@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from flow_control.excitation_patterns.common import ActuationConfig
 from flow_control.excitation_patterns.pulse import generate as generate_pulse
 from flow_control.excitation_patterns.common import write_pattern_outputs
@@ -11,6 +13,7 @@ def test_flow_control_starccm_adapter_writes_runtime_plan_from_schedule(tmp_path
         mode="pulse_singlejet",
         total_windows=3,
         window_duration=0.2,
+        time_step=0.05,
         mass_flow_rate=0.025,
         jet_ids=(3,),
         pulse_windows=(1,),
@@ -27,6 +30,7 @@ def test_flow_control_starccm_adapter_writes_runtime_plan_from_schedule(tmp_path
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert payload["source"] == "flow_control"
     assert payload["metadata"]["window_count"] == 3
+    assert payload["metadata"]["schedule_row_count"] == 12
     assert payload["metadata"]["window_ids"] == [0, 1, 2]
     assert payload["metadata"]["active_jets"] == ["JET_03"]
     assert payload["metadata"]["physical_time_start"] == 0.0
@@ -74,3 +78,25 @@ def test_flow_control_starccm_adapter_can_plan_rows_without_massflow_columns():
     assert values["JET_01"] == 1.0
     assert values["JET_02"] == 0.5
     assert values["JET_24"] == 0.0
+
+
+def test_flow_control_starccm_adapter_rejects_command_change_inside_window():
+    rows = [
+        {
+            "physical_time": 0.0,
+            "window_id": 0,
+            "t_start": 0.0,
+            "t_end": 0.05,
+            "JET_01": 0.0,
+        },
+        {
+            "physical_time": 0.05,
+            "window_id": 0,
+            "t_start": 0.05,
+            "t_end": 0.1,
+            "JET_01": 1.0,
+        },
+    ]
+
+    with pytest.raises(ValueError, match="changes JET_01 inside window_id 0"):
+        FlowControlStarCCMAdapter().plan_from_schedule_rows(rows)

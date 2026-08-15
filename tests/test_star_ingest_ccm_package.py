@@ -36,7 +36,7 @@ def _write_single_jet_schedule(schedule_path):
 
 def test_package_ccm_run_case_generates_standard_timeseries_and_quality_report(tmp_path):
     schedule_path = tmp_path / "actuation_schedule.csv"
-    raw_timeseries_path = tmp_path / "flow_control_timeseries.csv"
+    raw_timeseries_path = tmp_path / "timeseries.csv"
     case_dir = tmp_path / "ccm_case"
 
     _write_single_jet_schedule(schedule_path)
@@ -80,6 +80,16 @@ def test_package_ccm_run_case_generates_standard_timeseries_and_quality_report(t
     report = json.loads(result["quality_report_path"].read_text(encoding="utf-8"))
     assert report["check_mode"] == "ccm"
     assert any("Drag_Total" in error for error in report["errors"])
+    assert {
+        "force_timeseries",
+        "jet_schedule",
+        "massflow_check_01_06",
+        "massflow_check_07_12",
+        "massflow_check_13_18",
+        "massflow_check_19_24",
+        "quality_summary",
+    } <= set(report["figures"])
+    assert all(path is None or (case_dir / path).is_file() for path in report["figures"].values())
     with result["timeseries_path"].open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert rows[0]["Fz_Total"] == "21.0"
@@ -88,7 +98,7 @@ def test_package_ccm_run_case_generates_standard_timeseries_and_quality_report(t
 
 def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
     schedule_path = tmp_path / "actuation_schedule.csv"
-    raw_timeseries_path = tmp_path / "flow_control_timeseries.csv"
+    raw_timeseries_path = tmp_path / "timeseries.csv"
     case_dir = tmp_path / "ccm_case"
     _write_single_jet_schedule(schedule_path)
 
@@ -129,6 +139,7 @@ def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
         schedule_path=schedule_path,
         case_dir=case_dir,
         require_complete_schema=False,
+        generate_figures=False,
     )
 
     with result["timeseries_path"].open(encoding="utf-8", newline="") as handle:
@@ -140,7 +151,7 @@ def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
 
 def test_package_ccm_run_case_marks_missing_actual_massflow_as_incomplete(tmp_path):
     schedule_path = tmp_path / "actuation_schedule.csv"
-    raw_timeseries_path = tmp_path / "flow_control_timeseries.csv"
+    raw_timeseries_path = tmp_path / "timeseries.csv"
     case_dir = tmp_path / "ccm_case"
     _write_single_jet_schedule(schedule_path)
     raw_timeseries_path.write_text("physical_time,window_id\n0.1,0\n", encoding="utf-8")
@@ -150,6 +161,7 @@ def test_package_ccm_run_case_marks_missing_actual_massflow_as_incomplete(tmp_pa
         schedule_path=schedule_path,
         case_dir=case_dir,
         require_complete_schema=False,
+        generate_figures=False,
     )
 
     assert any("actual_massflow" in error for error in result["quality_report"]["errors"])

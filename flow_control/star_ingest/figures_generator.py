@@ -75,6 +75,13 @@ def generate_force_timeseries(
     每个传感器使用不同颜色以便区分。
     全局量中的 Fz_Total 使用黑色粗线突出显示,其他量使用半透明细线。
     """
+    if not rows:
+        return _generate_unavailable_figure(
+            output_path,
+            "Force Timeseries",
+            "Unavailable: the standard case contains no timeseries rows.",
+        )
+
     t = _time_array(rows)
 
     n_sensors = 6
@@ -163,9 +170,10 @@ def generate_jet_schedule(
     for j_idx, col in enumerate(jet_cols):
         jet_matrix[j_idx, :] = _to_float_array(rows, col)
 
+    x_min, x_max = (t[0], t[-1]) if len(t) > 1 else (t[0] - 0.5, t[0] + 0.5)
     fig, ax = plt.subplots(figsize=(12, 6))
     im = ax.imshow(jet_matrix, aspect="auto", cmap="RdYlGn",
-                   interpolation="nearest", extent=[t[0], t[-1],
+                   interpolation="nearest", extent=[x_min, x_max,
                                                      len(jet_cols) - 0.5, -0.5])
 
     ax.set_xlabel("Time (s)")
