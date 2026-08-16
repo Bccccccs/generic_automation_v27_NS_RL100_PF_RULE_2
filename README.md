@@ -99,13 +99,16 @@ python scripts/workflow.py organize \
 该步只整理数据，不做最终验收；成功时必须生成
 `<output-dir>/processed/timeseries.csv`。
 
-## 5. 质量检查和图表生成
+## 5. 质量检查
 
 ```bash
 python scripts/workflow.py check \
   --case-dir runs/week4/G00_nojet_baseline \
   --mode ccm
 ```
+
+不传 `--case-dir` 时，程序会从 `runs/` 开始逐级列出目录供选择。
+该步写入 `quality_report.json`，并生成质量诊断 PNG：
 
 输出：
 
@@ -118,6 +121,24 @@ figures/massflow_check_07_12.png
 figures/massflow_check_13_18.png
 figures/massflow_check_19_24.png
 figures/quality_summary.png
+```
+
+## 6. 汇总图生成
+
+```bash
+python scripts/workflow.py figures \
+  --case-dir runs/week4/G00_nojet_baseline \
+  --mode ccm
+```
+
+不传 `--case-dir` 时同样可以从 `runs/` 中逐级选择 Case。该步生成：
+
+```text
+figures/input_heatmap.svg
+figures/fz_regions.svg
+figures/fz_total.svg
+figures/spatial_nonuniformity.svg
+figures/total_massflow.svg
 ```
 
 ## 标准 Case 结构
