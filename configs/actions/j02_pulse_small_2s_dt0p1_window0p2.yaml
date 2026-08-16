@@ -7,8 +7,8 @@ actuation:
   time_step: 0.1
   mass_flow_rate: 0.015
   jet_ids: [2]
-  # 采用 0-based window_id：4 对应第 5 个窗口 [0.8, 1.0] s。
-  pulse_windows: [4]
+  # pulse_windows 按 1-based 编号：5 对应第 5 个窗口 [0.8, 1.0] s。
+  pulse_windows: [5]
 
 output:
   run_dir: runs/schedule_examples/j02_pulse_small_2s_dt0p1_window0p2
