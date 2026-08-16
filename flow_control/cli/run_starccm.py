@@ -21,6 +21,7 @@ import os
 import re
 from pathlib import Path
 
+import yaml
 from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
@@ -47,6 +48,11 @@ def main(argv: list[str] | None = None) -> int:
     # --- STAR-CCM+ 参数 ---
     parser.add_argument("--sim", required=True, help="Input STAR-CCM+ .sim file.")
     parser.add_argument("--out", required=True, help="Output directory for macro, logs, and results.")
+    parser.add_argument(
+        "--manifest-template",
+        default="configs/week4/case_manifest_template.yaml",
+        help="Manifest template to prefill before STAR; use an empty string to disable.",
+    )
     parser.add_argument(
         "--starccm-path",
         default=os.environ.get("STARCCM_PATH", "starccm+"),
@@ -128,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
             num_cores=args.np,
             pod_key=args.podkey,
             region_name=args.region,
+            manifest_template_path=Path(args.manifest_template) if args.manifest_template else None,
             time_step=solver_time_step,
             report_names=tuple(args.report) or DEFAULT_STARCCM_SPEC.load_report_names,
             strict_boundaries=not args.non_strict_boundaries,
@@ -200,7 +207,13 @@ def _build_runtime_manifest(
     raw_dir = raw_output_dir.expanduser().resolve()
     case_dir = _standard_case_dir_for_output(raw_output_dir).expanduser().resolve()
     case_type = _infer_case_type(schedule_path)
-    return {
+    snapshot_manifest_path = raw_dir / "case_manifest.yaml"
+    base: dict[str, object] = {}
+    if snapshot_manifest_path.is_file():
+        loaded = yaml.safe_load(snapshot_manifest_path.read_text(encoding="utf-8")) or {}
+        if isinstance(loaded, dict) and loaded.get("manifest_status") == "finalized_from_star_template_snapshot":
+            base = loaded
+    runtime_manifest: dict[str, object] = {
         "case_id": case_dir.name,
         "case_type": case_type,
         "description": _case_description(case_dir.name, case_type),
@@ -242,6 +255,9 @@ def _build_runtime_manifest(
             "command": list(result.command),
         },
     }
+    # Preserve the preflight template and STAR-inspected surface/report data.
+    base.update(runtime_manifest)
+    return base
 
 
 def _case_description(case_id: str, case_type: str) -> str:

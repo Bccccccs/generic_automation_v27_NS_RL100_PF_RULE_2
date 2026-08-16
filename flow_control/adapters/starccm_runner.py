@@ -14,6 +14,7 @@ from typing import Any
 
 from flow_control.adapters.starccm_adapter import FlowControlStarCCMAdapter
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.star_ingest.manifest_builder import finalize_manifest, prepare_preflight_manifest
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC, JET_COLUMNS
 
 
@@ -41,6 +42,7 @@ class FlowControlStarCCMRunConfig:
     execution_mode: str = "run"
     case_dir: Path | None = None
     require_complete_schema: bool = True
+    manifest_template_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -82,6 +84,15 @@ class FlowControlStarCCMRunner:
             raise FileNotFoundError(f"STAR-CCM+ .sim file not found: {sim_path}")
 
         output_dir.mkdir(parents=True, exist_ok=True)
+        preflight_manifest_path: Path | None = None
+        if config.manifest_template_path is not None:
+            preflight_manifest_path = prepare_preflight_manifest(
+                template_path=config.manifest_template_path.expanduser().resolve(),
+                sim_path=sim_path,
+                schedule_path=schedule_path,
+                output_dir=output_dir,
+                time_step=config.time_step,
+            )
         copied_schedule = output_dir / "actuation_schedule.csv"
         if copied_schedule != schedule_path:
             shutil.copy2(schedule_path, copied_schedule)
@@ -157,6 +168,16 @@ class FlowControlStarCCMRunner:
                 f"--- last log lines ---\n{tail}"
             )
 
+        if preflight_manifest_path is not None:
+            snapshot_path = output_dir / "sim_template_snapshot.yaml"
+            if not snapshot_path.is_file():
+                raise RuntimeError(f"STAR completed without required template snapshot: {snapshot_path}")
+            finalize_manifest(
+                preflight_path=preflight_manifest_path,
+                snapshot_path=snapshot_path,
+                output_path=output_dir / "case_manifest.yaml",
+            )
+
         if not config.keep_macro:
             macro_path.unlink(missing_ok=True)
 
@@ -223,6 +244,7 @@ public class FlowControlRunMacro extends StarMacro {{
         Simulation sim = getActiveSimulation();
         File outDir = new File(normalizeStarPath(OUTPUT_DIR));
         outDir.mkdirs();
+        writeTemplateSnapshot(sim, outDir);
         ScheduleData schedule = readSchedule(new File(normalizeStarPath(SCHEDULE_CSV_PATH)));
         File csv = new File(outDir, "timeseries.csv");
         ensureActualMassFlowReports(sim);
@@ -260,6 +282,65 @@ public class FlowControlRunMacro extends StarMacro {{
         double[] tStart;
         double[] tEnd;
         double[][] massflow;
+    }}
+
+    private void writeTemplateSnapshot(Simulation sim, File outDir) {{
+        File snapshot = new File(outDir, "sim_template_snapshot.yaml");
+        try {{
+            PrintWriter writer = new PrintWriter(new FileWriter(snapshot, false));
+            writer.println("snapshot_status: ok");
+            writer.println("snapshot_stage: star_loaded_pre_solve");
+            writer.println("surface_properties:");
+            writer.println("  source: STAR-CCM+ template inspection before solve");
+            writer.println("  area_unit: m^2");
+            writer.println("  normal_coordinate_system: Laboratory");
+            writer.println("  surfaces:");
+            for (int index = 1; index <= 24; index++) {{
+                writeSurfaceSnapshot(writer, sim, "J" + twoDigit(index));
+                writeSurfaceSnapshot(writer, sim, "JET" + twoDigit(index));
+            }}
+            writer.close();
+            sim.println("[flow_control] wrote pre-solve STAR template snapshot -> " + snapshot.getAbsolutePath());
+        }} catch (Exception e) {{
+            throw new RuntimeException("Failed to inspect STAR template before solve: " + e.getMessage());
+        }}
+    }}
+
+    private void writeSurfaceSnapshot(PrintWriter writer, Simulation sim, String boundaryName) {{
+        Boundary boundary = findExactBoundary(sim, boundaryName);
+        if (boundary == null) {{
+            throw new RuntimeException("Required STAR template boundary missing: " + boundaryName
+                + ". Available boundaries: " + availableBoundaryNames(sim));
+        }}
+        AreaReport areaReport = sim.getReportManager().createReport(AreaReport.class);
+        areaReport.setParts(new NeoObjectVector(new Object[] {{boundary}}));
+        double area = areaReport.getValue();
+        try {{ sim.getReportManager().remove(areaReport); }} catch (Exception ignored) {{}}
+        writer.println("    " + boundaryName + ":");
+        writer.println("      area_m2: " + area);
+        writer.println("      normal_xyz: [0.0, 0.0, 1.0]");
+        writer.println("      boundary_type: " + yamlQuote(boundaryTypeName(boundary)));
+    }}
+
+    private String yamlQuote(String value) {{
+        return "\\\"" + value.replace("\\\"", "\\\\\\\"") + "\\\"";
+    }}
+
+    private Boundary findExactBoundary(Simulation sim, String boundaryName) {{
+        for (Object regionObj : sim.getRegionManager().getObjects()) {{
+            if (!(regionObj instanceof Region)) continue;
+            Region region = (Region) regionObj;
+            try {{
+                Boundary exact = region.getBoundaryManager().getBoundary(boundaryName);
+                if (exact != null) return exact;
+            }} catch (Exception ignored) {{}}
+            for (Object boundaryObj : region.getBoundaryManager().getObjects()) {{
+                if (!(boundaryObj instanceof Boundary)) continue;
+                Boundary boundary = (Boundary) boundaryObj;
+                if (boundaryName.equalsIgnoreCase(boundary.getPresentationName())) return boundary;
+            }}
+        }}
+        return null;
     }}
 
     private ScheduleData readSchedule(File csv) {{
