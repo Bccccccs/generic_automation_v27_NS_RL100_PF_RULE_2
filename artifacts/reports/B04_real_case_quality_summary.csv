@@ -1,0 +1,4 @@
+﻿case_id,overall_status,blocking_issue_count,haokun_review_count,format_errors,time_errors,massflow_errors,force_definition_errors,physical_questions_for_haokun,active_jets,row_count
+no_0816,FAIL,3,3,0,0,0,3,3,,10000
+j02_pluse_0816,FAIL,2,0,0,0,0,2,0,J02,10000
+j06_pluse_0816,FAIL,2,0,0,0,0,2,0,J06,10000
