@@ -70,11 +70,13 @@ def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     assert "ensureActualMassFlowReports(sim);" in macro
     assert "writeTemplateSnapshot(sim, outDir);" in macro
     assert '"sim_template_snapshot.yaml"' in macro
-    assert "AreaReport areaReport" in macro
     assert 'writeSurfaceSnapshot(writer, sim, "JET" + twoDigit(index));' in macro
     assert '"actual_massflow_01"' in macro
     assert "solver_dt_s,action_window_s,sample_interval_s" in macro
     assert "requiredReportValue(sim, ACTUAL_MASSFLOW_REPORT_NAMES[i])" in macro
+    assert "SurfaceIntegralReport areaReport" in macro
+    assert 'getFunction("Area")' in macro
+    assert "AreaReport" not in macro
     assert "mass-flow command changes inside window" in macro
     assert "setBoundaryType(MassFlowBoundary.class)" in macro
     assert "[flow_control] completed window=" in macro

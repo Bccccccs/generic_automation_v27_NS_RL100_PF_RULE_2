@@ -312,7 +312,10 @@ public class FlowControlRunMacro extends StarMacro {{
             throw new RuntimeException("Required STAR template boundary missing: " + boundaryName
                 + ". Available boundaries: " + availableBoundaryNames(sim));
         }}
-        AreaReport areaReport = sim.getReportManager().createReport(AreaReport.class);
+        // STAR-CCM+ 17.06 does not expose the legacy area-report class. Integrating
+        // the built-in Area field function over the boundary is version-safe.
+        SurfaceIntegralReport areaReport = sim.getReportManager().createReport(SurfaceIntegralReport.class);
+        areaReport.setFieldFunction(sim.getFieldFunctionManager().getFunction("Area"));
         areaReport.setParts(new NeoObjectVector(new Object[] {{boundary}}));
         double area = areaReport.getValue();
         try {{ sim.getReportManager().remove(areaReport); }} catch (Exception ignored) {{}}
