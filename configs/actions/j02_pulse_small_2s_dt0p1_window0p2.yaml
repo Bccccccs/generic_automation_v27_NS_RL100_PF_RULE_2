@@ -1,0 +1,14 @@
+# 小样本 STAR 联调：2 s、10 个动作窗口；第 5 个窗口仅开启 J02。
+actuation:
+  mode: pulse_singlejet
+  n_jets: 24
+  total_windows: 10
+  window_duration: 0.2
+  time_step: 0.1
+  mass_flow_rate: 0.015
+  jet_ids: [2]
+  # 采用 0-based window_id：4 对应第 5 个窗口 [0.8, 1.0] s。
+  pulse_windows: [4]
+
+output:
+  run_dir: runs/schedule_examples/j02_pulse_small_2s_dt0p1_window0p2
