@@ -387,9 +387,9 @@ def ingest_star_export(
 
     rows = data["rows"]
 
-    # 2. Compute Fz_Total if all six bottom-force sensors are present.
+    # 2. Compute fz (the confirmed six-region underbody resultant) if absent.
     # Missing STAR exports stay missing so quality checks can report them.
-    # 计算 Fz_Total(如果六个底部传感器都存在)
+    # 计算 fz 车底六区合力(如果六个底部传感器都存在)
     # 缺失的数据保持缺失,由质量检查器报告,而不是默默填充零值
     compute_fz_total(rows)
     _add_common_timeseries_fields(

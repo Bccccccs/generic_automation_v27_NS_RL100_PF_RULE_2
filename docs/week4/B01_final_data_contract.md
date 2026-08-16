@@ -1,50 +1,39 @@
-# B01 最终 STAR 数据契约
+# B01：0816 STAR 最终数据字段契约
 
-版本：`B01_final_star_contract_v1`。本契约自发布起替代 week3 中容易混淆的输出命名；旧 case 只能作为迁移输入，不能伪装成最终模板数据。
+本契约的字段名完全取自 2026-08-16 已组织的三个算例：`runs/week4/j02_pluse_0816`、`runs/week4/j06_pluse_0816`、`runs/week4/no_0816`。不得用本文件创建新的动作或载荷列；未在当前算例导出的量只能记录为“未导出”，不能另造字段替代。
 
-## 1. 不可混用的对象名称
+## 1. J 与 JET 的固定含义
 
-| 名称 | 唯一含义 | 可用于 |
+| STAR 名称 | 含义 | 0816 数据字段中的对应关系 |
 | --- | --- | --- |
-| `J01` … `J24` | STAR 喷气口边界（质量流量入口） | 动作开关、指令/实际质量流量、J 表面受力、喷气动量反作用力 |
-| `JET01` … `JET24` | STAR 车底受力区域 | 六区域升力、车底六区合力、车底相关力矩 |
+| `J01..J24` | 喷气口 | `JET_01..JET_24` 开关、`cmd_massflow_01..24` 指令质量流量、`actual_massflow_01..24` 回读质量流量按相同编号对应 `J01..J24` |
+| `JET01..JET24` | 车底受力区域 | 仅用于六个 `Fz_S*` report 的积分面；不得当作喷气口 |
 
-最终动作表的列固定为 `J01_switch` … `J24_switch`、`J01_cmd_massflow_kg_s` … `J24_cmd_massflow_kg_s`，可选回读列为 `J01_actual_massflow_kg_s` … `J24_actual_massflow_kg_s`。第 `NN` 列只能写入/读取 `JNN`，绝不对应 `JETNN`。完整一一对应、面积与法向见 `B01_J_JET_mapping.csv`。
+注意：`JET_01`（带下划线）是当前 CSV 的动作列名；`JET01`（不带下划线）是 STAR 车底区域。两者字符串相近但对象不同。`B01_J_JET_mapping.csv` 是唯一编号与面积/法向对照来源；面积来自 0816 case 的 `面积计算结果.xlsx` 中“star实际面积(m^2)”列，J 和 JET 法向均为 `[0.0, 0.0, 1.0]`。
 
-质量流量在项目标准中统一以“从 `JNN` 喷口流入流场”为正。STAR 入口 report 如因边界外法向约定导出负值，导入标准 case 时转换为非负流量大小；`raw_star/` 中的原始值不修改。质量流量跟踪验收直接比较转换后的正值指令与正值实际流量，不在质检阶段临时取绝对值。
+## 2. 0816 实际输出字段
 
-## 2. 最终输出字段
+| 当前字段 | 当前 STAR 导出 report | 单位 | 状态/含义 |
+| --- | --- | --- | --- |
+| `Fz_S1L`、`Fz_S1R`、`Fz_S2L`、`Fz_S2R`、`Fz_S3L`、`Fz_S3R` | `S1L..S3R Monitor` | N | 六个车底区域 +Z 力 |
+| `fz` | `fz Monitor`（仅 raw STAR CSV） | N | 车底六区合力/底面整体升力；应与六个 `Fz_S*` 分区升力之和一致，待后续算例验证 |
+| `Fz_Total` | `Fz Monitor` | N | 带车壳的升力，即底面 `JET01..JET24` 加 `tail` 车壳的 +Z 力；不能替代 `fz` |
+| `Drag_Total` | `Drag Monitor` | N | 当前导出阻力 report |
+| `Pitch_Moment` | `Pitch_Moment Monitor` | N-m | 当前导出俯仰力矩 report |
+| `Roll_Moment` | `Roll_Moment Monitor` | N-m | 当前导出滚转力矩 report |
+| `Jet_Reaction_Z` | `Jet_Reaction_Z Monitor` | N | 当前 `J01..J24` 表面 +Z 力；其是否可作为“喷气动量反作用力”使用，等待浩坤确认 |
+| `actual_massflow_01..24` | `actual_massflow_01..24 Monitor` | kg/s | 24 个 J 喷气口质量流量回读 |
 
-所有力使用 STAR `Laboratory` 坐标系；正值沿给定方向/轴。report 的积分方法为压力 + 剪切，参考压力为 0 Pa。每一行定义均在 `B01_report_mapping.csv`，不得只依据列名推断物理含义。
+浩坤已确认：六区分项由 `FZ_image_10000.csv` 导出，六区合力/底面整体升力为 `fz.csv` 的 `fz`，其校验关系是 `fz = Fz_S1L + Fz_S1R + Fz_S2L + Fz_S2R + Fz_S3L + Fz_S3R`；后续算例必须验证该关系。带车壳升力为 `Fz_Monitor_绘图_image_10000.csv` 的 `Fz_Total`，不得与 `fz` 互相替代。`Jet_Reaction_Z` 是否为项目定义的喷气动量反作用力，等待浩坤确认，在确认前只能按“J 表面 +Z 力”解释。
 
-| 字段 | 单位 | 含义 |
-| --- | --- | --- |
-| `underbody_lift_s1l` … `underbody_lift_s3r` | N | 6 个互斥 `JET` 车底分区的 +Z 力 |
-| `underbody_6zone_lift` | N | 上述 6 个车底分区力之和；派生量，不是整车升力 |
-| `vehicle_lift` | N | 经确认的整车全部外表面 +Z 力 |
-| `vehicle_drag` | N | 经确认的整车全部外表面 +X 力 |
-| `vehicle_pitch_moment` | N-m | 经确认整车表面绕 +Y 轴、指定力矩中心的力矩 |
-| `vehicle_roll_moment` | N-m | 经确认整车表面绕 +X 轴、指定力矩中心的力矩 |
-| `j_surface_force_z` | N | 所有 `J01..J24` 喷气口表面的 +Z 压力+剪切力；不是动量反作用力 |
-| `jet_momentum_reaction_z` | N | 由每个 `J` 喷口真实质量流量与出口速度/动量通量按 manifest 符号约定计算的反作用力 |
+## 3. 方向、积分面与时间
 
-`vehicle_lift`、`vehicle_drag` 和两个整车力矩仅在 STAR report 的积分面明确为 `vehicle_all_external_surfaces` 后才可写入；在此之前必须留为缺失并报错，不能以 `JET01..JET24 + tail` 代替。
+`B01_report_mapping.csv` 逐项记录每个已导出 report 的单位、Laboratory 坐标方向、积分面和确认状态。缺失或未确认项必须告警并保留 `UNCONFIRMED`，不得猜测。
 
-## 3. 旧名迁移与禁止猜测
+0816 case 的求解器时间步 `time_step` 为 `0.0001 s`，逻辑动作窗口 `action_window_duration` 为 `0.1 s`，因此一个动作窗口固定包含 `1000` 个求解器时间步。动作表和 report 仍以 `0.0001 s` 行间隔/采样间隔保存：同一 `0.1 s` 动作窗口的命令在连续 1000 行中保持不变；它们是窗口内的求解/采样行，不是 1000 个独立动作。原始输出文件名为 `*_10000.csv`，即每 case 10,000 个采样。动作行字段为 `physical_time, window_id, t_start, t_end`；当前 case manifest 记录的输出模式为 `partial_timeseries`。
 
-`Fz_Total` 和 `Jet_Reaction_Z` 不属于最终输出字段。`Fz_Total` 历史上实际是 `JET01..JET24 + tail` 的 +Z 力，既不是车底六区合力也不是整车升力；`Jet_Reaction_Z` 历史上实际是 `J01..J24` 的 +Z 表面力，且不是动量反作用力。它们的保留映射和处理策略写在 `B01_report_mapping.csv`。
+## 4. 导入保护规则
 
-导入程序必须执行以下规则：
-
-1. 看见旧标准列 `Fz_Total` 或 `Jet_Reaction_Z` 时，发出可见 `DeprecationWarning`，并在 strict/final 模式抛出 `ValueError`；不得自动改名。
-2. 看见 `JET_01..JET_24`、`cmd_massflow_01..24` 或未带 `J` 喷口编号的动作列时，报错；不得猜测为 `J01..J24`。
-3. 当列名匹配多个 report，或 report 缺少单位、坐标系、方向、积分表面之一时，报错；不得填零或从名称猜方向。
-4. 历史 raw STAR report 可依据映射表由专门的迁移步骤导入，但迁移产物必须带 `source_report`、`mapping_version` 与告警记录。
-
-## 4. 时间与采样约定
-
-一个动作表行是物理时间窗口 `[t_start, t_end]` 的控制命令，`window_id` 唯一且连续。当前 CLI 宏在窗口开始写入 J 喷口质量流量、推进到 `t_end` 后采样；故样本归属规则是 `t_start < t_sample <= t_end`。`time_step` 是求解器时间步，`sampling_interval` 是报告导出间隔，二者都必须记录，不能用 iteration 替代物理时间。
-
-## 5. Case manifest 的最低追溯要求
-
-每个 final case 使用 `configs/week4/case_manifest_template.yaml`：记录 24 个 J/JET 对、每个面积和法向、坐标方向、每个 report 的积分表面、时间步、动作窗口及采样间隔。未知值用 `UNCONFIRMED` 显式标记；final 模式不得运行。
+1. 导入动作表时，`JET_NN`、`cmd_massflow_NN` 和 `actual_massflow_NN` 必须三者以相同 `NN` 映射 `JNN`；`JETNN` 不得被用作动作列。
+2. 导入 `fz`、`Fz_Total` 或 `Jet_Reaction_Z` 时保留原字段名，并按 `B01_report_mapping.csv` 写入其实际 report 含义；`Jet_Reaction_Z` 在浩坤确认前不得自动标注为动量反作用力。
+3. 发现未列入映射表的 report、同一字段匹配多个 report，或 report 缺少单位/方向/积分面确认时，程序必须报错或告警，不得推断。

@@ -92,7 +92,8 @@ def test_package_ccm_run_case_generates_standard_timeseries_and_quality_report(t
     assert all(path is None or (case_dir / path).is_file() for path in report["figures"].values())
     with result["timeseries_path"].open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    assert rows[0]["Fz_Total"] == "21.0"
+    assert rows[0]["fz"] == "21.0"
+    assert "Fz_Total" not in rows[0]
     assert "actual_massflow_01" not in rows[0]
 
 

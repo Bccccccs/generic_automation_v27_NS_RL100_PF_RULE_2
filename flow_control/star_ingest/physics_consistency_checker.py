@@ -586,9 +586,9 @@ def _check_force_accounting(
         if all(value is not None for value in regional_values):
             local_sum = sum(float(value) for value in regional_values if value is not None)
             regional_sum.append(local_sum)
-            total = _num(row.get("Fz_Total"))
+            total = _num(row.get("fz"))
             if total is not None and abs(local_sum - total) > max(zero_tolerance, 0.01 * max(abs(local_sum), 1.0)) and len(mismatch_examples) < 5:
-                mismatch_examples.append({"row": row_index, "regional_lift_sum": local_sum, "Fz_Total": total, "difference": total - local_sum})
+                mismatch_examples.append({"row": row_index, "regional_lift_sum": local_sum, "fz": total, "difference": total - local_sum})
         for column in VEHICLE_FORCE_COLUMNS:
             value = _num(row.get(column))
             if value is not None:
@@ -605,7 +605,7 @@ def _check_force_accounting(
             report,
             "physical_questions_for_haokun",
             "warning",
-            "Fz_Total differs from six regional force sum; not treated as an error because they may be different STAR reports",
+            "fz differs from six regional force sum; 浩坤已确认二者应一致，等待后续算例验证",
             examples=mismatch_examples,
         )
 

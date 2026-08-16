@@ -52,7 +52,7 @@ STAR_COLUMN_PATTERNS: dict[str, re.Pattern] = {
     "physical_time": re.compile(r"时间|time|physical.?time|Time", re.IGNORECASE),
     # Current STAR files contain both ``fz Monitor`` (underbody six-region
     # total) and ``Fz Monitor`` (whole vehicle).  Letter case is significant.
-    "legacy_underbody_report_force_z": re.compile(r"^fz\s*Monitor:"),
+    "fz": re.compile(r"^fz\s*Monitor:"),
     "Fz_Total": re.compile(r"^Fz\s*Monitor:"),
     "Fz_S1L": re.compile(r"S1L.*Monitor", re.IGNORECASE),
     "Fz_S1R": re.compile(r"S1R.*Monitor", re.IGNORECASE),
@@ -92,7 +92,7 @@ MASSFLOW_ACTUAL_PATTERN = re.compile(r"(?:actual|real).*mass.?flow[_\s]?(\d{1,2}
 # STANDARD_LOAD_COLUMNS: 所有载荷列的组合
 FZ_SENSOR_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
 GLOBAL_COLUMNS = (
-    "legacy_underbody_report_force_z",
+    "fz",
     "Fz_Total",
     "Drag_Total",
     "Pitch_Moment",
@@ -419,7 +419,7 @@ def compute_fz_total(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Compute the underbody six-region total from its regions if absent.
 
     Modifies rows in place and returns them.
-    ``underbody_6zone_lift = Fz_S1L + ... + Fz_S3R``.
+    ``fz = Fz_S1L + ... + Fz_S3R``.
     ``Fz_Total`` remains the independently exported whole-vehicle lift.
     The total is computed only when all six sensor values are present.
 
@@ -431,7 +431,7 @@ def compute_fz_total(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     兼顾性能和链式调用便利性。
     """
     for row in rows:
-        if "underbody_6zone_lift" in row and row["underbody_6zone_lift"] is not None:
+        if "fz" in row and row["fz"] is not None:
             continue  # already present / 已存在总力值则跳过
         values: list[float] = []
         for col in FZ_SENSOR_COLUMNS:
@@ -440,7 +440,7 @@ def compute_fz_total(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 values.append(v)
         # 只有当六个传感器的值全部有效时才求和
         if len(values) == len(FZ_SENSOR_COLUMNS):
-            row["underbody_6zone_lift"] = sum(values)
+            row["fz"] = sum(values)
     return rows
 
 

@@ -431,7 +431,7 @@ class TestStarExportReader:
              "Fz_S3L": 14.0, "Fz_S3R": 15.0},
         ]
         compute_fz_total(rows)
-        assert rows[0]["underbody_6zone_lift"] == pytest.approx(75.0)
+        assert rows[0]["fz"] == pytest.approx(75.0)
         assert "Fz_Total" not in rows[0]
 
     def test_read_star_export_missing_time_raises(self, tmp_path):

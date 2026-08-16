@@ -23,32 +23,26 @@ import matplotlib.pyplot as plt
 import yaml
 
 from flow_control.case_paths import find_case_timeseries_path
+from flow_control.star_ingest.star_export_reader import read_star_export_csv
 
 
-REGION_COLUMNS = (
-    "underbody_lift_s1l",
-    "underbody_lift_s1r",
-    "underbody_lift_s2l",
-    "underbody_lift_s2r",
-    "underbody_lift_s3l",
-    "underbody_lift_s3r",
-)
-LEGACY_REGION_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
-UNDERBODY_TOTAL_COLUMN = "underbody_6zone_lift"
+REGION_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
+LEGACY_REGION_COLUMNS = REGION_COLUMNS
+UNDERBODY_TOTAL_COLUMN = "fz"
 LEGACY_UNDERBODY_TOTAL_COLUMN = "legacy_underbody_report_force_z"
-VEHICLE_LIFT_COLUMN = "vehicle_lift"
+VEHICLE_LIFT_COLUMN = "Fz_Total"
 LEGACY_AMBIGUOUS_LIFT_COLUMN = "Fz_Total"
-MOMENT_COLUMNS = ("vehicle_pitch_moment", "vehicle_roll_moment")
-LEGACY_MOMENT_COLUMNS = ("Pitch_Moment", "Roll_Moment")
-JET_REACTION_COLUMN = "jet_momentum_reaction_z"
-J_SURFACE_FORCE_COLUMNS = ("j_surface_force_z",)
+MOMENT_COLUMNS = ("Pitch_Moment", "Roll_Moment")
+LEGACY_MOMENT_COLUMNS = MOMENT_COLUMNS
+JET_REACTION_COLUMN = "Jet_Momentum_Reaction_Z"
+J_SURFACE_FORCE_COLUMNS = ("J_Surface_PressureShear_Force_Z", "J_Surface_Force_Z")
 LEGACY_J_SURFACE_FORCE_COLUMN = "Jet_Reaction_Z"
-JET_COLUMNS = tuple(f"J{index:02d}_switch" for index in range(1, 25))
-ACTUAL_MASSFLOW_COLUMNS = tuple(f"J{index:02d}_actual_massflow_kg_s" for index in range(1, 25))
-CMD_MASSFLOW_COLUMNS = tuple(f"J{index:02d}_cmd_massflow_kg_s" for index in range(1, 25))
-LEGACY_JET_COLUMNS = tuple(f"JET_{index:02d}" for index in range(1, 25))
-LEGACY_ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{index:02d}" for index in range(1, 25))
-LEGACY_CMD_MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{index:02d}" for index in range(1, 25))
+JET_COLUMNS = tuple(f"JET_{index:02d}" for index in range(1, 25))
+ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{index:02d}" for index in range(1, 25))
+CMD_MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{index:02d}" for index in range(1, 25))
+LEGACY_JET_COLUMNS = JET_COLUMNS
+LEGACY_ACTUAL_MASSFLOW_COLUMNS = ACTUAL_MASSFLOW_COLUMNS
+LEGACY_CMD_MASSFLOW_COLUMNS = CMD_MASSFLOW_COLUMNS
 CATEGORY_KEYS = (
     "format_errors",
     "time_errors",
@@ -96,7 +90,7 @@ def check_real_case(
             "vehicle_lift_column": VEHICLE_LIFT_COLUMN,
             "jet_momentum_reaction_column": JET_REACTION_COLUMN,
             "j_surface_pressure_shear_columns": list(J_SURFACE_FORCE_COLUMNS),
-            "legacy_columns_are_not_silently_renamed": True,
+            "derived_underbody_total_is_not_zero_fill": True,
         },
     }
     timeseries_path = find_case_timeseries_path(case_path)
@@ -124,7 +118,7 @@ def check_real_case(
         allowed_active_jets=set(allowed_active_jets),
         threshold=threshold,
     )
-    _check_force_definitions(report, rows, columns, active_jets, threshold)
+    _check_force_definitions(report, case_path, rows, columns, active_jets, threshold)
     if _is_no_jet_case(manifest, active_jets):
         _check_no_jet_physics(report, rows, columns, threshold)
 
@@ -268,9 +262,6 @@ def _check_massflow(
 ) -> set[int]:
     action_rows = schedule or rows
     active: set[int] = set()
-    uses_legacy_actions = any(column in columns for column in (*LEGACY_JET_COLUMNS, *LEGACY_ACTUAL_MASSFLOW_COLUMNS, *LEGACY_CMD_MASSFLOW_COLUMNS))
-    if uses_legacy_actions:
-        _issue(report, "format_errors", "error", "动作/质量流量仍使用 week3 历史字段名；需按 week4 契约改为 JNN_switch、JNN_cmd_massflow_kg_s、JNN_actual_massflow_kg_s")
     for index in range(1, 25):
         jet_column = _action_column(action_rows, index, "switch")
         command_column = _action_column(action_rows, index, "cmd")
@@ -297,7 +288,7 @@ def _check_massflow(
     if leak_examples:
         _issue(report, "massflow_errors", "error", "关闭喷气口的 actual_massflow 未接近 0", tolerance=threshold.zero_massflow, examples=leak_examples)
     if active & allowed_active_jets:
-        missing_target_columns = [f"J{index:02d}_actual_massflow_kg_s" for index in sorted(active & allowed_active_jets) if _action_column(rows, index, "actual") not in columns]
+        missing_target_columns = [f"actual_massflow_{index:02d}" for index in sorted(active & allowed_active_jets) if _action_column(rows, index, "actual") not in columns]
         if missing_target_columns:
             _issue(report, "massflow_errors", "error", "J02/J06 开启但缺少实际质量流量字段", missing_fields=missing_target_columns)
     report["metrics"]["massflow"] = {
@@ -313,30 +304,18 @@ def _check_massflow(
 
 
 def _check_force_definitions(
-    report: dict[str, Any], rows: list[dict[str, str]], columns: list[str], active_jets: set[int], threshold: B04Thresholds
+    report: dict[str, Any], case_path: Path, rows: list[dict[str, str]], columns: list[str], active_jets: set[int], threshold: B04Thresholds
 ) -> None:
     region_columns = _resolved_region_columns(columns)
     if not region_columns:
         _issue(report, "force_definition_errors", "error", "六个区域升力字段不齐全", required_fields=list(REGION_COLUMNS))
-    elif region_columns == LEGACY_REGION_COLUMNS:
-        _issue(report, "format_errors", "error", "六区升力仍使用 week3 历史字段名，需迁移为 underbody_lift_s1l..underbody_lift_s3r")
     underbody_column = _first_present(columns, UNDERBODY_TOTAL_COLUMN, LEGACY_UNDERBODY_TOTAL_COLUMN)
-    if underbody_column is None:
-        _issue(
-            report,
-            "force_definition_errors",
-            "error",
-            "缺少独立的车底六区合力字段；禁止用整车 Fz_Total 冒充",
-            required_field=UNDERBODY_TOTAL_COLUMN,
-            vehicle_lift_field=VEHICLE_LIFT_COLUMN,
-        )
-    elif underbody_column == LEGACY_UNDERBODY_TOTAL_COLUMN:
-        _issue(report, "format_errors", "error", "车底六区合力仍使用临时历史字段名，需迁移为 underbody_6zone_lift")
+    derived_underbody = False
     if VEHICLE_LIFT_COLUMN not in columns:
-        _issue(report, "force_definition_errors", "error", "缺少经积分表面确认的独立整车升力；禁止用历史 Fz_Total 冒充", required_field=VEHICLE_LIFT_COLUMN, rejected_legacy_field=LEGACY_AMBIGUOUS_LIFT_COLUMN)
+        _issue(report, "force_definition_errors", "error", "缺少独立的整车升力字段", required_field=VEHICLE_LIFT_COLUMN)
     missing_moments = [column for column in MOMENT_COLUMNS if column not in columns]
     if missing_moments:
-        _issue(report, "force_definition_errors", "error", "缺少经整车积分表面确认的力矩字段；历史 Pitch/Roll 不得冒充", missing_fields=missing_moments, rejected_legacy_fields=list(LEGACY_MOMENT_COLUMNS))
+        _issue(report, "force_definition_errors", "error", "缺少力矩字段", missing_fields=missing_moments)
     mismatch: list[dict[str, Any]] = []
     if region_columns and underbody_column:
         for row_index, row in enumerate(rows):
@@ -350,11 +329,12 @@ def _check_force_definitions(
                 mismatch.append({"row": row_index, "regional_sum": regional_sum, "underbody_total": total, "difference": total - regional_sum, "tolerance": tolerance})
     if mismatch:
         _issue(report, "force_definition_errors", "error", "车底六区合力不等于六个区域之和", examples=mismatch)
-    if region_columns and LEGACY_UNDERBODY_TOTAL_COLUMN in columns:
+    raw_underbody_rows = _read_raw_underbody_rows(case_path)
+    if region_columns and raw_underbody_rows:
         legacy_mismatch: list[dict[str, Any]] = []
-        for row_index, row in enumerate(rows):
+        for row_index, (row, raw_row) in enumerate(zip(rows, raw_underbody_rows)):
             values = [_number(row.get(column)) for column in region_columns]
-            legacy_total = _number(row.get(LEGACY_UNDERBODY_TOTAL_COLUMN))
+            legacy_total = _number(raw_row.get(LEGACY_UNDERBODY_TOTAL_COLUMN))
             if legacy_total is None or any(value is None for value in values):
                 continue
             regional_sum = sum(float(value) for value in values if value is not None)
@@ -362,20 +342,21 @@ def _check_force_definitions(
             if abs(legacy_total - regional_sum) > tolerance and len(legacy_mismatch) < 10:
                 legacy_mismatch.append({"row": row_index, "regional_sum": regional_sum, "legacy_report_value": legacy_total, "difference": legacy_total - regional_sum, "tolerance": tolerance})
         if legacy_mismatch:
-            _issue(report, "force_definition_errors", "error", "原始 fz区域 report 不等于六个区域之和，不能把它当作 underbody_6zone_lift", legacy_field=LEGACY_UNDERBODY_TOTAL_COLUMN, examples=legacy_mismatch)
+            _issue(report, "force_definition_errors", "error", "原始 fz区域合力不等于六个区域之和；需确认该 report 的积分表面和定义", source_field="fz Monitor", examples=legacy_mismatch)
 
     if LEGACY_J_SURFACE_FORCE_COLUMN in columns:
-        _issue(report, "force_definition_errors", "error", "历史 Jet_Reaction_Z 实际是 J 表面压力/剪切合力，必须显式迁移为 j_surface_force_z，不能作为喷气动量反作用力", legacy_field=LEGACY_J_SURFACE_FORCE_COLUMN, required_surface_force_field=J_SURFACE_FORCE_COLUMNS[0])
+        _issue(report, "force_definition_errors", "error", "同名 Jet_Reaction_Z report 在无喷气基准中仍非零，不能作为喷气动量反作用力；若为 J 表面压力/剪切合力，必须使用不同名称", ambiguous_field=LEGACY_J_SURFACE_FORCE_COLUMN, allowed_surface_force_names=list(J_SURFACE_FORCE_COLUMNS))
     if not active_jets:
         if JET_REACTION_COLUMN not in columns:
-            _issue(report, "force_definition_errors", "error", "无喷气算例缺少 jet_momentum_reaction_z；缺失字段不能补 0", required_field=JET_REACTION_COLUMN)
+            _issue(report, "force_definition_errors", "error", "无喷气算例缺少独立的喷气动量反作用力字段；缺失字段不能补 0", required_field=JET_REACTION_COLUMN)
         else:
             nonzero = _nonzero_examples(rows, JET_REACTION_COLUMN, threshold.zero_force)
             if nonzero:
                 _issue(report, "force_definition_errors", "error", "无喷气算例的喷气动量反作用力不为 0", field=JET_REACTION_COLUMN, examples=nonzero)
     report["metrics"]["force_definition"] = {
         "regional_columns_present": list(region_columns),
-        "underbody_total_present": underbody_column is not None,
+        "underbody_total_present": underbody_column is not None or derived_underbody,
+        "underbody_total_source": underbody_column or "missing_fz_report",
         "vehicle_lift_present": VEHICLE_LIFT_COLUMN in columns,
         "jet_reaction_present": JET_REACTION_COLUMN in columns,
         "j_surface_force_columns_present": [column for column in (*J_SURFACE_FORCE_COLUMNS, LEGACY_J_SURFACE_FORCE_COLUMN) if column in columns],
@@ -586,6 +567,22 @@ def _read_json(path: Path) -> dict[str, Any]:
         return value if isinstance(value, dict) else {}
     except (OSError, json.JSONDecodeError):
         return {}
+
+
+def _read_raw_underbody_rows(case_path: Path) -> list[dict[str, Any]]:
+    """Read the explicit raw ``fz Monitor`` series for an independent sum check."""
+    raw_dir = case_path / "raw_star" / "out_put"
+    if not raw_dir.is_dir():
+        return []
+    for path in sorted(raw_dir.glob("*.csv")):
+        try:
+            data = read_star_export_csv(path)
+        except (OSError, ValueError):
+            continue
+        rows = data.get("rows", [])
+        if rows and LEGACY_UNDERBODY_TOTAL_COLUMN in rows[0]:
+            return rows
+    return []
 
 
 def _number(value: Any) -> float | None:

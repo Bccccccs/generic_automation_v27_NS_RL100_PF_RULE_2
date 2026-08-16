@@ -1,63 +1,74 @@
-schema_version: B01_final_star_contract_v1
+schema_version: B01_0816_star_fields_v1
 case_id: "<case_id>"
+case_type: "<jet_on|no_jet>"
+case_stage: starccm_output_organized
 created_time: "<ISO-8601 UTC>"
-contract_files:
-  j_jet_mapping: docs/week4/B01_J_JET_mapping.csv
-  report_mapping: docs/week4/B01_report_mapping.csv
-  mapping_version: B01_final_star_contract_v1
+source_product_dir: raw_star/out_put
+reference_cases:
+  j02_pulse: runs/week4/j02_pluse_0816
+  j06_pulse: runs/week4/j06_pluse_0816
+  no_jet: runs/week4/no_0816
 star:
-  version: UNCONFIRMED
-  sim_file_identifier: UNCONFIRMED
-  geometry_version: UNCONFIRMED
-  mesh_version: UNCONFIRMED
+  version: "待浩坤确认"
+  sim_file: "待浩坤确认"
+  sim_file_hash_sha256: "待浩坤确认"
+  geometry_version: "待浩坤确认"
+  mesh_version: "待浩坤确认"
+  region_names: [减运算]
   coordinate_system: Laboratory
-coordinates:
-  x_positive: "Laboratory +X; vehicle forward direction must be confirmed"
-  y_positive: "Laboratory +Y; must be confirmed"
-  z_positive: "Laboratory +Z; lift report direction"
-  force_direction_vectors:
-    lift_z: [0.0, 0.0, 1.0]
-    drag_x: [1.0, 0.0, 0.0]
-  moment_axes:
-    pitch_y: [0.0, 1.0, 0.0]
-    roll_x: [1.0, 0.0, 0.0]
-  moment_center_m: [29.0, 0.0, 1.52]
-units:
-  time: s
-  massflow: kg/s
-  area: m^2
-  force: N
-  moment: N-m
-sign_convention:
-  jet_massflow: "Positive means injection from a JNN inlet into the flow domain. STAR inlet-report values are converted to non-negative magnitudes in processed data; raw STAR exports remain unchanged."
-solver_time:
-  time_step_s: UNCONFIRMED
-  inner_iterations_per_step: UNCONFIRMED
-  report_sampling_interval_s: UNCONFIRMED
-  sample_ownership_rule: "t_start < t_sample <= t_end"
-actuation:
-  schedule_file: actuation_schedule.csv
-  schedule_hash_sha256: UNCONFIRMED
-  window_columns: [window_id, t_start, t_end]
-  window_unit: s
-  window_semantics: "Set JNN command before t_start; sample reports at t_end."
-  channels: "Read all 24 exact rows from B01_J_JET_mapping.csv; JNN_switch and JNN_cmd_massflow_kg_s only target JNN."
+field_contract:
+  action_schedule_columns:
+    time: [physical_time, window_id, t_start, t_end]
+    switches: JET_01..JET_24
+    commanded_massflow: cmd_massflow_01..cmd_massflow_24
+  timeseries_columns:
+    action: [JET_01..JET_24, cmd_massflow_01..cmd_massflow_24]
+    actual_massflow: actual_massflow_01..actual_massflow_24
+    force_and_moment: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R, Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z]
+    raw_only_not_in_processed_timeseries: [fz]
+  j_jet_mapping_file: docs/week4/B01_J_JET_mapping.csv
+  report_mapping_file: docs/week4/B01_report_mapping.csv
+  policy: "Use the listed 0816 field names unchanged; do not synthesize vehicle lift, six-zone resultant, or momentum-reaction fields."
+report_semantics:
+  Fz_S1L..Fz_S3R: "FZ_image_10000.csv：底面分区域升力。"
+  fz: "fz.csv：车底六区合力/底面整体升力；应等于六个Fz_S*分区升力之和，待后续算例验证。"
+  Fz_Total: "Fz Monitor：带车壳升力，积分面为JET01..JET24加tail。"
+  Jet_Reaction_Z: "J01..J24表面+Z力；是否代表喷气动量反作用力等待浩坤确认。"
 surface_mapping:
   source: docs/week4/B01_J_JET_mapping.csv
-  jet_boundary_prefix: J
-  underbody_zone_prefix: JET
-  jet_area_and_normal: "Per-channel values are authoritative in B01_J_JET_mapping.csv."
-  underbody_area_and_normal: "Per-channel values are authoritative in B01_J_JET_mapping.csv."
-reports:
-  source: docs/week4/B01_report_mapping.csv
-  integration_method: "pressure_plus_shear; reference_pressure_pa=0"
-  final_mode_requires_confirmed_reports: true
+  jet_boundary: J01..J24
+  underbody_zone: JET01..JET24
+  area_unit: m^2
+  normal_coordinate_system: Laboratory
+  normal_vectors: "Read per-channel values from B01_J_JET_mapping.csv."
+coordinates:
+  lift_force_direction: [0.0, 0.0, 1.0]
+  drag_force_direction: [1.0, 0.0, 0.0]
+  pitch_axis: [0.0, 1.0, 0.0]
+  roll_axis: [1.0, 0.0, 0.0]
+  moment_center_m: [29.0, 0.0, 1.52]
+solver_time:
+  time_step: 0.0001
+  action_window_duration: 0.1
+  solver_steps_per_action_window: 1000
+  schedule_row_interval: 0.0001
+  sampling_interval: 0.0001
+  sample_count: 10000
+  action_window_rule: "One 0.1 s action window holds a fixed command for 1000 solver steps / schedule rows."
+  sample_ownership_rule: "Each 0.0001 s sample belongs to the active 0.1 s action window."
+units:
+  time: s
+  force: N
+  moment: N-m
+  massflow: kg/s
+  area: m^2
+sign_convention: "jet massflow is positive for injection into the flow domain; force and moment retain STAR-CCM+ report signs"
 validation:
-  mode: final_strict
-  reject_columns: [Fz_Total, Jet_Reaction_Z, JET_01, cmd_massflow_01]
-  reject_ambiguous_or_unmapped_columns: true
-  reject_unconfirmed_final_reports: true
-  legacy_input_policy: "warn_then_error; explicit migration mapping required"
+  mode: partial_timeseries
+  action_column_rule: "JET_NN/cmd_massflow_NN/actual_massflow_NN use the same NN and map only to JNN; JETNN is never an action target."
+  unknown_report_rule: "warn_or_error; no automatic physical-meaning inference"
+  missing_report_rule: "keep absent; do not derive or fill with zero"
+  force_relationships:
+    fz_equals_six_region_sum: "fz = Fz_S1L + Fz_S1R + Fz_S2L + Fz_S2R + Fz_S3L + Fz_S3R; 浩坤已确认，待后续算例验证。"
 provenance:
-  git_commit: UNCONFIRMED
-  generated_by: UNCONFIRMED
+  git_commit: "<git commit>"

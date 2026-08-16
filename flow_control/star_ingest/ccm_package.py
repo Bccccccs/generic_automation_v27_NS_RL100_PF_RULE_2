@@ -221,9 +221,9 @@ def _standard_timeseries_rows(
                 if _is_actual_massflow_column(standard):
                     value = normalize_actual_massflow(value)
                 record[standard] = value
-        # 如果六传感器都存在但 Fz_Total 缺失,手动求和
-        if all(column in record for column in LOAD_COLUMNS) and "Fz_Total" not in record:
-            record["Fz_Total"] = sum(float(record[column]) for column in LOAD_COLUMNS)
+        # 浩坤确认：六传感器之和是 fz 车底六区合力，不能写成带车壳的 Fz_Total。
+        if all(column in record for column in LOAD_COLUMNS) and "fz" not in record:
+            record["fz"] = sum(float(record[column]) for column in LOAD_COLUMNS)
         record.setdefault("solver_status", "success")
         record["case_stage"] = "starccm_runtime"
         rows.append(record)
