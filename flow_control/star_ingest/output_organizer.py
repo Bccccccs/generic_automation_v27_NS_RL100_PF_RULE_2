@@ -22,32 +22,43 @@ def organize_ccm_outputs(
     *,
     input_dir: str | Path,
     output_dir: str | Path,
+    star_output_dir: str | Path | None = None,
     overwrite: bool = False,
 ) -> dict[str, Path]:
     """将 Week4 形式的 STAR 监视器 CSV 目录整理为标准 Case。"""
     source_path = Path(input_dir).expanduser().resolve()
+    star_source_path = (
+        Path(star_output_dir).expanduser().resolve()
+        if star_output_dir is not None
+        else source_path
+    )
     target = Path(output_dir).expanduser().resolve()
     if not source_path.is_dir():
-        raise NotADirectoryError(f"CCM input directory not found: {source_path}")
+        raise NotADirectoryError(f"input directory not found: {source_path}")
+    if not star_source_path.is_dir():
+        raise NotADirectoryError(f"STAR output directory not found: {star_source_path}")
     if target.exists() and any(target.iterdir()) and not overwrite:
         raise FileExistsError(f"target case is not empty: {target}; use --force to overwrite generated files")
 
     schedule = _find_schedule(source_path)
     schedule_rows = _read_csv(schedule)
     case_type = _infer_case_type(schedule_rows)
-    product_dir, star_files = _find_monitor_outputs(source_path)
+    product_dir, star_files = _find_monitor_outputs(star_source_path)
+    input_product_dir = schedule.parent
+    input_files = _collect_input_files(input_product_dir)
+    raw_files = sorted(path for path in product_dir.rglob("*") if path.is_file())
     bundle = read_star_export_bundle(star_files)
     consolidated = _attach_schedule(bundle["rows"], schedule_rows)
     with tempfile.TemporaryDirectory(prefix="flow_control_organize_") as temp_dir:
         consolidated_path = Path(temp_dir) / "star_monitor_merged.csv"
         _write_csv(consolidated_path, consolidated)
         _package(consolidated_path, schedule, target, case_type)
-    raw_files = sorted(path for path in product_dir.rglob("*.csv") if path.is_file())
+
+    input_target = target / "input"
+    _copy_files(input_product_dir, input_target, input_files)
 
     raw_dir = target / "raw_star" / "out_put"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    for path in raw_files:
-        shutil.copy2(path, raw_dir / path.name)
+    _copy_files(product_dir, raw_dir, raw_files)
 
     report_path = target / "quality_report.json"
     report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
@@ -55,7 +66,10 @@ def organize_ccm_outputs(
         {
             "status": "organized_only",
             "check_mode": "ccm",
-            "source_files": [str(Path("raw_star") / "out_put" / path.name) for path in raw_files],
+            "source_files": [
+                str(Path("raw_star") / "out_put" / path.relative_to(product_dir))
+                for path in raw_files
+            ],
         }
     )
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -65,6 +79,26 @@ def organize_ccm_outputs(
         "schedule_path": target / "input" / "actuation_schedule.csv",
         "raw_star_dir": raw_dir,
     }
+
+
+def _collect_input_files(input_product_dir: Path) -> list[Path]:
+    """收集输入侧产物。
+
+    标准 input/ 目录整树复制；兼容动作表放在 case 根目录的旧结构时，
+    只复制根目录文件，避免把 raw_star/processed/ 等再嵌入 input/。
+    """
+    if input_product_dir.name == "input":
+        return sorted(path for path in input_product_dir.rglob("*") if path.is_file())
+    return sorted(path for path in input_product_dir.iterdir() if path.is_file())
+
+
+def _copy_files(source_root: Path, target_root: Path, files: list[Path]) -> None:
+    target_root.mkdir(parents=True, exist_ok=True)
+    for source in files:
+        target_path = target_root / source.relative_to(source_root)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        if source.resolve() != target_path.resolve():
+            shutil.copy2(source, target_path)
 
 
 def _find_schedule(input_dir: Path) -> Path:
