@@ -76,6 +76,11 @@ def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     assert '"actual_massflow_01"' in macro
     assert "solver_dt_s,action_window_s,sample_interval_s" in macro
     assert "requiredReportValue(sim, ACTUAL_MASSFLOW_REPORT_NAMES[i])" in macro
+    assert "for (int stepIndex = 0; stepIndex < steps; stepIndex++)" in macro
+    assert "sim.getSimulationIterator().run(1);" in macro
+    assert "schedule.tStart[window] + (stepIndex + 1) * step" in macro
+    assert "sim.getSimulationIterator().run(steps);" not in macro
+    assert "schedule.tEnd[window], schedule.windowIds[window], step, duration, duration" not in macro
     assert "SurfaceIntegralReport areaReport" in macro
     assert 'getFunction("Area")' in macro
     assert "AreaReport" not in macro

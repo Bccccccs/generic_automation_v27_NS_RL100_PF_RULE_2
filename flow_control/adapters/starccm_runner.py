@@ -266,8 +266,23 @@ public class FlowControlRunMacro extends StarMacro {{
             sim.println("[flow_control] window=" + schedule.windowIds[window]
                 + " t=[" + schedule.tStart[window] + "," + schedule.tEnd[window] + "]"
                 + " duration=" + duration + " step=" + step + " solverSteps=" + steps);
-            sim.getSimulationIterator().run(steps);
-            appendRow(sim, csv, schedule.tEnd[window], schedule.windowIds[window], step, duration, duration, schedule.massflow[window]);
+            for (int stepIndex = 0; stepIndex < steps; stepIndex++) {{
+                sim.getSimulationIterator().run(1);
+                double sampleTime = Math.min(
+                    schedule.tEnd[window],
+                    schedule.tStart[window] + (stepIndex + 1) * step
+                );
+                appendRow(
+                    sim,
+                    csv,
+                    sampleTime,
+                    schedule.windowIds[window],
+                    step,
+                    duration,
+                    step,
+                    schedule.massflow[window]
+                );
+            }}
             sim.println("[flow_control] completed window=" + schedule.windowIds[window]
                 + " csv=" + csv.getAbsolutePath());
         }}
