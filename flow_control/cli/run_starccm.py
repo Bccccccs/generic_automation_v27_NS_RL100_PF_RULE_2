@@ -213,6 +213,20 @@ def _build_runtime_manifest(
         loaded = yaml.safe_load(snapshot_manifest_path.read_text(encoding="utf-8")) or {}
         if isinstance(loaded, dict) and loaded.get("manifest_status") == "finalized_from_star_template_snapshot":
             base = loaded
+    base_star = dict(base.get("star") or {})
+    sim_hash = _sha256_file(sim_path)
+    star_metadata: dict[str, object] = {
+        **base_star,
+        "starccm_path": starccm_path,
+        "sim_file": str(sim_path),
+        "sim_file_name": sim_path.name,
+        "sim_file_hash_sha256": sim_hash,
+        "region_names": [str(args.region)],
+    }
+    star_metadata.setdefault("version", _infer_starccm_version(starccm_path))
+    star_metadata.setdefault("version_source", "starccm_executable_path")
+    star_metadata.setdefault("geometry_version", "starccm-runtime-template")
+    star_metadata.setdefault("mesh_version", f"sim-{sim_hash[:12]}-topology-unavailable")
     runtime_manifest: dict[str, object] = {
         "case_id": case_dir.name,
         "case_type": case_type,
@@ -228,16 +242,10 @@ def _build_runtime_manifest(
         "raw_csv_count": _count_csv_files(raw_dir),
         "timeseries_csv_count": 1 if result.timeseries_path is not None else 0,
         "status": "complete" if case_type == "no_jet" else "runtime_output_pending_quality_check",
-        "star": {
-            "version": _infer_starccm_version(starccm_path),
-            "starccm_path": starccm_path,
-            "sim_file": str(sim_path),
-            "sim_file_name": sim_path.name,
-            "sim_file_hash_sha256": _sha256_file(sim_path),
-            "geometry_version": "starccm-runtime-template",
-            "mesh_version": "template_sim",
-            "region_names": [str(args.region)],
-        },
+        "starccm_version": star_metadata["version"],
+        "geometry_version": star_metadata["geometry_version"],
+        "mesh_version": star_metadata["mesh_version"],
+        "star": star_metadata,
         "runtime": {
             "num_cores": int(args.np),
             "podkey_set": bool(args.podkey),

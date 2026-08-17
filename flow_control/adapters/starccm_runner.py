@@ -176,6 +176,7 @@ class FlowControlStarCCMRunner:
                 preflight_path=preflight_manifest_path,
                 snapshot_path=snapshot_path,
                 output_path=output_dir / "case_manifest.yaml",
+                runtime_log_path=log_path,
             )
 
         if not config.keep_macro:

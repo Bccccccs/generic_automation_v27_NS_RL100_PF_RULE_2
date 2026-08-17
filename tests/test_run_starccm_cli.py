@@ -63,6 +63,11 @@ def test_runtime_manifest_fills_starccm_version_and_sim_hash(tmp_path):
     assert manifest["source_product_dir"] == "raw_star"
     assert manifest["source_schedule"] == "actuation_schedule.csv"
     assert manifest["star"]["version"] == "17.06.007-R8"
+    assert manifest["starccm_version"] == "17.06.007-R8"
+    assert manifest["star"]["version_source"] == "starccm_executable_path"
+    assert manifest["mesh_version"].startswith("sim-")
+    assert manifest["mesh_version"].endswith("-topology-unavailable")
+    assert manifest["star"]["mesh_version"] == manifest["mesh_version"]
     assert manifest["star"]["sim_file_name"] == "cifu0.sim"
     assert manifest["star"]["sim_file_hash_sha256"] == hashlib.sha256(b"template sim").hexdigest()
     assert manifest["runtime"]["num_cores"] == 8
