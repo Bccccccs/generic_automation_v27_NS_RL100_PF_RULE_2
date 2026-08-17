@@ -75,7 +75,10 @@ def main(argv: list[str] | None = None) -> int:
         "--report",
         action="append",
         default=[],
-        help="Report name to sample after each window. Can be repeated.",
+        help=(
+            "Additional report name to sample after each solver time step. "
+            "Can be repeated; required reports are always included."
+        ),
     )
     # --- 行为控制 ---
     parser.add_argument(
