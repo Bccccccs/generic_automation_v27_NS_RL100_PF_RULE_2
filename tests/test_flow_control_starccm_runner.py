@@ -182,6 +182,10 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     assert result.returncode is None
     assert result.command[:3] == ("/path/to/starccm+", "-np", "4")
     assert str(sim_path.resolve()) == result.command[-1]
+    macro = result.macro_path.read_text(encoding="utf-8")
+    assert '"total", "drag", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z"' in macro
+    assert '"fc_load_S1L"' in macro
+    assert '"fc_load_S3R"' in macro
     windows = _read_schedule(config.output_dir / "actuation_schedule.csv")
     assert [(window.window_id, window.t_start, window.t_end) for window in windows] == [
         (0, 0.0, 0.2),

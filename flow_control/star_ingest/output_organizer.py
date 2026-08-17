@@ -13,8 +13,9 @@ from typing import Any
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from starccm.control.control_spec import JET_COLUMNS
 
-from .case_data_loader import current_git_commit
-from .ccm_package import package_ccm_run_case
+from .case_data_loader import current_git_commit, load_case, write_quality_report
+from .ccm_package import _standard_timeseries_rows, package_ccm_run_case
+from .figures_generator import generate_all_figures
 from .star_export_reader import discover_star_export_csvs, read_star_export_bundle
 
 
@@ -24,7 +25,9 @@ def organize_ccm_outputs(
     output_dir: str | Path,
     star_output_dir: str | Path | None = None,
     overwrite: bool = False,
-) -> dict[str, Path]:
+    manifest: dict[str, Any] | None = None,
+    run_quality_check: bool = False,
+) -> dict[str, Any]:
     """将 Week4 形式的 STAR 监视器 CSV 目录整理为标准 Case。"""
     source_path = Path(input_dir).expanduser().resolve()
     star_source_path = (
@@ -47,12 +50,21 @@ def organize_ccm_outputs(
     input_product_dir = schedule.parent
     input_files = _collect_input_files(input_product_dir)
     raw_files = sorted(path for path in product_dir.rglob("*") if path.is_file())
-    bundle = read_star_export_bundle(star_files)
-    consolidated = _attach_schedule(bundle["rows"], schedule_rows)
+    monitor_rows = read_star_export_bundle(star_files)["rows"] if star_files else []
+    runtime_path = product_dir / "timeseries.csv"
+    runtime_rows = (
+        _standard_timeseries_rows(_read_csv(runtime_path), schedule_rows)
+        if runtime_path.is_file()
+        else []
+    )
+    consolidated = _attach_schedule(
+        _merge_rows_by_physical_time(runtime_rows, monitor_rows),
+        schedule_rows,
+    )
     with tempfile.TemporaryDirectory(prefix="flow_control_organize_") as temp_dir:
         consolidated_path = Path(temp_dir) / "star_monitor_merged.csv"
         _write_csv(consolidated_path, consolidated)
-        _package(consolidated_path, schedule, target, case_type)
+        _package(consolidated_path, schedule, target, case_type, manifest=manifest)
 
     input_target = target / "input"
     _copy_files(input_product_dir, input_target, input_files)
@@ -61,23 +73,31 @@ def organize_ccm_outputs(
     _copy_files(product_dir, raw_dir, raw_files)
 
     report_path = target / "quality_report.json"
-    report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
-    report.update(
-        {
-            "status": "organized_only",
-            "check_mode": "ccm",
-            "source_files": [
-                str(Path("raw_star") / "out_put" / path.relative_to(product_dir))
-                for path in raw_files
-            ],
+    source_files = [
+        str(Path("raw_star") / "out_put" / path.relative_to(product_dir))
+        for path in raw_files
+    ]
+    if run_quality_check:
+        report = write_quality_report(target, require_complete_schema=True, check_mode="ccm")
+        checked = load_case(target, require_complete_schema=True, check_mode="ccm")
+        figures = generate_all_figures(checked, target / "figures")
+        report["figures"] = {
+            name: str(path.relative_to(target)) if path else None
+            for name, path in figures.items()
         }
-    )
+        report["status"] = "organized_and_checked"
+    else:
+        report = json.loads(report_path.read_text(encoding="utf-8")) if report_path.exists() else {}
+        report["status"] = "organized_only"
+    report.update({"check_mode": "ccm", "source_files": source_files})
     report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
     return {
         "case_dir": target,
         "timeseries_path": target / "processed" / "timeseries.csv",
         "schedule_path": target / "input" / "actuation_schedule.csv",
         "raw_star_dir": raw_dir,
+        "quality_report_path": report_path,
+        "quality_report": report,
     }
 
 
@@ -117,6 +137,8 @@ def _find_schedule(input_dir: Path) -> Path:
 
 def _find_monitor_outputs(input_dir: Path) -> tuple[Path, list[Path]]:
     candidates = (
+        input_dir / "raw_star" / "output",
+        input_dir / "output",
         input_dir / "raw_star" / "out_put",
         input_dir / "out_put",
         input_dir / "raw_star",
@@ -130,7 +152,7 @@ def _find_monitor_outputs(input_dir: Path) -> tuple[Path, list[Path]]:
             for path in discover_star_export_csvs(directory)
             if path.name not in {"timeseries.csv", "actuation_schedule.csv"}
         ]
-        if files:
+        if files or (directory / "timeseries.csv").is_file():
             return directory, files
     raise ValueError(
         "no recognized STAR monitor CSV files found under input directory; expected files in "
@@ -145,22 +167,50 @@ def _infer_case_type(schedule_rows: list[dict[str, Any]]) -> str:
     return "no_jet"
 
 
-def _package(runtime_csv: Path, schedule: Path, target: Path, case_type: str) -> None:
-    package_ccm_run_case(
-        ccm_timeseries_path=runtime_csv,
-        schedule_path=schedule,
-        case_dir=target,
-        manifest={
+def _package(
+    runtime_csv: Path,
+    schedule: Path,
+    target: Path,
+    case_type: str,
+    *,
+    manifest: dict[str, Any] | None = None,
+) -> None:
+    manifest_data = dict(manifest or {})
+    manifest_data.update(
+        {
             "case_id": target.name,
             "case_type": case_type,
             "case_stage": "starccm_output_organized",
             "git_commit": current_git_commit(),
             "source_product_dir": "raw_star/out_put",
-        },
+        }
+    )
+    package_ccm_run_case(
+        ccm_timeseries_path=runtime_csv,
+        schedule_path=schedule,
+        case_dir=target,
+        manifest=manifest_data,
         require_complete_schema=False,
         run_quality_check=False,
         generate_figures=False,
     )
+
+
+def _merge_rows_by_physical_time(
+    runtime_rows: list[dict[str, Any]],
+    monitor_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Outer-merge runtime and split monitor rows, preferring monitor exports."""
+
+    merged: dict[float, dict[str, Any]] = {}
+    for rows in (runtime_rows, monitor_rows):
+        for row in rows:
+            sample_time = float(row.get("physical_time", 0.0))
+            key = round(sample_time, 12)
+            merged.setdefault(key, {"physical_time": sample_time}).update(row)
+    if not merged:
+        raise ValueError("CCM output contains no runtime or monitor rows")
+    return [merged[key] for key in sorted(merged)]
 
 
 def _read_csv(path: Path) -> list[dict[str, str]]:

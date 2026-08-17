@@ -121,3 +121,116 @@ def test_schedule_and_star_outputs_can_come_from_separate_directories(tmp_path: 
     assert rows[0]["Fz_Total"] == "-10.0"
     assert (target / "input" / "actuation_heatmap.svg").read_text(encoding="utf-8") == "<svg/>\n"
     assert (target / "raw_star" / "out_put" / "screenshots" / "flow.png").read_bytes() == b"png-data"
+
+
+def test_organize_merges_step_runtime_actual_massflow_with_split_monitors(tmp_path: Path) -> None:
+    input_dir = tmp_path / "case" / "input"
+    output_dir = tmp_path / "case" / "raw_star" / "output"
+    target = tmp_path / "organized"
+    input_dir.mkdir(parents=True)
+    output_dir.mkdir(parents=True)
+    (input_dir / "actuation_schedule.csv").write_text(
+        "window_id,t_start,t_end,JET_01,cmd_massflow_01\n"
+        "0,0.0,0.1,1,0.015\n"
+        "0,0.1,0.2,1,0.015\n",
+        encoding="utf-8",
+    )
+    (output_dir / "timeseries.csv").write_text(
+        "physical_time,window_id,actual_massflow_01\n"
+        "0.1,0,-0.015\n"
+        "0.2,0,-0.015\n",
+        encoding="utf-8",
+    )
+    (output_dir / "force.csv").write_text(
+        '"Time","Fz Monitor: Fz Monitor (N)"\n'
+        "0.1,-10.0\n"
+        "0.2,-11.0\n",
+        encoding="utf-8",
+    )
+
+    result = organize_ccm_outputs(
+        input_dir=input_dir,
+        star_output_dir=output_dir,
+        output_dir=target,
+    )
+
+    rows = list(csv.DictReader(result["timeseries_path"].open(encoding="utf-8")))
+    assert [row["physical_time"] for row in rows] == ["0.1", "0.2"]
+    assert [row["Fz_Total"] for row in rows] == ["-10.0", "-11.0"]
+    assert [row["actual_massflow_01"] for row in rows] == ["0.015", "0.015"]
+    assert [row["cmd_massflow_01"] for row in rows] == ["0.015", "0.015"]
+
+
+def test_organize_can_run_final_quality_check_for_complete_runtime_output(tmp_path: Path) -> None:
+    input_dir = tmp_path / "input"
+    output_dir = tmp_path / "raw_star" / "output"
+    target = tmp_path / "case"
+    input_dir.mkdir()
+    output_dir.mkdir(parents=True)
+    jet_columns = [f"JET_{idx:02d}" for idx in range(1, 25)]
+    command_columns = [f"cmd_massflow_{idx:02d}" for idx in range(1, 25)]
+    actual_columns = [f"actual_massflow_{idx:02d}" for idx in range(1, 25)]
+    with (input_dir / "actuation_schedule.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["physical_time", "window_id", "t_start", "t_end", *jet_columns, *command_columns],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "physical_time": 0.1,
+                "window_id": 0,
+                "t_start": 0.0,
+                "t_end": 0.1,
+                **{column: 1 if column == "JET_01" else 0 for column in jet_columns},
+                **{column: 0.015 if column == "cmd_massflow_01" else 0.0 for column in command_columns},
+            }
+        )
+    load_values = {
+        "fc_load_S1L": -1.0,
+        "fc_load_S1R": -1.0,
+        "fc_load_S2L": -1.0,
+        "fc_load_S2R": -1.0,
+        "fc_load_S3L": -1.0,
+        "fc_load_S3R": -1.0,
+    }
+    with (output_dir / "timeseries.csv").open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "physical_time",
+                "window_id",
+                *actual_columns,
+                "total",
+                "drag",
+                "Pitch_Moment",
+                "Roll_Moment",
+                "Jet_Reaction_Z",
+                *load_values,
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "physical_time": 0.1,
+                "window_id": 0,
+                **{column: -0.015 if column == "actual_massflow_01" else 0.0 for column in actual_columns},
+                "total": -10.0,
+                "drag": 20.0,
+                "Pitch_Moment": 1.0,
+                "Roll_Moment": 2.0,
+                "Jet_Reaction_Z": -3.0,
+                **load_values,
+            }
+        )
+
+    result = organize_ccm_outputs(
+        input_dir=input_dir,
+        star_output_dir=output_dir,
+        output_dir=target,
+        run_quality_check=True,
+    )
+
+    assert result["quality_report"]["status"] == "organized_and_checked"
+    assert result["quality_report"]["run_success_flag"] is True
+    assert (target / "figures" / "quality_summary.png").is_file()

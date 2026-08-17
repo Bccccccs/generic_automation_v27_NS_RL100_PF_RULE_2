@@ -75,7 +75,11 @@ python scripts/workflow.py ccm \
   --execution-mode run
 ```
 
-执行端会将相同 `window_id` 的物理时间步聚合成一个动作窗口，并只在窗口末端采样。
+执行端会将相同 `window_id` 的物理时间步聚合成一个动作窗口，窗口内保持指令不变，
+并在每个求解器物理时间步结束后采样一行。真实启动结束后，流程会自动将
+逐步运行数据和动作表打包到标准 Case，并生成 `processed/timeseries.csv`、
+`quality_report.json` 和质量诊断图。`organize` 仍作为独立整理入口保留，用于动作生成、
+STAR 求解与结果整理分开执行的流程，以及对历史输出进行补整理。
 
 ## 4. 整理 CCM 输出
 

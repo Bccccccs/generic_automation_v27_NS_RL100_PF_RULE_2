@@ -4,6 +4,8 @@ import hashlib
 
 from flow_control.cli.run_starccm import (
     _build_runtime_manifest,
+    _prepare_organize_output,
+    _runtime_report_names,
     _standard_case_dir_for_output,
 )
 from flow_control.sampling import resolve_schedule_time_step
@@ -14,6 +16,33 @@ def test_standard_case_dir_uses_parent_when_output_is_raw_star(tmp_path):
 
     assert _standard_case_dir_for_output(case_dir / "raw_star") == case_dir
     assert _standard_case_dir_for_output(case_dir) == case_dir
+
+
+def test_runtime_reports_always_include_standard_outputs_and_append_extras():
+    reports = _runtime_report_names(["custom_pressure", "drag"])
+
+    assert reports[:5] == (
+        "total",
+        "drag",
+        "Pitch_Moment",
+        "Roll_Moment",
+        "Jet_Reaction_Z",
+    )
+    assert "fc_load_S1L" in reports
+    assert "fc_load_S3R" in reports
+    assert reports[-1] == "custom_pressure"
+    assert reports.count("drag") == 1
+
+
+def test_prepare_organize_output_collects_csv_without_large_solver_files(tmp_path):
+    (tmp_path / "timeseries.csv").write_text("physical_time\n0.1\n", encoding="utf-8")
+    (tmp_path / "monitor.csv").write_text("Time,Fz\n0.1,-1\n", encoding="utf-8")
+    (tmp_path / "flow_control_result.sim").write_bytes(b"large-placeholder")
+    (tmp_path / "starccm_flow_control.log").write_text("log", encoding="utf-8")
+
+    product_dir = _prepare_organize_output(tmp_path)
+
+    assert sorted(path.name for path in product_dir.iterdir()) == ["monitor.csv", "timeseries.csv"]
 
 
 def test_runtime_manifest_fills_starccm_version_and_sim_hash(tmp_path):

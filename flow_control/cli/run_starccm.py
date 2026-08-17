@@ -19,18 +19,19 @@ import csv
 import hashlib
 import os
 import re
+import shutil
 from pathlib import Path
 
 import yaml
 from flow_control.adapters.starccm_runner import (
+    DEFAULT_FLOW_CONTROL_REPORT_NAMES,
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
 )
 from flow_control.generator import generate_from_yaml
 from flow_control.sampling import resolve_schedule_time_step
-from flow_control.star_ingest import package_ccm_run_case
+from flow_control.star_ingest.output_organizer import organize_ccm_outputs
 from flow_control.star_ingest.case_data_loader import current_git_commit
-from starccm.control.control_spec import DEFAULT_STARCCM_SPEC
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -136,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
             region_name=args.region,
             manifest_template_path=Path(args.manifest_template) if args.manifest_template else None,
             time_step=solver_time_step,
-            report_names=tuple(args.report) or DEFAULT_STARCCM_SPEC.load_report_names,
+            report_names=_runtime_report_names(args.report),
             strict_boundaries=not args.non_strict_boundaries,
             save_result_sim=not args.no_save_result_sim,
             execution_mode=execution_mode,
@@ -159,10 +160,12 @@ def main(argv: list[str] | None = None) -> int:
     elif result.timeseries_path is not None:
         print(f"timeseries: {result.timeseries_path}")
         if result.timeseries_path.exists():
-            checked_case = package_ccm_run_case(
-                ccm_timeseries_path=result.timeseries_path,
-                schedule_path=schedule_path,
-                case_dir=standard_case_dir,
+            organize_product_dir = _prepare_organize_output(output_dir)
+            checked_case = organize_ccm_outputs(
+                input_dir=schedule_path.parent,
+                star_output_dir=organize_product_dir,
+                output_dir=standard_case_dir,
+                overwrite=True,
                 manifest=_build_runtime_manifest(
                     args=args,
                     result=result,
@@ -171,8 +174,9 @@ def main(argv: list[str] | None = None) -> int:
                     solver_time_step=solver_time_step,
                     solver_time_step_source=solver_time_step_source,
                 ),
-                require_complete_schema=True,
+                run_quality_check=True,
             )
+            print(f"organize_output: {organize_product_dir}")
             print(f"standard_timeseries: {checked_case['timeseries_path']}")
             print(f"quality_report: {checked_case['quality_report_path']}")
             print(f"figures: {standard_case_dir / 'figures'}")
@@ -191,6 +195,24 @@ def _standard_case_dir_for_output(output_dir: Path) -> Path:
     if output_dir.name == "raw_star":
         return output_dir.parent
     return output_dir
+
+
+def _runtime_report_names(extra_report_names: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    """Always sample the standard CCM outputs; ``--report`` only adds extras."""
+
+    return tuple(dict.fromkeys((*DEFAULT_FLOW_CONTROL_REPORT_NAMES, *extra_report_names)))
+
+
+def _prepare_organize_output(raw_output_dir: Path) -> Path:
+    """Collect lightweight CCM CSV products for the shared organize pipeline."""
+
+    product_dir = Path(raw_output_dir) / "output"
+    product_dir.mkdir(parents=True, exist_ok=True)
+    for source in sorted(Path(raw_output_dir).glob("*.csv")):
+        target = product_dir / source.name
+        if source.resolve() != target.resolve():
+            shutil.copy2(source, target)
+    return product_dir
 
 
 def _build_runtime_manifest(

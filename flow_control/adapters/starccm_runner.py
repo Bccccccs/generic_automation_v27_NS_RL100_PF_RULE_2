@@ -20,6 +20,15 @@ from starccm.control.control_spec import DEFAULT_STARCCM_SPEC, JET_COLUMNS
 
 _EXECUTION_MODES = {"run", "dry-run", "package-only", "validate-only"}
 
+DEFAULT_FLOW_CONTROL_REPORT_NAMES = (
+    "total",
+    "drag",
+    "Pitch_Moment",
+    "Roll_Moment",
+    "Jet_Reaction_Z",
+    *DEFAULT_STARCCM_SPEC.load_report_names,
+)
+
 
 _STAR_BOTTOM_JET_BOUNDARY_RE = re.compile(r"^JET_?\d{1,2}$", re.IGNORECASE)
 
@@ -34,7 +43,7 @@ class FlowControlStarCCMRunConfig:
     pod_key: str = ""
     region_name: str = "Region"
     time_step: float | None = None
-    report_names: tuple[str, ...] = DEFAULT_STARCCM_SPEC.load_report_names
+    report_names: tuple[str, ...] = DEFAULT_FLOW_CONTROL_REPORT_NAMES
     strict_boundaries: bool = True
     save_result_sim: bool = True
     keep_macro: bool = True
