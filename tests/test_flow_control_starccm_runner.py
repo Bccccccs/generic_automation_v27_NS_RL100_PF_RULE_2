@@ -70,6 +70,8 @@ def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     assert "ensureActualMassFlowReports(sim);" in macro
     assert "writeTemplateSnapshot(sim, outDir);" in macro
     assert '"sim_template_snapshot.yaml"' in macro
+    assert 'presentationName.toLowerCase(Locale.ROOT).endsWith(' in macro
+    assert '"." + boundaryName.toLowerCase(Locale.ROOT)' in macro
     assert 'writeSurfaceSnapshot(writer, sim, "JET" + twoDigit(index));' in macro
     assert '"actual_massflow_01"' in macro
     assert "solver_dt_s,action_window_s,sample_interval_s" in macro

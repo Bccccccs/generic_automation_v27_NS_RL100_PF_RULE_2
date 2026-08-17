@@ -340,7 +340,11 @@ public class FlowControlRunMacro extends StarMacro {{
             for (Object boundaryObj : region.getBoundaryManager().getObjects()) {{
                 if (!(boundaryObj instanceof Boundary)) continue;
                 Boundary boundary = (Boundary) boundaryObj;
-                if (boundaryName.equalsIgnoreCase(boundary.getPresentationName())) return boundary;
+                String presentationName = boundary.getPresentationName();
+                if (boundaryName.equalsIgnoreCase(presentationName)
+                    || presentationName.toLowerCase(Locale.ROOT).endsWith(
+                        "." + boundaryName.toLowerCase(Locale.ROOT)
+                    )) return boundary;
             }}
         }}
         return null;
