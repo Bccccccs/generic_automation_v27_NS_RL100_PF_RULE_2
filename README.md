@@ -251,8 +251,8 @@ python scripts/workflow.py ccm \
 | --- | --- |
 | `run` | 生成宏、启动 STAR、收集输出并自动整理 |
 | `dry-run` | 只生成宏和运行计划，不启动 STAR |
-| `package-only` | 只执行打包相关流程 |
-| `validate-only` | 只进行输入和配置验证 |
+| `package-only` | 打包并校验 `<out>/timeseries.csv` 中的已有运行结果 |
+| `validate-only` | 只校验已打包的标准 Case（兼容模式） |
 
 ### 7.5 采样和自动整理行为
 

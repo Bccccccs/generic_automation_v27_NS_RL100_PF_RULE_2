@@ -57,7 +57,7 @@ def _figures(argv: list[str]) -> int:
 COMMANDS: dict[str, tuple[str, Callable[[list[str]], int]]] = {
     "actions": ("根据 YAML 生成动作表", _actions),
     "mock": ("对动作输入运行 MockDynamic24x6", _mock),
-    "ccm": ("生成 Java 宏并启动或 dry-run STAR-CCM+", _ccm),
+    "ccm": ("生成宏、运行 STAR-CCM+ 或打包/校验已有结果", _ccm),
     "organize": ("将 CCM 输出整理为标准 Case", _organize),
     "check": ("执行质量检查并生成诊断 PNG", _check),
     "figures": ("根据标准 Case 生成 5 张 SVG 汇总图", _figures),
@@ -72,6 +72,17 @@ def _print_help() -> None:
     print("\nUse 'python scripts/workflow.py <command> --help' for command options.")
 
 
+def _print_unknown_command_error(command: str) -> None:
+    print(f"\nerror: unknown command {command!r}", file=sys.stderr)
+    if command.startswith("-"):
+        print(
+            "hint: options must follow a command; for example:\n"
+            "  python scripts/workflow.py actions --config <actions.yaml> "
+            "--output-dir <case-dir>",
+            file=sys.stderr,
+        )
+
+
 def main(argv: list[str] | None = None) -> int:
     values = list(sys.argv[1:] if argv is None else argv)
     if not values or values[0] in {"-h", "--help"}:
@@ -80,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     command = values.pop(0)
     if command not in COMMANDS:
         _print_help()
-        print(f"\nerror: unknown command {command!r}", file=sys.stderr)
+        _print_unknown_command_error(command)
         return 2
     return COMMANDS[command][1](values)
 

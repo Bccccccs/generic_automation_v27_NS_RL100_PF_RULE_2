@@ -36,7 +36,44 @@ from flow_control.star_ingest.case_data_loader import current_git_commit
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Generate a STAR-CCM+ macro from actuation_schedule.csv and launch the simulation."
+        description="Generate a STAR-CCM+ macro from actuation_schedule.csv and launch the simulation.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+参数模板：
+  # 1. 启动 STAR-CCM+ 并自动整理
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --starccm-path '<starccm+>' --region <Region> \\
+    --time-step <dt> --np <cores> --execution-mode run
+
+  # 2. 只生成宏和运行计划，不启动 STAR-CCM+
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --region <Region> --time-step <dt> --execution-mode dry-run
+
+  # 3. 打包 <case-dir>/raw_star/timeseries.csv 并执行质量检查
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --execution-mode package-only
+
+  # 4. 只校验已打包的 <case-dir>
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --execution-mode validate-only
+
+激励来源二选一：
+  --schedule <actuation_schedule.csv>
+  --actuation-config <actions.yaml>
+
+注意：
+  package-only 要求 <out>/timeseries.csv 已存在。
+  validate-only 要求标准 Case 已打包；当 --out 为 <case-dir>/raw_star 时，
+  被校验的目录是 <case-dir>。
+""",
     )
     # --- 激励来源：已有 CSV 或实时生成 ---
     # 这两者互斥，用户必须指定其一
