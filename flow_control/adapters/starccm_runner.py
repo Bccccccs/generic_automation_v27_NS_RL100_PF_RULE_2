@@ -316,7 +316,7 @@ public class FlowControlRunMacro extends StarMacro {{
         // the built-in Area field function over the boundary is version-safe.
         SurfaceIntegralReport areaReport = sim.getReportManager().createReport(SurfaceIntegralReport.class);
         areaReport.setFieldFunction(sim.getFieldFunctionManager().getFunction("Area"));
-        areaReport.setParts(new NeoObjectVector(new Object[] {{boundary}}));
+        areaReport.getParts().setObjects(new NeoObjectVector(new Object[] {{boundary}}));
         double area = areaReport.getValue();
         try {{ sim.getReportManager().remove(areaReport); }} catch (Exception ignored) {{}}
         writer.println("    " + boundaryName + ":");
@@ -724,7 +724,7 @@ public class FlowControlRunMacro extends StarMacro {{
             }}
             MassFlowReport report = sim.getReportManager().createReport(MassFlowReport.class);
             report.setPresentationName(reportName);
-            report.setParts(new NeoObjectVector(new Object[] {{boundary}}));
+            report.getParts().setObjects(new NeoObjectVector(new Object[] {{boundary}}));
         }}
     }}
 

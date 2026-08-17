@@ -77,6 +77,9 @@ def test_build_flow_control_macro_reads_schedule_csv_at_runtime(tmp_path):
     assert "SurfaceIntegralReport areaReport" in macro
     assert 'getFunction("Area")' in macro
     assert "AreaReport" not in macro
+    assert "areaReport.getParts().setObjects(new NeoObjectVector" in macro
+    assert "report.getParts().setObjects(new NeoObjectVector" in macro
+    assert ".setParts(new NeoObjectVector" not in macro
     assert "mass-flow command changes inside window" in macro
     assert "setBoundaryType(MassFlowBoundary.class)" in macro
     assert "[flow_control] completed window=" in macro
