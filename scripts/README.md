@@ -47,6 +47,21 @@ python scripts/workflow.py ccm \
 `--machinefile`；支持 Gridview 的 `主机名:slot数` 格式。运行后会将输出放在
 `<case-dir>/raw_star`，并自动整理到 `<case-dir>`。
 
+已有 Slurm/Gridview 运行作业时，可以让脚本自动生成 hostfile 并推导核数：
+
+```bash
+export UCX_DC_MLX5_NUM_DCI=8
+python scripts/workflow.py ccm \
+  --schedule <case-dir>/input/actuation_schedule.csv \
+  --sim <template.sim> --out <case-dir>/raw_star \
+  --starccm-path '<STAR-CCM+可执行文件>' \
+  --scheduler slurm \
+  --execution-mode run
+```
+
+脚本依次使用 `--slurm-job-id`、`SLURM_JOB_ID`，或查找节点列表包含当前主机的
+唯一运行作业。自动识别不唯一时，请显式传入 Job ID。
+
 ### `ccm dry-run`：只生成宏和运行计划
 
 ```bash

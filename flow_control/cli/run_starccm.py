@@ -30,6 +30,7 @@ from flow_control.adapters.starccm_runner import (
 )
 from flow_control.generator import generate_from_yaml
 from flow_control.sampling import resolve_schedule_time_step
+from flow_control.slurm import resolve_slurm_allocation
 from flow_control.star_ingest.output_organizer import organize_ccm_outputs
 from flow_control.star_ingest.case_data_loader import current_git_commit
 
@@ -96,16 +97,34 @@ def main(argv: list[str] | None = None) -> int:
         default=os.environ.get("STARCCM_PATH", "starccm+"),
         help="STAR-CCM+ executable path. Defaults to $STARCCM_PATH or starccm+.",
     )
-    parser.add_argument("--np", type=int, default=1, help="Number of STAR-CCM+ processes.")
+    parser.add_argument("--np", type=int, default=None, help="Number of STAR-CCM+ processes; inferred in Slurm mode.")
+    parser.add_argument(
+        "--scheduler",
+        choices=("manual", "slurm"),
+        default="manual",
+        help="Resource selection backend. manual uses --np/--machinefile; slurm resolves a running allocation.",
+    )
+    parser.add_argument(
+        "--slurm-job-id",
+        default="",
+        help="Running Slurm job id. In slurm mode defaults to $SLURM_JOB_ID or the job containing this host.",
+    )
     parser.add_argument(
         "--machinefile",
-        default=os.environ.get("STARCCM_MACHINEFILE", ""),
+        default="",
         help=(
             "STAR-CCM+ host allocation file. Supports Gridview hostname:slots "
             "and Open MPI hostname slots=N formats. Defaults to $STARCCM_MACHINEFILE."
         ),
     )
     parser.add_argument("--podkey", default="", help="STAR-CCM+ pod key/license token.")
+    parser.add_argument(
+        "--mpi-env",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="Environment variable exported to every MPI rank; may be repeated.",
+    )
     parser.add_argument("--region", default="Region", help="Region containing STAR J01..J24 nozzle boundaries.")
     parser.add_argument(
         "--time-step",
@@ -157,6 +176,30 @@ def main(argv: list[str] | None = None) -> int:
     execution_mode = "dry-run" if args.dry_run else args.execution_mode
 
     output_dir = Path(args.out)
+    if args.scheduler == "slurm":
+        if args.machinefile:
+            parser.error("--machinefile cannot be combined with --scheduler slurm")
+        allocation = resolve_slurm_allocation(
+            output_dir,
+            job_id=args.slurm_job_id or None,
+            num_tasks=args.np,
+        )
+        args.np = allocation.num_tasks
+        args.machinefile = str(allocation.machinefile_path)
+        args.slurm_job_id = allocation.job_id
+        print(
+            f"[flow_control] Slurm job={allocation.job_id} nodes={len(allocation.nodes)} "
+            f"processes={allocation.num_tasks} machinefile={allocation.machinefile_path}"
+        )
+    else:
+        if args.slurm_job_id:
+            parser.error("--slurm-job-id requires --scheduler slurm")
+        args.np = 1 if args.np is None else args.np
+        if not args.machinefile:
+            args.machinefile = os.environ.get("STARCCM_MACHINEFILE", "")
+
+    mpi_env = _resolve_mpi_env(args.mpi_env)
+    args.mpi_env = list(mpi_env)
     standard_case_dir = _standard_case_dir_for_output(output_dir)
     # 确定激励计划 CSV 的路径：来自已有文件或实时生成
     schedule_path = (
@@ -182,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
             starccm_path=args.starccm_path,
             num_cores=args.np,
             machinefile_path=Path(args.machinefile) if args.machinefile else None,
+            mpi_env=mpi_env,
             pod_key=args.podkey,
             region_name=args.region,
             manifest_template_path=Path(args.manifest_template) if args.manifest_template else None,
@@ -236,6 +280,17 @@ def main(argv: list[str] | None = None) -> int:
     if result.returncode is not None:
         print(f"returncode: {result.returncode}")
     return 0
+
+
+def _resolve_mpi_env(explicit_values: list[str]) -> tuple[str, ...]:
+    """Include explicit MPI variables and the cluster UCX workaround when exported."""
+
+    values = list(explicit_values)
+    if os.environ.get("UCX_DC_MLX5_NUM_DCI") and not any(
+        value.partition("=")[0] == "UCX_DC_MLX5_NUM_DCI" for value in values
+    ):
+        values.append(f"UCX_DC_MLX5_NUM_DCI={os.environ['UCX_DC_MLX5_NUM_DCI']}")
+    return tuple(values)
 
 
 def _standard_case_dir_for_output(output_dir: Path) -> Path:
@@ -319,6 +374,9 @@ def _build_runtime_manifest(
         "star": star_metadata,
         "runtime": {
             "num_cores": int(args.np),
+            "scheduler": getattr(args, "scheduler", "manual"),
+            "slurm_job_id": getattr(args, "slurm_job_id", ""),
+            "mpi_env": list(getattr(args, "mpi_env", [])),
             "machinefile": (
                 str(Path(args.machinefile).expanduser().resolve())
                 if getattr(args, "machinefile", "")

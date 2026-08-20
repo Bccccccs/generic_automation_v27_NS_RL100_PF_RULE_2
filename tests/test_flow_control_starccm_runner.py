@@ -6,6 +6,7 @@ import pytest
 from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
+    _build_starccm_command,
     _read_schedule,
     _machinefile_slot_count,
     build_flow_control_macro,
@@ -184,10 +185,12 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     assert result.runtime_plan_path.exists()
     assert result.timeseries_path == tmp_path / "run" / "timeseries.csv"
     assert result.returncode is None
-    assert result.command[:5] == (
+    assert result.command[:7] == (
         "/path/to/starccm+",
         "-machinefile",
         str(machinefile_path.resolve()),
+        "-rsh",
+        "ssh",
         "-np",
         "4",
     )
@@ -214,6 +217,30 @@ def test_machinefile_slot_count_supports_gridview_openmpi_and_repeated_hosts(tmp
     )
 
     assert _machinefile_slot_count(machinefile_path) == 98
+
+
+def test_starccm_command_exports_mpi_environment_to_remote_ranks(tmp_path):
+    command = _build_starccm_command(
+        "starccm+",
+        tmp_path / "macro.java",
+        tmp_path / "case.sim",
+        num_cores=384,
+        machinefile_path=tmp_path / "hosts.ma",
+        mpi_env=("UCX_DC_MLX5_NUM_DCI=8",),
+        pod_key="",
+    )
+
+    assert command[:9] == [
+        "starccm+",
+        "-machinefile",
+        str(tmp_path / "hosts.ma"),
+        "-rsh",
+        "ssh",
+        "-np",
+        "384",
+        "-mppflags",
+        "-x UCX_DC_MLX5_NUM_DCI=8",
+    ]
 
 
 def test_flow_control_runner_rejects_machinefile_with_too_few_slots(tmp_path):

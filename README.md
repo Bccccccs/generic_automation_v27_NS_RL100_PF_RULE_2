@@ -136,6 +136,26 @@ python scripts/workflow.py ccm \
 `主机名:slot数` 格式，例如 `c04r3n27:64`；runner 会在启动前检查
 machinefile 的总 slots 是否覆盖 `--np` 请求的进程数。
 
+如果节点由 Slurm/Gridview 作业分配，可以让脚本自动选择资源：
+
+```bash
+export UCX_DC_MLX5_NUM_DCI=8
+
+python scripts/workflow.py ccm \
+  --schedule <case-dir>/input/actuation_schedule.csv \
+  --sim <模板.sim> \
+  --out <case-dir>/raw_star \
+  --starccm-path '<STAR-CCM+可执行文件>' \
+  --scheduler slurm \
+  --execution-mode run
+```
+
+Slurm 模式按顺序使用 `--slurm-job-id`、`SLURM_JOB_ID`，或自动查找节点列表
+包含当前主机的唯一运行作业。脚本会读取分配的节点和任务数，在 `--out`
+目录生成 `hosts_<job-id>.ma`，并自动设置 `--np`。若自动识别结果不唯一，
+显式增加 `--slurm-job-id <ID>`。已导出的 `UCX_DC_MLX5_NUM_DCI` 会通过
+MPI `-x` 传到所有远端进程；其他变量可重复使用 `--mpi-env NAME=VALUE`。
+
 建议每次重跑使用新的算例目录，避免旧 CSV 与本次输出混在一起。
 
 ## 5. 动作配置文件
@@ -239,7 +259,10 @@ python scripts/workflow.py ccm \
 | `--out` | STAR 工作目录，推荐固定为 `<case-dir>/raw_star` |
 | `--starccm-path` | STAR-CCM+ 可执行文件或 `.bat` 路径 |
 | `--np` | STAR 并行核数 |
+| `--scheduler` | 资源选择方式：`manual`（默认）或 `slurm` |
+| `--slurm-job-id` | Slurm 运行作业 ID；省略时尝试自动识别 |
 | `--machinefile` | 多节点主机与 slots 分配文件，也可通过 `STARCCM_MACHINEFILE` 设置 |
+| `--mpi-env` | 传给每个 MPI 进程的 `NAME=VALUE`，可重复指定 |
 | `--podkey` | 需要时传入许可证 POD key |
 | `--region` | STAR 中需要控制的 Region 名称 |
 | `--time-step` | 求解器物理时间步，应与动作配置一致 |

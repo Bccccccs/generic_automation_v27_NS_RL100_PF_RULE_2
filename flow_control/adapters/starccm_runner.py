@@ -41,6 +41,7 @@ class FlowControlStarCCMRunConfig:
     starccm_path: str = "starccm+"
     num_cores: int = 1
     machinefile_path: Path | None = None
+    mpi_env: tuple[str, ...] = ()
     pod_key: str = ""
     region_name: str = "Region"
     time_step: float | None = None
@@ -145,6 +146,7 @@ class FlowControlStarCCMRunner:
             sim_path,
             num_cores=config.num_cores,
             machinefile_path=machinefile_path,
+            mpi_env=config.mpi_env,
             pod_key=config.pod_key,
         )
         log_path = output_dir / "starccm_flow_control.log"
@@ -1018,17 +1020,35 @@ def _build_starccm_command(
     *,
     num_cores: int,
     machinefile_path: Path | None = None,
+    mpi_env: tuple[str, ...] = (),
     pod_key: str,
 ) -> list[str]:
     command = [starccm_path]
     if machinefile_path is not None:
-        command += ["-machinefile", str(machinefile_path)]
+        command += ["-machinefile", str(machinefile_path), "-rsh", "ssh"]
     if num_cores > 1:
         command += ["-np", str(num_cores)]
+    normalized_mpi_env = _validate_mpi_env(mpi_env)
+    if normalized_mpi_env:
+        mppflags = " ".join(f"-x {item}" for item in normalized_mpi_env)
+        command += ["-mppflags", mppflags]
     if pod_key:
         command += ["-podkey", pod_key]
     command += ["-batch", str(macro_path), str(sim_path)]
     return command
+
+
+def _validate_mpi_env(values: tuple[str, ...]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for raw_value in values:
+        value = raw_value.strip()
+        name, separator, env_value = value.partition("=")
+        if not separator or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+            raise ValueError(f"MPI environment must use NAME=VALUE syntax, got {raw_value!r}")
+        if not env_value or any(character.isspace() for character in env_value):
+            raise ValueError(f"MPI environment value must be non-empty and contain no whitespace: {raw_value!r}")
+        normalized.append(value)
+    return tuple(dict.fromkeys(normalized))
 
 
 def _resolve_and_validate_machinefile(
