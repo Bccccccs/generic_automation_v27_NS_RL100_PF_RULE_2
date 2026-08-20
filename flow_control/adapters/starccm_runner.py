@@ -40,6 +40,7 @@ class FlowControlStarCCMRunConfig:
     output_dir: Path
     starccm_path: str = "starccm+"
     num_cores: int = 1
+    machinefile_path: Path | None = None
     pod_key: str = ""
     region_name: str = "Region"
     time_step: float | None = None
@@ -92,6 +93,13 @@ class FlowControlStarCCMRunner:
         if mode == "run" and not sim_path.exists():
             raise FileNotFoundError(f"STAR-CCM+ .sim file not found: {sim_path}")
 
+        if config.num_cores < 1:
+            raise ValueError(f"num_cores must be positive, got {config.num_cores}")
+        machinefile_path = _resolve_and_validate_machinefile(
+            config.machinefile_path,
+            num_cores=config.num_cores,
+        )
+
         output_dir.mkdir(parents=True, exist_ok=True)
         preflight_manifest_path: Path | None = None
         if config.manifest_template_path is not None:
@@ -136,6 +144,7 @@ class FlowControlStarCCMRunner:
             macro_path,
             sim_path,
             num_cores=config.num_cores,
+            machinefile_path=machinefile_path,
             pod_key=config.pod_key,
         )
         log_path = output_dir / "starccm_flow_control.log"
@@ -1008,15 +1017,71 @@ def _build_starccm_command(
     sim_path: Path,
     *,
     num_cores: int,
+    machinefile_path: Path | None = None,
     pod_key: str,
 ) -> list[str]:
     command = [starccm_path]
+    if machinefile_path is not None:
+        command += ["-machinefile", str(machinefile_path)]
     if num_cores > 1:
         command += ["-np", str(num_cores)]
     if pod_key:
         command += ["-podkey", pod_key]
     command += ["-batch", str(macro_path), str(sim_path)]
     return command
+
+
+def _resolve_and_validate_machinefile(
+    machinefile_path: Path | None,
+    *,
+    num_cores: int,
+) -> Path | None:
+    """Resolve a STAR machinefile and ensure it can host the requested ranks.
+
+    Gridview writes entries as ``hostname:slots``.  Open MPI-style
+    ``hostname slots=N`` entries and repeated bare hostnames are also accepted.
+    """
+
+    if machinefile_path is None:
+        return None
+    resolved = Path(machinefile_path).expanduser().resolve()
+    if not resolved.is_file():
+        raise FileNotFoundError(f"STAR-CCM+ machinefile not found: {resolved}")
+    slots = _machinefile_slot_count(resolved)
+    if slots < num_cores:
+        raise ValueError(
+            f"STAR-CCM+ machinefile provides {slots} slots, "
+            f"but num_cores requests {num_cores}: {resolved}"
+        )
+    return resolved
+
+
+def _machinefile_slot_count(machinefile_path: Path) -> int:
+    slots = 0
+    for line_number, raw_line in enumerate(
+        machinefile_path.read_text(encoding="utf-8").splitlines(),
+        start=1,
+    ):
+        line = raw_line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        first_token = line.split()[0]
+        gridview_match = re.fullmatch(r".+:(\d+)", first_token)
+        openmpi_match = re.search(r"(?:^|\s)slots\s*=\s*(\d+)(?:\s|$)", line)
+        if gridview_match is not None:
+            line_slots = int(gridview_match.group(1))
+        elif openmpi_match is not None:
+            line_slots = int(openmpi_match.group(1))
+        else:
+            line_slots = 1
+        if line_slots < 1:
+            raise ValueError(
+                f"invalid slot count on line {line_number} of STAR-CCM+ machinefile: {raw_line!r}"
+            )
+        slots += line_slots
+    if slots == 0:
+        raise ValueError(f"STAR-CCM+ machinefile contains no hosts: {machinefile_path}")
+    return slots
 
 
 def _run_starccm_command(

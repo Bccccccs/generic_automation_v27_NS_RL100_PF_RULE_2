@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     --schedule <case-dir>/input/actuation_schedule.csv \\
     --sim <template.sim> --out <case-dir>/raw_star \\
     --starccm-path '<starccm+>' --region <Region> \\
-    --time-step <dt> --np <cores> --execution-mode run
+    --time-step <dt> --np <cores> --machinefile <hosts.ma> --execution-mode run
 
   # 2. 只生成宏和运行计划，不启动 STAR-CCM+
   python scripts/workflow.py ccm \\
@@ -97,6 +97,14 @@ def main(argv: list[str] | None = None) -> int:
         help="STAR-CCM+ executable path. Defaults to $STARCCM_PATH or starccm+.",
     )
     parser.add_argument("--np", type=int, default=1, help="Number of STAR-CCM+ processes.")
+    parser.add_argument(
+        "--machinefile",
+        default=os.environ.get("STARCCM_MACHINEFILE", ""),
+        help=(
+            "STAR-CCM+ host allocation file. Supports Gridview hostname:slots "
+            "and Open MPI hostname slots=N formats. Defaults to $STARCCM_MACHINEFILE."
+        ),
+    )
     parser.add_argument("--podkey", default="", help="STAR-CCM+ pod key/license token.")
     parser.add_argument("--region", default="Region", help="Region containing STAR J01..J24 nozzle boundaries.")
     parser.add_argument(
@@ -173,6 +181,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=output_dir,
             starccm_path=args.starccm_path,
             num_cores=args.np,
+            machinefile_path=Path(args.machinefile) if args.machinefile else None,
             pod_key=args.podkey,
             region_name=args.region,
             manifest_template_path=Path(args.manifest_template) if args.manifest_template else None,
@@ -310,6 +319,11 @@ def _build_runtime_manifest(
         "star": star_metadata,
         "runtime": {
             "num_cores": int(args.np),
+            "machinefile": (
+                str(Path(args.machinefile).expanduser().resolve())
+                if getattr(args, "machinefile", "")
+                else ""
+            ),
             "podkey_set": bool(args.podkey),
             "region": str(args.region),
             "time_step_override": args.time_step,

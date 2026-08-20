@@ -128,8 +128,13 @@ python scripts/workflow.py ccm \
   --region <Region名称> \
   --time-step <求解器时间步> \
   --np <并行核数> \
+  --machinefile <STAR主机文件> \
   --execution-mode run
 ```
+
+多节点运行必须传入 `--machinefile`。Gridview 生成的主机文件可使用
+`主机名:slot数` 格式，例如 `c04r3n27:64`；runner 会在启动前检查
+machinefile 的总 slots 是否覆盖 `--np` 请求的进程数。
 
 建议每次重跑使用新的算例目录，避免旧 CSV 与本次输出混在一起。
 
@@ -234,6 +239,7 @@ python scripts/workflow.py ccm \
 | `--out` | STAR 工作目录，推荐固定为 `<case-dir>/raw_star` |
 | `--starccm-path` | STAR-CCM+ 可执行文件或 `.bat` 路径 |
 | `--np` | STAR 并行核数 |
+| `--machinefile` | 多节点主机与 slots 分配文件，也可通过 `STARCCM_MACHINEFILE` 设置 |
 | `--podkey` | 需要时传入许可证 POD key |
 | `--region` | STAR 中需要控制的 Region 名称 |
 | `--time-step` | 求解器物理时间步，应与动作配置一致 |

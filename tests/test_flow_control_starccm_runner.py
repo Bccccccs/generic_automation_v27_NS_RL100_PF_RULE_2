@@ -7,6 +7,7 @@ from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
     FlowControlStarCCMRunner,
     _read_schedule,
+    _machinefile_slot_count,
     build_flow_control_macro,
     _progress_from_starccm_line,
     _run_starccm_command,
@@ -163,6 +164,8 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     write_pattern_outputs(config, table, extra=extra)
     sim_path = tmp_path / "case.sim"
     sim_path.write_text("placeholder", encoding="utf-8")
+    machinefile_path = tmp_path / "hosts.ma"
+    machinefile_path.write_text("node01:2\nnode02:2\n", encoding="utf-8")
 
     result = FlowControlStarCCMRunner().run(
         FlowControlStarCCMRunConfig(
@@ -171,6 +174,7 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
             output_dir=tmp_path / "run",
             starccm_path="/path/to/starccm+",
             num_cores=4,
+            machinefile_path=machinefile_path,
             time_step=0.1,
             dry_run=True,
         )
@@ -180,7 +184,13 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
     assert result.runtime_plan_path.exists()
     assert result.timeseries_path == tmp_path / "run" / "timeseries.csv"
     assert result.returncode is None
-    assert result.command[:3] == ("/path/to/starccm+", "-np", "4")
+    assert result.command[:5] == (
+        "/path/to/starccm+",
+        "-machinefile",
+        str(machinefile_path.resolve()),
+        "-np",
+        "4",
+    )
     assert str(sim_path.resolve()) == result.command[-1]
     macro = result.macro_path.read_text(encoding="utf-8")
     assert '"total", "drag", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z"' in macro
@@ -191,6 +201,45 @@ def test_flow_control_runner_dry_run_writes_macro_and_plan(tmp_path):
         (0, 0.0, 0.2),
         (1, 0.2, 0.4),
     ]
+
+
+def test_machinefile_slot_count_supports_gridview_openmpi_and_repeated_hosts(tmp_path):
+    machinefile_path = tmp_path / "hosts.ma"
+    machinefile_path.write_text(
+        "c04r3n27:64\n"
+        "c04r3n28 slots=32\n"
+        "c05r4n21\n"
+        "c05r4n21\n",
+        encoding="utf-8",
+    )
+
+    assert _machinefile_slot_count(machinefile_path) == 98
+
+
+def test_flow_control_runner_rejects_machinefile_with_too_few_slots(tmp_path):
+    config = ActuationConfig(
+        mode="no_jet_reference",
+        total_windows=1,
+        window_duration=0.1,
+        output_dir=tmp_path / "schedule",
+    )
+    table, extra, errors = generate_pulse(config)
+    assert errors == []
+    write_pattern_outputs(config, table, extra=extra)
+    machinefile_path = tmp_path / "hosts.ma"
+    machinefile_path.write_text("node01:2\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="provides 2 slots.*requests 4"):
+        FlowControlStarCCMRunner().run(
+            FlowControlStarCCMRunConfig(
+                schedule_path=config.output_dir / "actuation_schedule.csv",
+                sim_path=tmp_path / "not-needed.sim",
+                output_dir=tmp_path / "run",
+                num_cores=4,
+                machinefile_path=machinefile_path,
+                dry_run=True,
+            )
+        )
 
 
 def test_package_only_packages_and_validates_in_one_mode(tmp_path):

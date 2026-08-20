@@ -73,6 +73,7 @@ def test_runtime_manifest_fills_starccm_version_and_sim_hash(tmp_path):
         sim=str(sim_path),
         starccm_path="/work/app/STAR-CCM+17.06.007-R8/star/bin/starccm+",
         np=8,
+        machinefile="/work/hosts.ma",
         podkey="",
         region="Region",
         time_step=None,
@@ -100,6 +101,7 @@ def test_runtime_manifest_fills_starccm_version_and_sim_hash(tmp_path):
     assert manifest["star"]["sim_file_name"] == "cifu0.sim"
     assert manifest["star"]["sim_file_hash_sha256"] == hashlib.sha256(b"template sim").hexdigest()
     assert manifest["runtime"]["num_cores"] == 8
+    assert manifest["runtime"]["machinefile"] == "/work/hosts.ma"
 
 
 def test_solver_time_step_is_read_separately_from_actuation_window(tmp_path):

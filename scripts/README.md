@@ -39,10 +39,13 @@ python scripts/workflow.py ccm \
   --region <Region名称> \
   --time-step <求解器物理时间步> \
   --np <并行核数> \
+  --machinefile <STAR主机文件> \
   --execution-mode run
 ```
 
-必需输入：动作表、STAR 模板 `.sim`、STAR 可执行文件。运行后会将输出放在 `<case-dir>/raw_star`，并自动整理到 `<case-dir>`。
+必需输入：动作表、STAR 模板 `.sim`、STAR 可执行文件。多节点运行还必须提供
+`--machinefile`；支持 Gridview 的 `主机名:slot数` 格式。运行后会将输出放在
+`<case-dir>/raw_star`，并自动整理到 `<case-dir>`。
 
 ### `ccm dry-run`：只生成宏和运行计划
 
