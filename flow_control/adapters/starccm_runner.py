@@ -7,6 +7,7 @@ import math
 import os
 import re
 import shutil
+import socket
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,7 +15,12 @@ from typing import Any
 
 from flow_control.adapters.starccm_adapter import FlowControlStarCCMAdapter
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
-from flow_control.star_ingest.manifest_builder import finalize_manifest, prepare_preflight_manifest
+from flow_control.star_ingest.manifest_builder import (
+    finalize_manifest,
+    finish_runtime_manifest,
+    prepare_preflight_manifest,
+    start_runtime_manifest,
+)
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC, JET_COLUMNS
 
 
@@ -42,6 +48,10 @@ class FlowControlStarCCMRunConfig:
     num_cores: int = 1
     machinefile_path: Path | None = None
     mpi_env: tuple[str, ...] = ()
+    scheduler: str = "manual"
+    scheduler_job_id: str = ""
+    allocated_nodes: tuple[str, ...] = ()
+    preflight_warnings: tuple[str, ...] = ()
     pod_key: str = ""
     region_name: str = "Region"
     time_step: float | None = None
@@ -65,6 +75,7 @@ class FlowControlStarCCMRunResult:
     returncode: int | None = None
     result_sim_path: Path | None = None
     timeseries_path: Path | None = None
+    manifest_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -159,6 +170,7 @@ class FlowControlStarCCMRunner:
                 command=tuple(command),
                 result_sim_path=result_sim_path if config.save_result_sim else None,
                 timeseries_path=timeseries_path,
+                manifest_path=output_dir / "case_manifest.yaml" if preflight_manifest_path else None,
             )
 
         # These modes intentionally do not invoke STAR.  They make it possible
@@ -176,13 +188,54 @@ class FlowControlStarCCMRunner:
             _print_progress(f"validate-only 完成，Case: {case_dir}")
             return FlowControlStarCCMRunResult(macro_path, runtime_plan_path, log_path, tuple(command), timeseries_path=timeseries_path)
 
+        runtime_manifest_path: Path | None = None
+        if preflight_manifest_path is not None:
+            runtime_manifest_path = output_dir / "case_manifest.yaml"
+            start_runtime_manifest(
+                preflight_path=preflight_manifest_path,
+                output_path=runtime_manifest_path,
+                star=_runtime_star_manifest(config, sim_path),
+                runtime=_runtime_execution_manifest(
+                    config,
+                    command=command,
+                    machinefile_path=machinefile_path,
+                    log_path=log_path,
+                    total_steps=_schedule_solver_steps(windows, config.time_step),
+                ),
+            )
+
         _print_progress(f"开始启动 STAR-CCM+，日志: {log_path}")
-        with log_path.open("w", encoding="utf-8") as log_file:
-            proc = _run_starccm_command(command, log_file=log_file, cwd=output_dir)
+        try:
+            with log_path.open("w", encoding="utf-8") as log_file:
+                proc = _run_starccm_command(command, log_file=log_file, cwd=output_dir)
+        except (Exception, KeyboardInterrupt) as exc:
+            if runtime_manifest_path is not None:
+                finish_runtime_manifest(
+                    manifest_path=runtime_manifest_path,
+                    status="failed",
+                    return_code=130 if isinstance(exc, KeyboardInterrupt) else -1,
+                    runtime_log_path=log_path,
+                    completed_steps=_csv_data_row_count(timeseries_path),
+                    failure_summary=(
+                        "STAR-CCM+ run interrupted by user"
+                        if isinstance(exc, KeyboardInterrupt)
+                        else str(exc)
+                    ),
+                )
+            raise
 
         if proc.returncode != 0:
             _print_progress(f"STAR-CCM+ 失败退出，返回码 {proc.returncode}")
             tail = _tail_text(log_path)
+            if runtime_manifest_path is not None:
+                finish_runtime_manifest(
+                    manifest_path=runtime_manifest_path,
+                    status="failed",
+                    return_code=proc.returncode,
+                    runtime_log_path=log_path,
+                    completed_steps=_csv_data_row_count(timeseries_path),
+                    failure_summary=tail,
+                )
             raise RuntimeError(
                 f"STAR-CCM+ exited with code {proc.returncode}. Log: {log_path}\n"
                 f"--- last log lines ---\n{tail}"
@@ -191,12 +244,35 @@ class FlowControlStarCCMRunner:
         if preflight_manifest_path is not None:
             snapshot_path = output_dir / "sim_template_snapshot.yaml"
             if not snapshot_path.is_file():
+                if runtime_manifest_path is not None:
+                    finish_runtime_manifest(
+                        manifest_path=runtime_manifest_path,
+                        status="failed",
+                        return_code=proc.returncode,
+                        runtime_log_path=log_path,
+                        completed_steps=_csv_data_row_count(timeseries_path),
+                        failure_summary=f"STAR completed without required template snapshot: {snapshot_path}",
+                    )
                 raise RuntimeError(f"STAR completed without required template snapshot: {snapshot_path}")
             finalize_manifest(
                 preflight_path=preflight_manifest_path,
                 snapshot_path=snapshot_path,
                 output_path=output_dir / "case_manifest.yaml",
                 runtime_log_path=log_path,
+            )
+            finish_runtime_manifest(
+                manifest_path=output_dir / "case_manifest.yaml",
+                status="completed",
+                return_code=proc.returncode,
+                runtime_log_path=log_path,
+                completed_steps=_csv_data_row_count(timeseries_path),
+                outputs={
+                    "result_sim": str(result_sim_path) if config.save_result_sim else "",
+                    "timeseries": str(timeseries_path),
+                    "runtime_log": str(log_path),
+                    "runtime_plan": str(runtime_plan_path),
+                    "macro": str(macro_path),
+                },
             )
 
         if not config.keep_macro:
@@ -211,6 +287,7 @@ class FlowControlStarCCMRunner:
             returncode=proc.returncode,
             result_sim_path=result_sim_path if config.save_result_sim else None,
             timeseries_path=timeseries_path,
+            manifest_path=runtime_manifest_path,
         )
 
 
@@ -1036,6 +1113,63 @@ def _build_starccm_command(
         command += ["-podkey", pod_key]
     command += ["-batch", str(macro_path), str(sim_path)]
     return command
+
+
+def _runtime_star_manifest(config: FlowControlStarCCMRunConfig, sim_path: Path) -> dict[str, Any]:
+    version_match = re.search(
+        r"STAR-CCM\+(?P<version>\d+(?:\.\d+)+(?:-R\d+)?)",
+        str(config.starccm_path),
+        re.IGNORECASE,
+    )
+    return {
+        "executable": str(config.starccm_path),
+        "version": version_match.group("version") if version_match else "unknown",
+        "version_source": "starccm_executable_path_pending_runtime_confirmation",
+        "sim_file": str(sim_path),
+    }
+
+
+def _runtime_execution_manifest(
+    config: FlowControlStarCCMRunConfig,
+    *,
+    command: list[str],
+    machinefile_path: Path | None,
+    log_path: Path,
+    total_steps: int | None,
+) -> dict[str, Any]:
+    nodes = list(config.allocated_nodes)
+    runtime: dict[str, Any] = {
+        "scheduler": config.scheduler,
+        "slurm_job_id": config.scheduler_job_id,
+        "batch_host": socket.gethostname().split(".", 1)[0],
+        "nodes": nodes,
+        "node_count": len(nodes) if nodes else None,
+        "requested_processes": config.num_cores,
+        "machinefile": str(machinefile_path) if machinefile_path is not None else "",
+        "mpi_environment": dict(item.split("=", 1) for item in _validate_mpi_env(config.mpi_env)),
+        "region": config.region_name,
+        "time_step": config.time_step,
+        "total_steps": total_steps,
+        "command": list(command),
+        "runtime_log": str(log_path),
+        "preflight_warnings": list(config.preflight_warnings),
+    }
+    if nodes and config.num_cores % len(nodes) == 0:
+        runtime["processes_per_node"] = config.num_cores // len(nodes)
+    return runtime
+
+
+def _schedule_solver_steps(windows: list[_ScheduleWindow], time_step: float | None) -> int | None:
+    if time_step is None or time_step <= 0.0:
+        return None
+    return sum(max(1, int(round(window.duration / time_step))) for window in windows)
+
+
+def _csv_data_row_count(path: Path) -> int:
+    if not path.is_file():
+        return 0
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        return max(sum(1 for _ in handle) - 1, 0)
 
 
 def _validate_mpi_env(values: tuple[str, ...]) -> tuple[str, ...]:

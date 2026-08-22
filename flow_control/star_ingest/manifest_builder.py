@@ -36,6 +36,74 @@ def prepare_preflight_manifest(*, template_path: Path, sim_path: Path, schedule_
     return target
 
 
+def start_runtime_manifest(
+    *,
+    preflight_path: Path,
+    output_path: Path,
+    star: dict[str, Any],
+    runtime: dict[str, Any],
+) -> Path:
+    """Create the visible manifest before launching STAR and retain preflight data."""
+
+    data = _read_mapping(preflight_path)
+    data["star"] = {**dict(data.get("star") or {}), **star}
+    runtime_data = {**dict(data.get("runtime") or {}), **runtime}
+    runtime_data["status"] = "running"
+    runtime_data["started_at"] = datetime.now(timezone.utc).isoformat()
+    runtime_data.setdefault("finished_at", None)
+    runtime_data.setdefault("elapsed_seconds", None)
+    runtime_data.setdefault("return_code", None)
+    data["runtime"] = runtime_data
+    data["manifest_status"] = "runtime_running_pending_star_template_snapshot"
+    _write_yaml(preflight_path, data)
+    _write_yaml(output_path, data)
+    return output_path
+
+
+def finish_runtime_manifest(
+    *,
+    manifest_path: Path,
+    status: str,
+    return_code: int,
+    runtime_log_path: Path | None = None,
+    completed_steps: int | None = None,
+    outputs: dict[str, Any] | None = None,
+    failure_summary: str = "",
+) -> Path:
+    """Finalize runtime fields after either a successful or failed STAR launch."""
+
+    if status not in {"completed", "failed"}:
+        raise ValueError(f"unsupported runtime status: {status!r}")
+    data = _read_mapping(manifest_path)
+    runtime = dict(data.get("runtime") or {})
+    finished_at = datetime.now(timezone.utc)
+    runtime["status"] = status
+    runtime["finished_at"] = finished_at.isoformat()
+    runtime["return_code"] = int(return_code)
+    started_at = _parse_datetime(runtime.get("started_at"))
+    if started_at is not None:
+        runtime["elapsed_seconds"] = round((finished_at - started_at).total_seconds(), 3)
+    if completed_steps is not None:
+        runtime["completed_steps"] = int(completed_steps)
+        total_steps = runtime.get("total_steps")
+        if isinstance(total_steps, int) and total_steps > 0:
+            runtime["progress_percent"] = round(min(completed_steps / total_steps * 100.0, 100.0), 3)
+    if failure_summary:
+        runtime["failure_summary"] = failure_summary[-4000:]
+        runtime["failure_type"] = classify_star_failure(failure_summary)
+    data["runtime"] = runtime
+    if outputs:
+        data["outputs"] = {**dict(data.get("outputs") or {}), **outputs}
+    if runtime_log_path is not None and runtime_log_path.is_file():
+        metadata = read_star_runtime_metadata(runtime_log_path)
+        if metadata:
+            _attach_runtime_metadata(data, metadata)
+    if status == "failed":
+        data["manifest_status"] = "runtime_failed"
+    _write_yaml(manifest_path, data)
+    return manifest_path
+
+
 def finalize_manifest(
     *,
     preflight_path: Path,
@@ -106,7 +174,40 @@ def read_star_runtime_metadata(log_path: Path) -> dict[str, Any]:
             "total_faces": sum(region["faces"] for region in regions),
             "total_vertices": sum(region["vertices"] for region in regions),
         }
+    parallel = _read_parallel_metadata(text)
+    if parallel:
+        metadata["parallel"] = parallel
+    license_match = re.search(r"\bcopy of\s+(?P<feature>\S+)\s+checked out\b", text, re.IGNORECASE)
+    if license_match:
+        metadata["license"] = {
+            "feature": license_match.group("feature"),
+            "source": "starccm_runtime_log",
+        }
+    server_match = re.search(r"Server::start\s+-host\s+(?P<host>[^:\s]+):(?P<port>\d+)", text)
+    if server_match:
+        metadata["server"] = {
+            "host": server_match.group("host"),
+            "port": int(server_match.group("port")),
+            "source": "starccm_runtime_log",
+        }
     return metadata
+
+
+def classify_star_failure(text: str) -> str:
+    lowered = text.lower()
+    patterns = (
+        ("interrupted", "interrupted by user"),
+        ("mpi_pml_mismatch", "selected pml"),
+        ("ucx_initialization", "failed to create ucp"),
+        ("slurm_access_denied", "pam_slurm_adopt"),
+        ("license_failure", "license"),
+        ("mpi_failure", "mpi_errors_are_fatal"),
+        ("missing_input", "no such file or directory"),
+    )
+    for failure_type, marker in patterns:
+        if marker in lowered:
+            return failure_type
+    return "starccm_nonzero_exit"
 
 
 def _version_record(match: re.Match[str]) -> dict[str, str]:
@@ -127,6 +228,7 @@ def _attach_runtime_metadata(data: dict[str, Any], metadata: dict[str, Any]) -> 
     runtime = dict(metadata.get("runtime") or {})
     saved_by = dict(metadata.get("input_sim_saved_by") or {})
     mesh = dict(metadata.get("mesh") or {})
+    parallel = dict(metadata.get("parallel") or {})
 
     if runtime:
         star["version"] = runtime["release_version"]
@@ -156,7 +258,90 @@ def _attach_runtime_metadata(data: dict[str, Any], metadata: dict[str, Any]) -> 
         data["mesh_version"] = mesh_version
         data["mesh_metadata"] = mesh
     data["star"] = star
+    if parallel:
+        runtime = dict(data.get("runtime") or {})
+        if "total_processes" in parallel:
+            runtime["actual_processes"] = parallel["total_processes"]
+        if "mpi_distribution" in parallel:
+            runtime["mpi_distribution"] = parallel["mpi_distribution"]
+        if "hosts" in parallel:
+            runtime["actual_process_distribution"] = parallel["hosts"]
+        runtime["parallel_source"] = parallel.get("source")
+        data["runtime"] = runtime
+    if metadata.get("license"):
+        star["license"] = metadata["license"]
+    if metadata.get("server"):
+        runtime = dict(data.get("runtime") or {})
+        runtime["server"] = metadata["server"]
+        data["runtime"] = runtime
+    data["star"] = star
     data["star_runtime_metadata"] = metadata
+
+
+def _read_parallel_metadata(text: str) -> dict[str, Any]:
+    patterns = (
+        r"Total number of processes\s*[:=]\s*(\d+)",
+        r"total processes\s*[:=]\s*(\d+)",
+        r"MPI[^\n]*?\bprocesses\s*[:=]\s*(\d+)",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            metadata: dict[str, Any] = {
+                "total_processes": int(match.group(1)),
+                "source": "starccm_runtime_log",
+            }
+            mpi_match = re.search(r"MPI Distribution\s*:\s*(.+)", text, re.IGNORECASE)
+            if mpi_match:
+                metadata["mpi_distribution"] = mpi_match.group(1).strip()
+            hosts: list[dict[str, Any]] = []
+            host_pattern = re.compile(
+                r"^Host\s+(?P<index>\d+)\s+--\s+(?P<host>\S+)\s+--\s+"
+                r"Ranks\s+(?P<first>\d+)-(?P<last>\d+)\s*$",
+                re.MULTILINE,
+            )
+            for host_match in host_pattern.finditer(text):
+                first_rank = int(host_match.group("first"))
+                last_rank = int(host_match.group("last"))
+                hosts.append(
+                    {
+                        "index": int(host_match.group("index")),
+                        "host": host_match.group("host"),
+                        "first_rank": first_rank,
+                        "last_rank": last_rank,
+                        "rank_count": last_rank - first_rank + 1,
+                    }
+                )
+            if hosts:
+                metadata["hosts"] = hosts
+            return metadata
+    return {}
+
+
+def _read_mapping(path: Path) -> dict[str, Any]:
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"manifest must be a mapping: {path}")
+    return data
+
+
+def _write_yaml(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+    temporary.replace(path)
+
+
+def _parse_datetime(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _sha256(path: Path) -> str:

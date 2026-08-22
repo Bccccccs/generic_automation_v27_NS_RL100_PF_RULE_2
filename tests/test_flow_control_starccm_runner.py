@@ -1,7 +1,9 @@
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import pytest
+import yaml
 
 from flow_control.adapters.starccm_runner import (
     FlowControlStarCCMRunConfig,
@@ -267,6 +269,57 @@ def test_flow_control_runner_rejects_machinefile_with_too_few_slots(tmp_path):
                 dry_run=True,
             )
         )
+
+
+def test_flow_control_runner_records_runtime_manifest_lifecycle(tmp_path):
+    config = ActuationConfig(
+        mode="no_jet_reference",
+        total_windows=1,
+        window_duration=0.1,
+        time_step=0.1,
+        output_dir=tmp_path / "schedule",
+    )
+    table, extra, errors = generate_pulse(config)
+    assert errors == []
+    write_pattern_outputs(config, table, extra=extra)
+    sim_path = tmp_path / "case.sim"
+    sim_path.write_text("placeholder", encoding="utf-8")
+    template = tmp_path / "manifest_template.yaml"
+    template.write_text("schema_version: test\n", encoding="utf-8")
+    output_dir = tmp_path / "run"
+
+    def fake_run(command, *, log_file, cwd):
+        log_file.write(
+            "Simcenter STAR-CCM+ 2210 Build 17.06.007 (linux-x86_64-r8)\n"
+            "Total number of processes: 4\n"
+        )
+        (cwd / "sim_template_snapshot.yaml").write_text("snapshot_status: ok\n", encoding="utf-8")
+        (cwd / "timeseries.csv").write_text("physical_time\n0.1\n", encoding="utf-8")
+        return SimpleNamespace(returncode=0)
+
+    with patch("flow_control.adapters.starccm_runner._run_starccm_command", side_effect=fake_run):
+        result = FlowControlStarCCMRunner().run(
+            FlowControlStarCCMRunConfig(
+                schedule_path=config.output_dir / "actuation_schedule.csv",
+                sim_path=sim_path,
+                output_dir=output_dir,
+                starccm_path="/apps/STAR-CCM+17.06.007-R8/star/bin/starccm+",
+                num_cores=4,
+                scheduler="slurm",
+                scheduler_job_id="42",
+                allocated_nodes=("n01", "n02"),
+                time_step=0.1,
+                manifest_template_path=template,
+            )
+        )
+
+    assert result.manifest_path == output_dir / "case_manifest.yaml"
+    manifest = yaml.safe_load(result.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["runtime"]["status"] == "completed"
+    assert manifest["runtime"]["actual_processes"] == 4
+    assert manifest["runtime"]["nodes"] == ["n01", "n02"]
+    assert manifest["runtime"]["completed_steps"] == 1
+    assert manifest["star"]["version"] == "17.06.007-R8"
 
 
 def test_package_only_packages_and_validates_in_one_mode(tmp_path):

@@ -36,6 +36,12 @@ def _ccm(argv: list[str]) -> int:
     return main(argv)
 
 
+def _ccm_status(argv: list[str]) -> int:
+    from flow_control.cli.ccm_status import main
+
+    return main(argv)
+
+
 def _organize(argv: list[str]) -> int:
     from flow_control.cli.organize_outputs import main
 
@@ -58,6 +64,7 @@ COMMANDS: dict[str, tuple[str, Callable[[list[str]], int]]] = {
     "actions": ("根据 YAML 生成动作表", _actions),
     "mock": ("对动作输入运行 MockDynamic24x6", _mock),
     "ccm": ("生成宏、运行 STAR-CCM+ 或打包/校验已有结果", _ccm),
+    "ccm-status": ("查看 STAR-CCM+ 的 Slurm、MPI、Step 和错误状态", _ccm_status),
     "organize": ("将 CCM 输出整理为标准 Case", _organize),
     "check": ("执行质量检查并生成诊断 PNG", _check),
     "figures": ("根据标准 Case 生成 5 张 SVG 汇总图", _figures),

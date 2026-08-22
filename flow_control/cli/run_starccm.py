@@ -30,7 +30,7 @@ from flow_control.adapters.starccm_runner import (
 )
 from flow_control.generator import generate_from_yaml
 from flow_control.sampling import resolve_schedule_time_step
-from flow_control.slurm import resolve_slurm_allocation
+from flow_control.slurm import preflight_slurm_allocation, resolve_slurm_allocation
 from flow_control.star_ingest.output_organizer import organize_ccm_outputs
 from flow_control.star_ingest.case_data_loader import current_git_commit
 
@@ -176,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
     execution_mode = "dry-run" if args.dry_run else args.execution_mode
 
     output_dir = Path(args.out)
+    allocated_nodes: tuple[str, ...] = ()
+    preflight_warnings: tuple[str, ...] = ()
     if args.scheduler == "slurm":
         if args.machinefile:
             parser.error("--machinefile cannot be combined with --scheduler slurm")
@@ -187,10 +189,18 @@ def main(argv: list[str] | None = None) -> int:
         args.np = allocation.num_tasks
         args.machinefile = str(allocation.machinefile_path)
         args.slurm_job_id = allocation.job_id
+        allocated_nodes = allocation.nodes
         print(
             f"[flow_control] Slurm job={allocation.job_id} nodes={len(allocation.nodes)} "
             f"processes={allocation.num_tasks} machinefile={allocation.machinefile_path}"
         )
+        if execution_mode == "run":
+            print("[flow_control] Slurm 预检：检查节点 SSH 和已有 STAR 进程")
+            preflight = preflight_slurm_allocation(allocation)
+            print(f"[flow_control] Slurm 预检通过：{len(allocation.nodes)} 个节点均可访问")
+            preflight_warnings = preflight.warnings
+            for warning in preflight_warnings:
+                print(f"[flow_control] 预检警告：{warning}")
     else:
         if args.slurm_job_id:
             parser.error("--slurm-job-id requires --scheduler slurm")
@@ -198,7 +208,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.machinefile:
             args.machinefile = os.environ.get("STARCCM_MACHINEFILE", "")
 
-    mpi_env = _resolve_mpi_env(args.mpi_env)
+    mpi_env = _resolve_mpi_env(args.mpi_env, scheduler=args.scheduler)
     args.mpi_env = list(mpi_env)
     standard_case_dir = _standard_case_dir_for_output(output_dir)
     # 确定激励计划 CSV 的路径：来自已有文件或实时生成
@@ -226,6 +236,10 @@ def main(argv: list[str] | None = None) -> int:
             num_cores=args.np,
             machinefile_path=Path(args.machinefile) if args.machinefile else None,
             mpi_env=mpi_env,
+            scheduler=args.scheduler,
+            scheduler_job_id=args.slurm_job_id,
+            allocated_nodes=allocated_nodes,
+            preflight_warnings=preflight_warnings,
             pod_key=args.podkey,
             region_name=args.region,
             manifest_template_path=Path(args.manifest_template) if args.manifest_template else None,
@@ -277,19 +291,24 @@ def main(argv: list[str] | None = None) -> int:
     print("command:", " ".join(result.command))
     if result.result_sim_path is not None:
         print(f"result_sim: {result.result_sim_path}")
+    if result.manifest_path is not None:
+        print(f"manifest: {result.manifest_path}")
     if result.returncode is not None:
         print(f"returncode: {result.returncode}")
     return 0
 
 
-def _resolve_mpi_env(explicit_values: list[str]) -> tuple[str, ...]:
+def _resolve_mpi_env(explicit_values: list[str], *, scheduler: str = "manual") -> tuple[str, ...]:
     """Include explicit MPI variables and the cluster UCX workaround when exported."""
 
     values = list(explicit_values)
-    if os.environ.get("UCX_DC_MLX5_NUM_DCI") and not any(
+    has_ucx_dci = any(
         value.partition("=")[0] == "UCX_DC_MLX5_NUM_DCI" for value in values
-    ):
+    )
+    if not has_ucx_dci and os.environ.get("UCX_DC_MLX5_NUM_DCI"):
         values.append(f"UCX_DC_MLX5_NUM_DCI={os.environ['UCX_DC_MLX5_NUM_DCI']}")
+    elif not has_ucx_dci and scheduler == "slurm":
+        values.append("UCX_DC_MLX5_NUM_DCI=8")
     return tuple(values)
 
 
@@ -373,6 +392,7 @@ def _build_runtime_manifest(
         "mesh_version": star_metadata["mesh_version"],
         "star": star_metadata,
         "runtime": {
+            **dict(base.get("runtime") or {}),
             "num_cores": int(args.np),
             "scheduler": getattr(args, "scheduler", "manual"),
             "slurm_job_id": getattr(args, "slurm_job_id", ""),

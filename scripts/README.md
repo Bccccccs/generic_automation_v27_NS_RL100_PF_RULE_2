@@ -6,7 +6,7 @@
 python scripts/workflow.py --help
 ```
 
-六个子命令为 `actions`、`mock`、`ccm`、`organize`、`check` 和 `figures`。
+七个子命令为 `actions`、`mock`、`ccm`、`ccm-status`、`organize`、`check` 和 `figures`。
 子命令必须放在选项前面。例如生成动作表时使用：
 
 ```bash
@@ -50,7 +50,6 @@ python scripts/workflow.py ccm \
 已有 Slurm/Gridview 运行作业时，可以让脚本自动生成 hostfile 并推导核数：
 
 ```bash
-export UCX_DC_MLX5_NUM_DCI=8
 python scripts/workflow.py ccm \
   --schedule <case-dir>/input/actuation_schedule.csv \
   --sim <template.sim> --out <case-dir>/raw_star \
@@ -60,7 +59,18 @@ python scripts/workflow.py ccm \
 ```
 
 脚本依次使用 `--slurm-job-id`、`SLURM_JOB_ID`，或查找节点列表包含当前主机的
-唯一运行作业。自动识别不唯一时，请显式传入 Job ID。
+唯一运行作业。自动识别不唯一时，请显式传入 Job ID。Slurm 模式自动设置
+`UCX_DC_MLX5_NUM_DCI=8`、验证全部节点 SSH，并把运行节点、MPI、版本、时间、
+退出码和输出信息写入 `<case-dir>/raw_star/case_manifest.yaml`。
+
+### `ccm-status`：统一监控 Slurm、MPI 和计算进度
+
+```bash
+python scripts/workflow.py ccm-status --out <case-dir>/raw_star
+```
+
+该命令显示 Job 状态、STAR 实际版本、节点、请求/实际 MPI 数、当前 step、百分比
+和近期错误，并把最新状态快照写回 `case_manifest.yaml`。
 
 ### `ccm dry-run`：只生成宏和运行计划
 

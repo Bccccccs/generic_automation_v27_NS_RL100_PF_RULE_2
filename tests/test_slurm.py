@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from flow_control.slurm import resolve_slurm_allocation
+from flow_control.slurm import SlurmAllocation, preflight_slurm_allocation, resolve_slurm_allocation
 
 
 def test_resolve_slurm_allocation_writes_machinefile(tmp_path):
@@ -52,3 +52,23 @@ def test_resolve_slurm_allocation_requires_running_job(tmp_path):
         pytest.raises(RuntimeError, match="not RUNNING"),
     ):
         resolve_slurm_allocation(tmp_path, job_id="42")
+
+
+def test_slurm_preflight_checks_every_node_and_reports_existing_star_processes(tmp_path, monkeypatch):
+    monkeypatch.setenv("USER", "researcher")
+    allocation = SlurmAllocation(
+        job_id="42",
+        nodes=("n01", "n02"),
+        num_tasks=128,
+        machinefile_path=tmp_path / "hosts_42.ma",
+    )
+
+    def fake_run(command):
+        node = command[5]
+        return f"{node}\n" + ("3\n" if node == "n01" else "0\n")
+
+    with patch("flow_control.slurm._run", side_effect=fake_run):
+        result = preflight_slurm_allocation(allocation)
+
+    assert result.existing_star_process_counts == {"n01": 3, "n02": 0}
+    assert "n01=3" in result.warnings[0]

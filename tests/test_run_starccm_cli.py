@@ -5,6 +5,7 @@ import hashlib
 from flow_control.cli.run_starccm import (
     _build_runtime_manifest,
     _prepare_organize_output,
+    _resolve_mpi_env,
     _runtime_report_names,
     _standard_case_dir_for_output,
 )
@@ -32,6 +33,15 @@ def test_runtime_reports_always_include_standard_outputs_and_append_extras():
     assert "fc_load_S3R" in reports
     assert reports[-1] == "custom_pressure"
     assert reports.count("drag") == 1
+
+
+def test_slurm_mode_adds_tested_ucx_setting_without_manual_export(monkeypatch):
+    monkeypatch.delenv("UCX_DC_MLX5_NUM_DCI", raising=False)
+
+    assert _resolve_mpi_env([], scheduler="slurm") == ("UCX_DC_MLX5_NUM_DCI=8",)
+    assert _resolve_mpi_env(["UCX_DC_MLX5_NUM_DCI=4"], scheduler="slurm") == (
+        "UCX_DC_MLX5_NUM_DCI=4",
+    )
 
 
 def test_prepare_organize_output_collects_csv_without_large_solver_files(tmp_path):

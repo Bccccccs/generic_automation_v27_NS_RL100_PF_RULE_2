@@ -18,6 +18,12 @@ class SlurmAllocation:
     machinefile_path: Path
 
 
+@dataclass(frozen=True)
+class SlurmPreflight:
+    existing_star_process_counts: dict[str, int]
+    warnings: tuple[str, ...]
+
+
 def resolve_slurm_allocation(
     output_dir: Path,
     *,
@@ -82,6 +88,43 @@ def resolve_slurm_allocation(
         num_tasks=requested_tasks,
         machinefile_path=machinefile_path,
     )
+
+
+def preflight_slurm_allocation(allocation: SlurmAllocation) -> SlurmPreflight:
+    """Verify SSH access to every allocated node and report existing STAR processes."""
+
+    user = os.environ.get("USER", "").strip()
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", user):
+        raise RuntimeError("cannot run Slurm preflight because USER is unset or invalid")
+    counts: dict[str, int] = {}
+    for node in allocation.nodes:
+        output = _run(
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=5",
+                node,
+                f"hostname; pgrep -u {user} -af '[s]tar-ccm|[s]tarccm' | wc -l",
+            ]
+        )
+        lines = [line.strip() for line in output.splitlines() if line.strip()]
+        remote_host = lines[0].split(".", 1)[0] if lines else ""
+        if remote_host != node.split(".", 1)[0]:
+            raise RuntimeError(
+                f"Slurm preflight expected host {node}, SSH returned {remote_host or 'no hostname'}"
+            )
+        counts[node] = int(lines[-1]) if len(lines) > 1 and lines[-1].isdigit() else 0
+    warnings: list[str] = []
+    active = {node: count for node, count in counts.items() if count > 0}
+    if active:
+        summary = ", ".join(f"{node}={count}" for node, count in active.items())
+        warnings.append(
+            "existing STAR-related processes were detected before launch; "
+            f"verify that no duplicate calculation is running ({summary})"
+        )
+    return SlurmPreflight(existing_star_process_counts=counts, warnings=tuple(warnings))
 
 
 def _discover_job_for_current_host() -> str:

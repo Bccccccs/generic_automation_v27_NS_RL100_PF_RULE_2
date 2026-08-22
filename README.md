@@ -139,8 +139,6 @@ machinefile 的总 slots 是否覆盖 `--np` 请求的进程数。
 如果节点由 Slurm/Gridview 作业分配，可以让脚本自动选择资源：
 
 ```bash
-export UCX_DC_MLX5_NUM_DCI=8
-
 python scripts/workflow.py ccm \
   --schedule <case-dir>/input/actuation_schedule.csv \
   --sim <模板.sim> \
@@ -153,8 +151,27 @@ python scripts/workflow.py ccm \
 Slurm 模式按顺序使用 `--slurm-job-id`、`SLURM_JOB_ID`，或自动查找节点列表
 包含当前主机的唯一运行作业。脚本会读取分配的节点和任务数，在 `--out`
 目录生成 `hosts_<job-id>.ma`，并自动设置 `--np`。若自动识别结果不唯一，
-显式增加 `--slurm-job-id <ID>`。已导出的 `UCX_DC_MLX5_NUM_DCI` 会通过
-MPI `-x` 传到所有远端进程；其他变量可重复使用 `--mpi-env NAME=VALUE`。
+显式增加 `--slurm-job-id <ID>`。Slurm 模式默认将已验证的
+`UCX_DC_MLX5_NUM_DCI=8` 通过 MPI `-x` 传到所有远端进程；显式的环境变量或
+`--mpi-env UCX_DC_MLX5_NUM_DCI=<值>` 可以覆盖它。启动前还会验证所有节点的
+SSH 连通性，并报告已有 STAR 相关进程，避免不知情地重复启动计算。
+
+运行期间可以用统一状态命令查看 Slurm、MPI、step、进度和近期错误：
+
+```bash
+python scripts/workflow.py ccm-status --out <case-dir>/raw_star
+```
+
+持续监控可使用：
+
+```bash
+watch -n 10 'python scripts/workflow.py ccm-status --out <case-dir>/raw_star --tail 2'
+```
+
+`case_manifest.yaml` 会在 STAR 启动前写入。它记录 STAR 路径和待确认版本、
+Slurm Job ID、节点、MPI 进程数、UCX 参数、命令、总 step 和开始时间；成功后
+从 STAR 日志补充实际版本、许可证 feature、服务器、实际 MPI 数、结束时间、
+耗时和输出文件。失败时同样保留 manifest，并记录退出码和失败分类。
 
 建议每次重跑使用新的算例目录，避免旧 CSV 与本次输出混在一起。
 
