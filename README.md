@@ -1,5 +1,7 @@
 # Flow Control 喷气算例使用手册
 
+服务器上从动作生成、Slurm 节点检查、CCM dry-run 到正式运行和结果验收的完整人工流程，见 [`docs/MANUAL_STAR_CCM_RUN_WORKFLOW.md`](docs/MANUAL_STAR_CCM_RUN_WORKFLOW.md)。
+
 本项目用于完成喷气动作生成、STAR-CCM+ 求解、原始输出收集、标准化整理、质量检查和结果作图。所有用户命令统一从下面的入口执行：
 
 ```bash
