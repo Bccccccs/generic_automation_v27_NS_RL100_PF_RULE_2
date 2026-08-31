@@ -147,6 +147,28 @@ def test_reports_non_monotonic_time(tmp_path):
     assert any("not strictly increasing" in issue["message"] for issue in report["categories"]["format_errors"])
 
 
+def test_shorter_timeseries_is_a_non_blocking_partial_run_warning(tmp_path):
+    case_dir = _write_case(tmp_path, rows=_rows()[:3])
+    boundary_path = tmp_path / "boundary.csv"
+    report_path = tmp_path / "reports.csv"
+    _write_boundary_mapping(boundary_path)
+    _write_report_mapping(report_path)
+
+    report = check_case(case_dir, boundary_mapping_path=boundary_path, report_mapping_path=report_path)
+
+    issue = next(
+        issue
+        for issue in report["categories"]["format_errors"]
+        if "partial run" in issue["message"]
+    )
+    assert issue["severity"] == "warning"
+    assert issue["timeseries_rows"] == 3
+    assert issue["schedule_rows"] == 4
+    assert issue["completion_ratio"] == 0.75
+    assert report["summary"]["blocking_issue_count"] == 0
+    assert report["summary"]["run_success_flag"] is True
+
+
 def test_reports_off_jet_actual_massflow_leak(tmp_path):
     case_dir = _write_case(tmp_path, rows=_rows(bad_massflow=True))
     boundary_path = tmp_path / "boundary.csv"

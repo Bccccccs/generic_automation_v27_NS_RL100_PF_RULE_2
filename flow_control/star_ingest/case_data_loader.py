@@ -868,6 +868,21 @@ def _attach_physics_consistency_to_quality_report(
     quality_report["num_physics_blocking_issues"] = int(
         physics_report.get("summary", {}).get("blocking_issue_count", 0)
     )
+    format_warnings = [
+        issue
+        for issue in physics_report.get("categories", {}).get("format_errors", [])
+        if issue.get("severity") == "warning"
+    ]
+    if format_warnings:
+        warnings = quality_report.setdefault("warnings", [])
+        for issue in format_warnings:
+            detail = issue.get("message", "physics consistency warning")
+            rows = issue.get("timeseries_rows")
+            expected_rows = issue.get("schedule_rows")
+            if rows is not None and expected_rows is not None:
+                detail += f" ({rows}/{expected_rows} rows)"
+            warnings.append(detail)
+        quality_report["num_warnings"] = len(warnings)
     quality_report["run_success_flag"] = bool(quality_report.get("run_success_flag")) and bool(
         physics_report.get("summary", {}).get("run_success_flag")
     )

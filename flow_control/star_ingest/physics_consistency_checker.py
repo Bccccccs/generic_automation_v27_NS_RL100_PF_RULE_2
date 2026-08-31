@@ -297,14 +297,31 @@ def _check_monotonic_time(report: dict[str, Any], rows: list[dict[str, Any]], so
 
 def _check_time_alignment(report: dict[str, Any], timeseries: list[dict[str, Any]], schedule: list[dict[str, Any]], tol: float) -> None:
     if len(timeseries) != len(schedule):
-        _add_issue(
-            report,
-            "format_errors",
-            "error",
-            "timeseries.csv and actuation_schedule.csv row counts differ",
-            timeseries_rows=len(timeseries),
-            schedule_rows=len(schedule),
-        )
+        if len(timeseries) < len(schedule):
+            result_end = _num(timeseries[-1].get("physical_time")) if timeseries else None
+            schedule_end = _num(
+                schedule[-1].get("t_end", schedule[-1].get("physical_time"))
+            )
+            _add_issue(
+                report,
+                "format_errors",
+                "warning",
+                "timeseries.csv ends before actuation_schedule.csv; treating the result as a partial run",
+                timeseries_rows=len(timeseries),
+                schedule_rows=len(schedule),
+                completion_ratio=len(timeseries) / len(schedule) if schedule else 0.0,
+                result_end_time=result_end,
+                scheduled_end_time=schedule_end,
+            )
+        else:
+            _add_issue(
+                report,
+                "format_errors",
+                "error",
+                "timeseries.csv contains more rows than actuation_schedule.csv",
+                timeseries_rows=len(timeseries),
+                schedule_rows=len(schedule),
+            )
     checks = min(len(timeseries), len(schedule))
     start_matches = 0
     end_matches = 0
