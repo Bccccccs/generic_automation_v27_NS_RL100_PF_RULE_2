@@ -37,6 +37,8 @@ from typing import Any
 
 import yaml
 
+from flow_control.sampling import ACTUATION_TIME_COLUMN
+
 from starccm.control.control_spec import (
     GLOBAL_OUTPUT_COLUMNS,
     JET_COLUMNS,
@@ -72,7 +74,32 @@ MANIFEST_REQUIRED_FIELDS = (
     "random_seed",       # 随机种子
     "git_commit",        # Git commit hash
     "created_time",      # 创建时间 (ISO 8601)
+    "initial_transient_crop",  # 全部 case 统一的初始瞬态裁剪契约
 )
+INITIAL_TRANSIENT_CROP = {
+    "end_time_s": 0.5,
+    "keep_rule": "physical_time >= 0.5 s",
+}
+
+
+def initial_transient_crop_end_s(manifest: dict[str, Any] | None) -> float:
+    """返回出图时统一裁掉初始瞬态的截止时间（秒）。
+
+    读取 manifest 的 ``initial_transient_crop.end_time_s``；当字段缺失或非法时，
+    回退到统一契约默认值 ``INITIAL_TRANSIENT_CROP["end_time_s"]``（0.5 s）。
+    出图模块以此为唯一真源裁掉 ``physical_time < end_time_s`` 的初始瞬态段。
+    """
+    crop = (manifest or {}).get("initial_transient_crop")
+    if isinstance(crop, dict):
+        try:
+            value = float(crop.get("end_time_s"))
+        except (TypeError, ValueError):
+            value = math.nan
+        if math.isfinite(value) and value >= 0.0:
+            return value
+    return float(INITIAL_TRANSIENT_CROP["end_time_s"])
+
+
 # 每个 case 目录下必须包含的子目录
 CASE_DIRECTORIES = ("input", "figures", "logs", "flow_snapshots")
 
@@ -271,6 +298,23 @@ class CaseSchema:
         ]
         if missing_fields:
             errors.append(f"case_manifest.yaml missing required fields: {', '.join(missing_fields)}")
+        crop = yaml_dict.get("initial_transient_crop")
+        if isinstance(crop, dict):
+            try:
+                end_time_s = float(crop.get("end_time_s"))
+            except (TypeError, ValueError):
+                end_time_s = float("nan")
+            if not math.isclose(end_time_s, 0.5, rel_tol=0.0, abs_tol=1.0e-12):
+                errors.append(
+                    "case_manifest.yaml initial_transient_crop.end_time_s must be 0.5 s"
+                )
+            if crop.get("keep_rule") != "physical_time >= 0.5 s":
+                errors.append(
+                    "case_manifest.yaml initial_transient_crop.keep_rule must be "
+                    "'physical_time >= 0.5 s'"
+                )
+        elif "initial_transient_crop" in yaml_dict:
+            errors.append("case_manifest.yaml initial_transient_crop must be a mapping")
         return errors
 
     @classmethod
@@ -375,6 +419,7 @@ class CaseSchema:
         manifest = dict(case_data.get("manifest") or {})
         manifest.setdefault("git_commit", _current_git_commit())
         manifest.setdefault("created_time", _utc_now_iso())
+        manifest.setdefault("initial_transient_crop", dict(INITIAL_TRANSIENT_CROP))
 
         timeseries = case_data.get("timeseries")
         if timeseries is None:
@@ -521,9 +566,13 @@ class CaseSchema:
         cls, rows: list[dict[str, Any]]
     ) -> tuple[list[str], list[dict[str, Any]]]:
         """从 timeseries 数据中提取激励计划（当未提供单独的计划时使用）。"""
-        columns = ["physical_time", "window_id", *JET_COLUMNS]
+        columns = [ACTUATION_TIME_COLUMN, "window_id", *JET_COLUMNS]
         schedule_rows = [
-            {column: row[column] for column in columns}
+            {
+                ACTUATION_TIME_COLUMN: row["physical_time"],
+                "window_id": row["window_id"],
+                **{column: row[column] for column in JET_COLUMNS},
+            }
             for row in rows
         ]
         return columns, schedule_rows

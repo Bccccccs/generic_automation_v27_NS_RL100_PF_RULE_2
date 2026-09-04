@@ -30,6 +30,12 @@ def test_preflight_and_star_snapshot_are_merged(tmp_path: Path):
     manifest = yaml.safe_load(output.read_text(encoding="utf-8"))
     assert manifest["manifest_status"] == "finalized_from_star_template_snapshot"
     assert manifest["surface_properties"]["surfaces"]["J01"]["area_m2"] == 0.1
+    assert manifest["initial_transient_crop"] == {
+        "end_time_s": 0.5,
+        "keep_rule": "physical_time >= 0.5 s",
+    }
+    assert manifest["massflow_sign_convention"]["sign_to_domain"] == -1.0
+    assert manifest["massflow_sign_convention"]["algorithm_positive_direction"] == "into_flow_domain"
 
 
 def test_runtime_log_metadata_is_read_into_manifest(tmp_path: Path):

@@ -1,6 +1,9 @@
 case_id: G00_nojet_existing
 case_type: no_jet
 description: existing no-jet STAR monitor exports
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
 star:
   version: 待浩坤确认
   sim_file: 待浩坤确认

@@ -27,7 +27,8 @@ def validate_final_contract_columns(
         raise ValueError("table_kind must be 'actuation' or 'timeseries'")
 
     diagnostics: list[str] = []
-    for raw_column in columns:
+    normalized_columns = {str(column).strip() for column in columns}
+    for raw_column in normalized_columns:
         column = str(raw_column).strip()
         if table_kind == "actuation" and _STAR_UNDERSCORELESS_JET.fullmatch(column):
             diagnostics.append(
@@ -36,6 +37,19 @@ def validate_final_contract_columns(
             )
         elif table_kind == "actuation" and column.startswith(("JET_", "cmd_massflow_", "actual_massflow_")) and not _ACTION_COLUMN.fullmatch(column):
             diagnostics.append(f"invalid 0816 action column {column}: expected a numbered 01..24 field")
+
+    if table_kind == "timeseries":
+        for index in range(1, 25):
+            raw_name = f"star_actual_massflow_{index:02d}"
+            algorithm_name = f"actual_massflow_{index:02d}"
+            if algorithm_name in normalized_columns and raw_name not in normalized_columns:
+                diagnostics.append(
+                    f"{algorithm_name} requires same-report raw column {raw_name}"
+                )
+            if raw_name in normalized_columns and algorithm_name not in normalized_columns:
+                diagnostics.append(
+                    f"{raw_name} requires injection-positive algorithm column {algorithm_name}"
+                )
 
     if diagnostics:
         message = "0816 STAR field contract rejected input; " + "; ".join(diagnostics)

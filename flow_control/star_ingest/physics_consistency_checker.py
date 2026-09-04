@@ -17,6 +17,18 @@ from typing import Any
 
 import yaml
 
+from flow_control.sampling import (
+    SAMPLE_OWNERSHIP_EMBEDDED,
+    ScheduleWindowError,
+    actuation_time_column,
+    actuation_time_value,
+    locate_schedule_window,
+    parse_schedule_windows,
+    resolve_declared_ownership,
+    schedule_window_spans,
+    validate_embedded_window,
+)
+
 from flow_control.case_paths import find_case_timeseries_path
 from flow_control.star_ingest.star_export_reader import read_star_export_csv
 
@@ -81,7 +93,7 @@ def check_case(
     _check_monotonic_time(report, timeseries, str(timeseries_path.relative_to(case_path) if timeseries_path.is_relative_to(case_path) else timeseries_path), time_tolerance)
     if schedule:
         _check_monotonic_time(report, schedule, "actuation_schedule.csv", time_tolerance)
-        _check_time_alignment(report, timeseries, schedule, time_tolerance)
+        _check_time_alignment(report, timeseries, schedule, manifest)
     else:
         _add_issue(report, "format_errors", "error", "actuation_schedule.csv is missing or empty")
 
@@ -275,18 +287,25 @@ def _num(value: Any) -> float | None:
 
 
 def _check_monotonic_time(report: dict[str, Any], rows: list[dict[str, Any]], source: str, tol: float) -> None:
+    time_column = actuation_time_column(rows[0]) if rows else "time"
     previous: float | None = None
     for index, row in enumerate(rows):
-        current = _num(row.get("physical_time"))
+        current = _num(actuation_time_value(row))
         if current is None:
-            _add_issue(report, "format_errors", "error", f"{source}: physical_time missing or non-numeric", row=index)
+            _add_issue(
+                report,
+                "format_errors",
+                "error",
+                f"{source}: {time_column} missing or non-numeric",
+                row=index,
+            )
             return
         if previous is not None and current <= previous + tol:
             _add_issue(
                 report,
                 "format_errors",
                 "error",
-                f"{source}: physical_time is not strictly increasing",
+                f"{source}: {time_column} is not strictly increasing",
                 row=index,
                 previous=previous,
                 current=current,
@@ -295,12 +314,17 @@ def _check_monotonic_time(report: dict[str, Any], rows: list[dict[str, Any]], so
         previous = current
 
 
-def _check_time_alignment(report: dict[str, Any], timeseries: list[dict[str, Any]], schedule: list[dict[str, Any]], tol: float) -> None:
+def _check_time_alignment(
+    report: dict[str, Any],
+    timeseries: list[dict[str, Any]],
+    schedule: list[dict[str, Any]],
+    manifest: dict[str, Any],
+) -> None:
     if len(timeseries) != len(schedule):
         if len(timeseries) < len(schedule):
             result_end = _num(timeseries[-1].get("physical_time")) if timeseries else None
             schedule_end = _num(
-                schedule[-1].get("t_end", schedule[-1].get("physical_time"))
+                schedule[-1].get("t_end", actuation_time_value(schedule[-1]))
             )
             _add_issue(
                 report,
@@ -322,38 +346,74 @@ def _check_time_alignment(report: dict[str, Any], timeseries: list[dict[str, Any
                 timeseries_rows=len(timeseries),
                 schedule_rows=len(schedule),
             )
-    checks = min(len(timeseries), len(schedule))
-    start_matches = 0
-    end_matches = 0
-    inside = 0
+    if not timeseries or not schedule:
+        return
+    ownership, ownership_source = resolve_declared_ownership(manifest)
+    try:
+        starts, ends = parse_schedule_windows(schedule)
+    except ScheduleWindowError as exc:
+        _add_issue(
+            report,
+            "format_errors",
+            "error",
+            f"actuation schedule windows are invalid; cannot resolve sample ownership: {exc}",
+        )
+        return
+    embedded = ownership == SAMPLE_OWNERSHIP_EMBEDDED
+    window_spans = schedule_window_spans(schedule) if embedded else {}
+    # 逐个样本按声明的语义解析所属动作窗口，不再按下标配对
+    aligned = 0
+    window_mismatch = 0
     outside_examples: list[dict[str, Any]] = []
-    for index in range(checks):
-        sample = _num(timeseries[index].get("physical_time"))
-        start = _num(schedule[index].get("t_start", schedule[index].get("physical_time")))
-        end = _num(schedule[index].get("t_end"))
-        if sample is None or start is None:
+    for index, row in enumerate(timeseries):
+        sample = _num(row.get("physical_time"))
+        if sample is None:
             continue
-        if abs(sample - start) <= tol:
-            start_matches += 1
-        if end is not None and abs(sample - end) <= tol:
-            end_matches += 1
-        if end is not None and start - tol <= sample <= end + tol:
-            inside += 1
-        elif len(outside_examples) < 5:
-            outside_examples.append({"row": index, "sample": sample, "t_start": start, "t_end": end})
+        if embedded:
+            # window_id 是数据自带的声明，没有独立第二来源可比对；改为校验时间矛盾
+            try:
+                validate_embedded_window(window_spans, row.get("window_id"), sample)
+            except ScheduleWindowError as exc:
+                if len(outside_examples) < 5:
+                    outside_examples.append({"row": index, "sample": sample, "reason": str(exc)})
+                continue
+            aligned += 1
+            continue
+        try:
+            schedule_index = locate_schedule_window(starts, ends, sample, ownership=ownership)
+        except ScheduleWindowError as exc:
+            if len(outside_examples) < 5:
+                outside_examples.append({"row": index, "sample": sample, "reason": str(exc)})
+            continue
+        aligned += 1
+        row_window = _num(row.get("window_id"))
+        action_window = _num(schedule[schedule_index].get("window_id"))
+        if row_window is not None and action_window is not None and row_window != action_window:
+            window_mismatch += 1
     if outside_examples:
         _add_issue(
             report,
             "format_errors",
             "error",
-            "STAR sample time falls outside the paired actuation window",
+            "STAR sample time cannot be assigned to any actuation window",
             examples=outside_examples,
         )
+    if window_mismatch:
+        _add_issue(
+            report,
+            "format_errors",
+            "error",
+            "timeseries window_id does not match the actuation window resolved from its sample time",
+            mismatched_rows=window_mismatch,
+            sample_ownership_rule=ownership,
+        )
     report["summaries"]["time_alignment"] = {
-        "paired_rows_checked": checks,
-        "sample_matches_t_start_rows": start_matches,
-        "sample_matches_t_end_rows": end_matches,
-        "sample_inside_window_rows": inside,
+        "sample_ownership_rule": ownership,
+        "sample_ownership_source": ownership_source,
+        "rows_checked": len(timeseries),
+        "aligned_rows": aligned,
+        "unassigned_rows": len(timeseries) - aligned,
+        "window_id_mismatch_rows": window_mismatch,
     }
 
 

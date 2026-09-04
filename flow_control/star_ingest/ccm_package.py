@@ -23,11 +23,21 @@ import yaml
 
 from flow_control.case_paths import case_timeseries_path
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.sampling import (
+    ACTUATION_TIME_COLUMN,
+    SAMPLE_OWNERSHIP_LEFT_CLOSED,
+    SAMPLE_OWNERSHIP_RIGHT_CLOSED,
+    ScheduleWindowError,
+    actuation_time_value,
+    schedule_window_id_lookup,
+    schedule_window_spans,
+)
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 from .case_data_loader import CASE_REQUIRED_DIRS, load_case, write_quality_report
 from .figures_generator import generate_all_figures
-from .star_export_reader import normalize_actual_massflow
+from .star_export_reader import STAR_ACTUAL_MASSFLOW_COLUMNS, normalize_actual_massflow
+from .manifest_builder import INITIAL_TRANSIENT_CROP, MASSFLOW_SIGN_CONVENTION
 
 # 实际质量流量列名(24 个阀门)
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
@@ -64,6 +74,7 @@ def package_ccm_run_case(
     require_complete_schema: bool = True,
     run_quality_check: bool = True,
     generate_figures: bool = True,
+    sample_ownership: str = SAMPLE_OWNERSHIP_RIGHT_CLOSED,
 ) -> dict[str, Any]:
     """Write standard case files from CCM's raw runtime CSV and check them.
 
@@ -83,7 +94,7 @@ def package_ccm_run_case(
 
     raw_rows = _read_csv_rows(ccm_timeseries_path)
     schedule_rows = _read_csv_rows(schedule_path)
-    rows = _standard_timeseries_rows(raw_rows, schedule_rows)
+    rows = _standard_timeseries_rows(raw_rows, schedule_rows, ownership=sample_ownership)
     case_path = Path(case_dir)
     case_path.mkdir(parents=True, exist_ok=True)
     for directory_name in CASE_REQUIRED_DIRS:
@@ -91,11 +102,13 @@ def package_ccm_run_case(
 
     timeseries_path = case_timeseries_path(case_path)
     _write_csv(timeseries_path, _ordered_timeseries_columns(rows), rows)
-    schedule_columns = list(schedule_rows[0]) if schedule_rows else ["physical_time"]
+    schedule_columns = list(schedule_rows[0]) if schedule_rows else [ACTUATION_TIME_COLUMN]
     _write_csv(case_path / "actuation_schedule.csv", schedule_columns, schedule_rows)
     _write_csv(case_path / "input" / "actuation_schedule.csv", schedule_columns, schedule_rows)
 
     manifest_data = dict(manifest or {})
+    manifest_data["initial_transient_crop"] = dict(INITIAL_TRANSIENT_CROP)
+    manifest_data["massflow_sign_convention"] = dict(MASSFLOW_SIGN_CONVENTION)
     manifest_data.setdefault(
         "star",
         {
@@ -177,6 +190,8 @@ def package_ccm_run_case(
 def _standard_timeseries_rows(
     raw_rows: list[dict[str, str]],
     schedule_rows: list[dict[str, str]],
+    *,
+    ownership: str = SAMPLE_OWNERSHIP_RIGHT_CLOSED,
 ) -> list[dict[str, Any]]:
     """
     将 CCM 原始运行时数据行转换为标准时间序列行。
@@ -190,21 +205,61 @@ def _standard_timeseries_rows(
     参数:
         raw_rows: CCM 运行时输出的原始数据行
         schedule_rows: 驱动指令表行
+        ownership: 样本归属语义，只影响 physical_time 缺失时的回退取值
 
     返回:
         标准化后的时间序列行列表
     """
-    # 将驱动指令表按 window_id 建立索引,便于快速查找
-    schedule_by_window = {
-        int(float(row.get("window_id", idx))): row
-        for idx, row in enumerate(schedule_rows)
-    }
+    # 一个 window_id 跨多行采样,窗口内指令恒定;显式保留首行而不是末行,
+    # 使 physical_time 的回退取窗口起点。
+    schedule_index_by_window = schedule_window_id_lookup(schedule_rows)
+    schedule_spans: dict[int, tuple[float, float]] | None = None
     rows: list[dict[str, Any]] = []
     for idx, raw in enumerate(raw_rows):
-        window_id = int(float(raw.get("window_id", idx)))
-        schedule = schedule_by_window.get(window_id, {})
+        raw_window = raw.get("window_id")
+        if raw_window in (None, ""):
+            # 不得把行下标当窗口号：那会静默错标动作，命中不到时还会把指令补成 0
+            raise ScheduleWindowError(
+                f"runtime row {idx} has no window_id; refusing to use the row index as a "
+                "window key because that silently mislabels actuation"
+            )
+        try:
+            window_id = int(float(str(raw_window)))
+        except (TypeError, ValueError) as exc:
+            raise ScheduleWindowError(
+                f"runtime row {idx} has a non-numeric window_id {raw_window!r}"
+            ) from exc
+        schedule_idx = schedule_index_by_window.get(window_id)
+        if schedule_idx is None:
+            raise ScheduleWindowError(
+                f"runtime row {idx} carries window_id {window_id} which is absent from the "
+                "actuation schedule"
+            )
+        schedule = schedule_rows[schedule_idx]
+        # physical_time 存在时必须原样保留;缺失时才按声明的语义回退。
+        raw_time = raw.get("physical_time")
+        if raw_time in (None, ""):
+            if ownership not in (
+                SAMPLE_OWNERSHIP_LEFT_CLOSED,
+                SAMPLE_OWNERSHIP_RIGHT_CLOSED,
+            ):
+                # embedded/auto 不定义区间端点，回退等于静默猜测采样时刻
+                raise ScheduleWindowError(
+                    f"runtime row {idx} has no physical_time and ownership {ownership!r} "
+                    "defines no interval endpoint to fall back to; declare left_closed or "
+                    "right_closed explicitly"
+                )
+            # 回退取整个窗口的起点/末端:一个 window_id 通常跨多行采样,
+            # 首行的 t_end 只是窗口中段,右闭语义下会回退到错误时刻。
+            if schedule_spans is None:
+                schedule_spans = schedule_window_spans(schedule_rows)
+            span = schedule_spans.get(window_id)
+            if span is not None:
+                raw_time = span[0] if ownership == SAMPLE_OWNERSHIP_LEFT_CLOSED else span[1]
+            else:
+                raw_time = actuation_time_value(schedule, idx)
         record: dict[str, Any] = {
-            "physical_time": float(raw.get("physical_time", schedule.get("physical_time", idx))),
+            "physical_time": float(raw_time),
             "window_id": window_id,
         }
         # 从驱动指令表中复制喷气阀门开关状态
@@ -213,13 +268,25 @@ def _standard_timeseries_rows(
         # 从驱动指令表中复制指令质量流量
         for column in MASSFLOW_COLUMNS:
             record[column] = float(schedule.get(column, 0.0) or 0.0)
+        # 保留 organizer 写入的命中窗口边界,便于事后审计对齐结果
+        for audit_column in ("t_start", "t_end"):
+            audit_value = raw.get(audit_column)
+            if audit_value not in (None, ""):
+                record[audit_column] = float(audit_value)
         # 映射 CCM 报告列名为标准列名
         for raw_column, raw_value in raw.items():
             standard = _standard_report_column(raw_column)
             if standard is not None and raw_value not in {None, ""}:
                 value = float(raw_value)
+                if standard in STAR_ACTUAL_MASSFLOW_COLUMNS:
+                    record[standard] = value
+                    continue
                 if _is_actual_massflow_column(standard):
-                    value = normalize_actual_massflow(value)
+                    jet_index = ACTUAL_MASSFLOW_COLUMNS.index(standard)
+                    raw_name = STAR_ACTUAL_MASSFLOW_COLUMNS[jet_index]
+                    if raw_name not in raw:
+                        record[raw_name] = value
+                        value = normalize_actual_massflow(value)
                 record[standard] = value
         # 浩坤确认：六传感器之和是 fz 车底六区合力，不能写成带车壳的 Fz_Total。
         if all(column in record for column in LOAD_COLUMNS) and "fz" not in record:
@@ -240,6 +307,8 @@ def _standard_report_column(column: str) -> str | None:
     normalized = _strip_monitor_suffix(column.strip())
     if normalized in {"physical_time", "window_id"}:
         return None
+    if normalized in STAR_ACTUAL_MASSFLOW_COLUMNS:
+        return normalized
     if normalized in ACTUAL_MASSFLOW_COLUMNS:
         return normalized
     actual_match = ACTUAL_MASSFLOW_PATTERN.match(normalized)
@@ -282,6 +351,7 @@ def _ordered_timeseries_columns(rows: list[dict[str, Any]]) -> list[str]:
         "window_id",
         *JET_COLUMNS,
         *MASSFLOW_COLUMNS,
+        *STAR_ACTUAL_MASSFLOW_COLUMNS,
         *ACTUAL_MASSFLOW_COLUMNS,
         *LOAD_COLUMNS,
         "Fz_Total",

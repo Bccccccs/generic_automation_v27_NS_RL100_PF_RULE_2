@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
 
+from flow_control.data_schema import initial_transient_crop_end_s
+
 
 def _to_float_array(rows: list[dict[str, Any]], col: str) -> np.ndarray:
     """Extract a column of floats, replacing missing/NaN with 0.
@@ -60,6 +62,24 @@ def _time_array(rows: list[dict[str, Any]]) -> np.ndarray:
     从数据行中提取 physical_time 列作为时间数组的快捷函数。
     """
     return _to_float_array(rows, "physical_time")
+
+
+def _crop_initial_transient(
+    rows: list[dict[str, Any]],
+    manifest: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """裁掉 manifest 声明的初始瞬态段（统一契约：前 0.5 s）。
+
+    仅保留 ``physical_time >= initial_transient_crop.end_time_s`` 的行。
+    如果裁剪会删光全部数据（整段都落在瞬态窗内的短/合成序列），
+    则原样返回，避免出图退化为无意义的"不可用"占位图。
+    """
+    if not rows:
+        return rows
+    crop_end_s = initial_transient_crop_end_s(manifest)
+    times = _time_array(rows)
+    cropped = [row for row, t in zip(rows, times) if t >= crop_end_s]
+    return cropped or rows
 
 
 def generate_force_timeseries(
@@ -416,7 +436,9 @@ def generate_all_figures(
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    rows = result.get("timeseries", [])
+    rows = _crop_initial_transient(
+        result.get("timeseries", []), result.get("manifest")
+    )
 
     figs: dict[str, Path | None] = {}
 

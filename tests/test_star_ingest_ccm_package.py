@@ -1,7 +1,19 @@
 import csv
 import json
 
-from flow_control.star_ingest.ccm_package import package_ccm_run_case
+import pytest
+import yaml
+
+from flow_control.sampling import (
+    SAMPLE_OWNERSHIP_EMBEDDED,
+    SAMPLE_OWNERSHIP_LEFT_CLOSED,
+    SAMPLE_OWNERSHIP_RIGHT_CLOSED,
+    ScheduleWindowError,
+)
+from flow_control.star_ingest.ccm_package import (
+    _standard_timeseries_rows,
+    package_ccm_run_case,
+)
 
 
 def _write_single_jet_schedule(schedule_path):
@@ -95,6 +107,15 @@ def test_package_ccm_run_case_generates_standard_timeseries_and_quality_report(t
     assert rows[0]["fz"] == "21.0"
     assert "Fz_Total" not in rows[0]
     assert "actual_massflow_01" not in rows[0]
+    manifest = yaml.safe_load((case_dir / "case_manifest.yaml").read_text(encoding="utf-8"))
+    assert manifest["initial_transient_crop"] == {
+        "end_time_s": 0.5,
+        "keep_rule": "physical_time >= 0.5 s",
+    }
+    assert manifest["massflow_sign_convention"]["raw_columns"] == (
+        "star_actual_massflow_01..star_actual_massflow_24"
+    )
+    assert manifest["massflow_sign_convention"]["sign_to_domain"] == -1.0
 
 
 def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
@@ -145,7 +166,9 @@ def test_package_ccm_run_case_prefers_runtime_actual_massflow_report(tmp_path):
 
     with result["timeseries_path"].open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
+    assert rows[0]["star_actual_massflow_01"] == "-0.0185"
     assert rows[0]["actual_massflow_01"] == "0.0185"
+    assert rows[0]["star_actual_massflow_02"] == "-0.001"
     assert rows[0]["actual_massflow_02"] == "0.001"
     assert "actual_massflow_03" not in rows[0]
 
@@ -166,3 +189,131 @@ def test_package_ccm_run_case_marks_missing_actual_massflow_as_incomplete(tmp_pa
     )
 
     assert any("actual_massflow" in error for error in result["quality_report"]["errors"])
+
+
+def test_repeated_window_id_uses_first_schedule_row() -> None:
+    """一个 window_id 跨多行采样时取首行；原实现的字典推导只保留末行。"""
+    schedule_rows = [
+        {
+            "time": 0.0,
+            "window_id": 7,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        },
+        {
+            "time": 0.1,
+            "window_id": 7,
+            "t_start": 0.1,
+            "t_end": 0.2,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        },
+    ]
+
+    rows = _standard_timeseries_rows(
+        [{"window_id": 7}], schedule_rows, ownership=SAMPLE_OWNERSHIP_LEFT_CLOSED
+    )
+
+    assert rows[0]["window_id"] == 7
+    assert rows[0]["JET_01"] == 1.0
+    assert rows[0]["cmd_massflow_01"] == 0.02
+    # left_closed 的回退时间取窗口起点，即首行的 t_start 而不是末行的
+    assert rows[0]["physical_time"] == 0.0
+
+
+def test_missing_physical_time_fallback_follows_ownership() -> None:
+    schedule_rows = [
+        {
+            "time": 0.0,
+            "window_id": 7,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        }
+    ]
+
+    left = _standard_timeseries_rows(
+        [{"window_id": 7}], schedule_rows, ownership=SAMPLE_OWNERSHIP_LEFT_CLOSED
+    )
+    right = _standard_timeseries_rows(
+        [{"window_id": 7}], schedule_rows, ownership=SAMPLE_OWNERSHIP_RIGHT_CLOSED
+    )
+
+    assert left[0]["physical_time"] == 0.0
+    assert right[0]["physical_time"] == 0.1
+
+
+def test_physical_time_and_audit_bounds_are_preserved() -> None:
+    """physical_time 存在时原样保留；organizer 写入的命中窗口边界不得被列名映射丢弃。"""
+    schedule_rows = [
+        {
+            "time": 0.0,
+            "window_id": 7,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        }
+    ]
+    raw_rows = [{"physical_time": 0.1, "window_id": 7, "t_start": 0.0, "t_end": 0.1}]
+
+    rows = _standard_timeseries_rows(raw_rows, schedule_rows)
+
+    assert rows[0]["physical_time"] == 0.1
+    assert rows[0]["t_start"] == 0.0
+    assert rows[0]["t_end"] == 0.1
+
+
+def test_missing_window_id_is_rejected_instead_of_using_row_index() -> None:
+    """不得把行下标当窗口号：那会静默错标动作，命中不到时还会把指令补成 0。"""
+    schedule_rows = [
+        {
+            "time": 0.0,
+            "window_id": 7,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        }
+    ]
+
+    with pytest.raises(ScheduleWindowError, match="window_id"):
+        _standard_timeseries_rows([{"physical_time": 0.1}], schedule_rows)
+
+
+def test_window_id_absent_from_schedule_is_rejected() -> None:
+    schedule_rows = [
+        {
+            "time": 0.0,
+            "window_id": 7,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        }
+    ]
+
+    with pytest.raises(ScheduleWindowError, match="absent"):
+        _standard_timeseries_rows([{"physical_time": 0.1, "window_id": 99}], schedule_rows)
+
+
+def test_missing_physical_time_under_embedded_is_rejected() -> None:
+    """embedded 不定义区间端点，缺 physical_time 时回退等于静默猜测采样时刻。"""
+    schedule_rows = [
+        {
+            "time": 0.0,
+            "window_id": 7,
+            "t_start": 0.0,
+            "t_end": 0.1,
+            "JET_01": 1,
+            "cmd_massflow_01": 0.02,
+        }
+    ]
+
+    with pytest.raises(ScheduleWindowError, match="physical_time"):
+        _standard_timeseries_rows(
+            [{"window_id": 7}], schedule_rows, ownership=SAMPLE_OWNERSHIP_EMBEDDED
+        )

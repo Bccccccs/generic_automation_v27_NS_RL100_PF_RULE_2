@@ -232,7 +232,7 @@ python scripts/workflow.py actions \
 <case-dir>/input/total_mass_flow_curve.svg
 ```
 
-`actuation_schedule.csv` 一行对应一个求解器物理时间步。连续行具有相同 `window_id` 时，表示它们属于同一个喷气窗口，窗口内指令保持不变。
+`actuation_schedule.csv` 的第一列表头为 `time`，数值是秒。一行对应一个求解器物理时间步。连续行具有相同 `window_id` 时，表示它们属于同一个喷气窗口，窗口内指令保持不变。历史动作表的 `physical_time` 仍可读取，但新生成文件统一写为 `time`。
 
 ## 7. `ccm`：生成宏、启动求解并自动整理
 
@@ -405,6 +405,10 @@ python scripts/workflow.py figures \
   --mode ccm
 ```
 
+默认仅绘制 `0.3 s` 及之后的数据，用于剔除初始瞬态。可通过
+`--start-time <秒>` 调整起始时间；如需保留完整初始段，传入
+`--start-time 0`。折线图会标明实际绘制时间范围，并按绝对时间每
+`0.5 s` 绘制一个大格（默认从 `0.3 s` 起图时，首个大格为 `0.5 s`）。
 未完成算例可增加 `--partial`。主要输出：
 
 ```text

@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import numpy as np
+
 import flow_control.cli.generate_figures as generate_figures
+from flow_control.data_schema import initial_transient_crop_end_s
+from flow_control.mock.mock_plant import write_single_series_svg
 
 
 def test_figures_uses_interactive_case_and_updates_report(
@@ -44,7 +48,7 @@ def test_figures_uses_interactive_case_and_updates_report(
         ],
     )
 
-    assert generate_figures.main([]) == 0
+    assert generate_figures.main(["--start-time", "0"]) == 0
     report = json.loads(report_path.read_text(encoding="utf-8"))
     assert set(report["summary_figures"]) == {
         "input_heatmap",
@@ -53,6 +57,74 @@ def test_figures_uses_interactive_case_and_updates_report(
         "spatial_nonuniformity",
         "total_massflow",
     }
+    assert report["summary_figure_options"] == {
+        "start_time_s": 0.0,
+        "end_time_s": 0.1,
+        "sample_count": 1,
+    }
+
+
+def test_summary_plot_data_drops_initial_transient() -> None:
+    rows = [
+        {"physical_time": 0.2, "Fz_S1L": 1000.0},
+        {"physical_time": 0.3, "Fz_S1L": 3.0},
+        {"physical_time": 0.4, "Fz_S1L": 4.0},
+    ]
+
+    result = generate_figures._summary_plot_data(
+        {"timeseries": rows},
+        start_time=0.3,
+    )
+
+    assert result["physical_time"].tolist() == [0.3, 0.4]
+    assert result["outputs"][:, 0].tolist() == [3.0, 4.0]
+
+
+def test_summary_plot_data_defaults_to_manifest_transient_crop() -> None:
+    rows = [
+        {"physical_time": 0.2, "Fz_S1L": 1.0},
+        {"physical_time": 0.5, "Fz_S1L": 2.0},
+        {"physical_time": 0.7, "Fz_S1L": 3.0},
+    ]
+    manifest = {
+        "initial_transient_crop": {
+            "end_time_s": 0.5,
+            "keep_rule": "physical_time >= 0.5 s",
+        }
+    }
+
+    result = generate_figures._summary_plot_data(
+        {"timeseries": rows, "manifest": manifest}
+    )
+
+    assert result["physical_time"].tolist() == [0.5, 0.7]
+
+
+def test_initial_transient_crop_end_s_falls_back_to_uniform_default() -> None:
+    assert initial_transient_crop_end_s(None) == 0.5
+    assert initial_transient_crop_end_s({}) == 0.5
+    assert initial_transient_crop_end_s(
+        {"initial_transient_crop": {"end_time_s": "bad"}}
+    ) == 0.5
+    assert initial_transient_crop_end_s(
+        {"initial_transient_crop": {"end_time_s": 0.5}}
+    ) == 0.5
+
+
+def test_line_plot_uses_absolute_half_second_major_grid(tmp_path: Path) -> None:
+    output = tmp_path / "line.svg"
+    write_single_series_svg(
+        output,
+        np.asarray([0.3, 0.5, 1.0, 1.2]),
+        np.asarray([1.0, 2.0, 3.0, 2.0]),
+        "Time axis check",
+    )
+
+    svg = output.read_text(encoding="utf-8")
+    assert "Displayed time: 0.3 s to 1.2 s" in svg
+    assert ">0.5 s</text>" in svg
+    assert ">1.0 s</text>" in svg
+    assert ">0.3 s</text>" not in svg
 
 
 def test_figures_requires_quality_report(tmp_path: Path) -> None:

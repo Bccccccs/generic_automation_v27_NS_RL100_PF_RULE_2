@@ -9,6 +9,8 @@ from typing import Any
 
 import yaml
 
+from flow_control.sampling import actuation_time_value
+
 
 CASE_ORDER: tuple[tuple[str, int | None], ...] = (
     ("G00_nojet_baseline", None),
@@ -302,7 +304,7 @@ def validate_b3_case_set(root: str | Path = "runs/real_star") -> dict[str, Any]:
         _, rows = _read_csv(root_path / case_id / "actuation_schedule.csv")
         return [
             (
-                row.get("t_start", row.get("physical_time", "")),
+                row.get("t_start", actuation_time_value(row, "")),
                 row.get("t_end", ""),
                 _command(row, jet) or 0.0,
             )

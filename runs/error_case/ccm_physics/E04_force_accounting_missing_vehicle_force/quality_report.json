@@ -118,10 +118,12 @@
     },
     "summaries": {
       "time_alignment": {
-        "paired_rows_checked": 4,
-        "sample_matches_t_start_rows": 0,
-        "sample_matches_t_end_rows": 4,
-        "sample_inside_window_rows": 4
+        "sample_ownership_rule": "right_closed",
+        "sample_ownership_source": "legacy_default",
+        "rows_checked": 4,
+        "aligned_rows": 4,
+        "unassigned_rows": 0,
+        "window_id_mismatch_rows": 0
       },
       "star_csv_alignment": {
         "checked_source_csv_count": 0,

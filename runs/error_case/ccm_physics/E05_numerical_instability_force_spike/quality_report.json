@@ -108,51 +108,16 @@
           "typical_scale": 1.0
         }
       ],
-      "physical_questions_for_haokun": [
-        {
-          "severity": "warning",
-          "message": "Fz_Total differs from six regional force sum; not treated as an error because they may be different STAR reports",
-          "examples": [
-            {
-              "row": 0,
-              "regional_lift_sum": 21.0,
-              "Fz_Total": 1.0,
-              "difference": -20.0
-            },
-            {
-              "row": 1,
-              "regional_lift_sum": 21.0,
-              "Fz_Total": 1000000000.0,
-              "difference": 999999979.0
-            },
-            {
-              "row": 2,
-              "regional_lift_sum": 21.0,
-              "Fz_Total": -1000000000.0,
-              "difference": -1000000021.0
-            },
-            {
-              "row": 3,
-              "regional_lift_sum": 21.0,
-              "Fz_Total": 1.0,
-              "difference": -20.0
-            },
-            {
-              "row": 4,
-              "regional_lift_sum": 21.0,
-              "Fz_Total": 1.0,
-              "difference": -20.0
-            }
-          ]
-        }
-      ]
+      "physical_questions_for_haokun": []
     },
     "summaries": {
       "time_alignment": {
-        "paired_rows_checked": 5,
-        "sample_matches_t_start_rows": 0,
-        "sample_matches_t_end_rows": 5,
-        "sample_inside_window_rows": 5
+        "sample_ownership_rule": "right_closed",
+        "sample_ownership_source": "legacy_default",
+        "rows_checked": 5,
+        "aligned_rows": 5,
+        "unassigned_rows": 0,
+        "window_id_mismatch_rows": 0
       },
       "star_csv_alignment": {
         "checked_source_csv_count": 0,
@@ -288,7 +253,7 @@
         "massflow_errors": 0,
         "force_accounting_errors": 0,
         "numerical_instability_warnings": 1,
-        "physical_questions_for_haokun": 1
+        "physical_questions_for_haokun": 0
       },
       "blocking_issue_count": 0,
       "run_success_flag": true

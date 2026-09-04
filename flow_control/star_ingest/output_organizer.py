@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import bisect
 import csv
 import json
 import shutil
@@ -11,6 +10,19 @@ from pathlib import Path
 from typing import Any
 
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.sampling import (
+    SAMPLE_OWNERSHIP_AUTO,
+    SAMPLE_OWNERSHIP_EMBEDDED,
+    SAMPLE_OWNERSHIP_MODES,
+    ScheduleWindowError,
+    locate_schedule_window,
+    manifest_sample_ownership,
+    normalize_sample_ownership,
+    parse_schedule_windows,
+    schedule_window_id_lookup,
+    schedule_window_spans,
+    validate_embedded_window,
+)
 from starccm.control.control_spec import JET_COLUMNS
 
 from .case_data_loader import current_git_commit, load_case, write_quality_report
@@ -27,6 +39,7 @@ def organize_ccm_outputs(
     overwrite: bool = False,
     manifest: dict[str, Any] | None = None,
     run_quality_check: bool = False,
+    sample_ownership: str = SAMPLE_OWNERSHIP_AUTO,
 ) -> dict[str, Any]:
     """将 Week4 形式的 STAR 监视器 CSV 目录整理为标准 Case。"""
     source_path = Path(input_dir).expanduser().resolve()
@@ -52,19 +65,28 @@ def organize_ccm_outputs(
     raw_files = sorted(path for path in product_dir.rglob("*") if path.is_file())
     monitor_rows = read_star_export_bundle(star_files)["rows"] if star_files else []
     runtime_path = product_dir / "timeseries.csv"
+    runtime_raw = _read_csv(runtime_path) if runtime_path.is_file() else []
+    ownership_mode = _resolve_sample_ownership(
+        runtime_raw or monitor_rows, requested=sample_ownership, manifest=manifest
+    )
     runtime_rows = (
-        _standard_timeseries_rows(_read_csv(runtime_path), schedule_rows)
-        if runtime_path.is_file()
+        _standard_timeseries_rows(runtime_raw, schedule_rows, ownership=ownership_mode)
+        if runtime_raw
         else []
     )
-    consolidated = _attach_schedule(
-        _merge_rows_by_physical_time(runtime_rows, monitor_rows),
-        schedule_rows,
-    )
+    consolidated_rows = _merge_rows_by_physical_time(runtime_rows, monitor_rows)
+    consolidated = _attach_schedule(consolidated_rows, schedule_rows, ownership=ownership_mode)
     with tempfile.TemporaryDirectory(prefix="flow_control_organize_") as temp_dir:
         consolidated_path = Path(temp_dir) / "star_monitor_merged.csv"
         _write_csv(consolidated_path, consolidated)
-        _package(consolidated_path, schedule, target, case_type, manifest=manifest)
+        _package(
+            consolidated_path,
+            schedule,
+            target,
+            case_type,
+            manifest=manifest,
+            sample_ownership=ownership_mode,
+        )
 
     input_target = target / "input"
     _copy_files(input_product_dir, input_target, input_files)
@@ -96,6 +118,7 @@ def organize_ccm_outputs(
         "timeseries_path": target / "processed" / "timeseries.csv",
         "schedule_path": target / "input" / "actuation_schedule.csv",
         "raw_star_dir": raw_dir,
+        "sample_ownership": ownership_mode,
         "quality_report_path": report_path,
         "quality_report": report,
     }
@@ -174,6 +197,7 @@ def _package(
     case_type: str,
     *,
     manifest: dict[str, Any] | None = None,
+    sample_ownership: str = SAMPLE_OWNERSHIP_AUTO,
 ) -> None:
     manifest_data = dict(manifest or {})
     manifest_data.update(
@@ -185,6 +209,9 @@ def _package(
             "source_product_dir": "raw_star/out_put",
         }
     )
+    actuation = dict(manifest_data.get("actuation") or {})
+    actuation["sample_ownership_rule"] = sample_ownership
+    manifest_data["actuation"] = actuation
     package_ccm_run_case(
         ccm_timeseries_path=runtime_csv,
         schedule_path=schedule,
@@ -193,6 +220,7 @@ def _package(
         require_complete_schema=False,
         run_quality_check=False,
         generate_figures=False,
+        sample_ownership=sample_ownership,
     )
 
 
@@ -236,22 +264,77 @@ def _write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def _embedded_window_id(row: dict[str, Any]) -> int | None:
+    raw = row.get("window_id")
+    if raw in (None, ""):
+        return None
+    try:
+        return int(float(str(raw)))
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_sample_ownership(
+    output_rows: list[dict[str, Any]],
+    *,
+    requested: Any,
+    manifest: dict[str, Any] | None = None,
+) -> str:
+    """把请求的 ownership 解析成一个具体模式，无法证明时拒绝猜测。"""
+    mode = normalize_sample_ownership(requested)
+    if mode is None:
+        raise ScheduleWindowError(
+            f"unknown sample_ownership {requested!r}; expected one of {list(SAMPLE_OWNERSHIP_MODES)}"
+        )
+    if mode != SAMPLE_OWNERSHIP_AUTO:
+        return mode
+    declared = manifest_sample_ownership(manifest)
+    if declared is not None and declared != SAMPLE_OWNERSHIP_AUTO:
+        return declared
+    if output_rows and all(_embedded_window_id(row) is not None for row in output_rows):
+        return SAMPLE_OWNERSHIP_EMBEDDED
+    raise ScheduleWindowError(
+        "monitor-only rows carry no window_id, so sample_ownership cannot be proven; "
+        "pass --sample-ownership left_closed|right_closed, or declare "
+        "actuation.sample_ownership_rule in case_manifest.yaml"
+    )
+
+
 def _attach_schedule(
-    output_rows: list[dict[str, Any]], schedule_rows: list[dict[str, Any]]
+    output_rows: list[dict[str, Any]],
+    schedule_rows: list[dict[str, Any]],
+    *,
+    ownership: str = SAMPLE_OWNERSHIP_AUTO,
 ) -> list[dict[str, Any]]:
     if not output_rows:
         raise ValueError("CCM output contains no rows")
-    ends = [float(row["t_end"]) for row in schedule_rows]
+    mode = _resolve_sample_ownership(output_rows, requested=ownership)
+    starts, ends = parse_schedule_windows(schedule_rows)
+    window_lookup = schedule_window_id_lookup(schedule_rows)
+    window_spans = schedule_window_spans(schedule_rows)
     merged: list[dict[str, Any]] = []
     for row_idx, output in enumerate(output_rows):
-        if len(output_rows) == len(schedule_rows):
-            schedule = schedule_rows[row_idx]
+        raw_time = output.get("physical_time")
+        if raw_time in (None, ""):
+            raise ScheduleWindowError(
+                f"output row {row_idx} has no physical_time; cannot resolve sample ownership"
+            )
+        sample_time = float(raw_time)
+        if mode == SAMPLE_OWNERSHIP_EMBEDDED:
+            window_id = _embedded_window_id(output)
+            # 一个 window_id 跨多行采样，必须用整个窗口跨度校验，而不是首行边界；
+            # window_id 缺失、不在动作表中或与样本时间矛盾都由该校验抛错
+            hit_start, hit_end = validate_embedded_window(window_spans, window_id, sample_time)
+            schedule_idx = window_lookup[window_id]
         else:
-            sample_time = float(output.get("physical_time", 0.0))
-            schedule_idx = min(bisect.bisect_left(ends, sample_time - 1.0e-12), len(schedule_rows) - 1)
-            schedule = schedule_rows[schedule_idx]
+            schedule_idx = locate_schedule_window(starts, ends, sample_time, ownership=mode)
+            hit_start, hit_end = starts[schedule_idx], ends[schedule_idx]
+        schedule = schedule_rows[schedule_idx]
         record = dict(output)
-        record["window_id"] = int(float(schedule.get("window_id", row_idx)))
+        record["window_id"] = int(float(schedule.get("window_id", schedule_idx)))
+        # 命中的窗口边界写回输出，使对齐结果可事后审计
+        record["t_start"] = hit_start
+        record["t_end"] = hit_end
         for column in (*JET_COLUMNS, *MASSFLOW_COLUMNS):
             record[column] = schedule.get(column, 0.0)
         merged.append(record)

@@ -22,6 +22,10 @@ def _manifest() -> dict:
         "random_seed": 1234,
         "git_commit": "abc123",
         "created_time": "2026-06-25T00:00:00+00:00",
+        "initial_transient_crop": {
+            "end_time_s": 0.5,
+            "keep_rule": "physical_time >= 0.5 s",
+        },
     }
 
 
@@ -84,6 +88,8 @@ def test_write_and_load_case_creates_standard_bundle(isolated_runs_root):
     assert list(loaded["timeseries"][0].keys())[: len(TIMESERIES_REQUIRED_COLUMNS)] == list(
         TIMESERIES_REQUIRED_COLUMNS
     )
+    assert list(loaded["actuation_schedule"][0])[0] == "time"
+    assert "physical_time" not in loaded["actuation_schedule"][0]
     assert loaded["pressure_sensors"] == []
     assert loaded["flow_snapshots_dir"] == run_dir / "flow_snapshots"
 
@@ -160,6 +166,16 @@ def test_validate_manifest_rejects_missing_required_field():
     errors = CaseSchema.validate_manifest(manifest)
 
     assert any("mesh_version" in error for error in errors)
+
+
+def test_validate_manifest_requires_uniform_half_second_transient_crop():
+    missing = _manifest()
+    missing.pop("initial_transient_crop")
+    wrong_cutoff = _manifest()
+    wrong_cutoff["initial_transient_crop"]["end_time_s"] = 0.4
+
+    assert any("initial_transient_crop" in error for error in CaseSchema.validate_manifest(missing))
+    assert any("0.5" in error for error in CaseSchema.validate_manifest(wrong_cutoff))
 
 
 def test_validate_timeseries_rejects_nonconsecutive_window_id():

@@ -6,6 +6,9 @@ star:
   mesh_version: 待浩坤确认
   region_names:
   - 减运算
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
 geometry_version: starccm-runtime
 mesh_version: unknown
 flow_velocity: 0.0

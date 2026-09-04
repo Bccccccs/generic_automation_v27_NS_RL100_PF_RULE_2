@@ -10,6 +10,13 @@ from flow_control.cli.organize_outputs import (
     _choose_target_dir,
     _discover_input_dirs,
 )
+from flow_control.sampling import (
+    SAMPLE_OWNERSHIP_AUTO,
+    SAMPLE_OWNERSHIP_EMBEDDED,
+    SAMPLE_OWNERSHIP_LEFT_CLOSED,
+    SAMPLE_OWNERSHIP_RIGHT_CLOSED,
+    ScheduleWindowError,
+)
 from flow_control.star_ingest.output_organizer import (
     _attach_schedule,
     _find_schedule,
@@ -76,11 +83,120 @@ def test_schedule_is_attached_by_physical_sample_time() -> None:
         {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_02": 0, "cmd_massflow_02": 0.0},
     ]
 
-    merged = _attach_schedule(outputs, schedule)
+    merged = _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_RIGHT_CLOSED)
 
     assert [row["window_id"] for row in merged] == [0, 1]
     assert [row["JET_02"] for row in merged] == [1, 0]
     assert [row["cmd_massflow_02"] for row in merged] == [1.0, 0.0]
+    # 命中的窗口边界必须写入输出，便于事后审计对齐结果
+    assert [row["t_start"] for row in merged] == [0.0, 0.1]
+    assert [row["t_end"] for row in merged] == [0.1, 0.2]
+
+
+def test_equal_row_count_still_resolves_by_time_not_index() -> None:
+    """行数相等不得成为按下标拼接的理由：同样的数据换语义必须给出不同结果。"""
+    outputs = [{"physical_time": 0.1}, {"physical_time": 0.2}]
+    schedule = [
+        {"window_id": 0, "t_start": 0.0, "t_end": 0.1, "JET_02": 1, "cmd_massflow_02": 1.0},
+        {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_02": 0, "cmd_massflow_02": 0.0},
+    ]
+
+    merged = _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_LEFT_CLOSED)
+
+    # t=0.1 属于 [0.1, 0.2) 即 window 1；t=0.2 超出末行 t_end，按浮点容差 clamp 到 window 1
+    assert [row["window_id"] for row in merged] == [1, 1]
+    assert [row["JET_02"] for row in merged] == [0, 0]
+
+
+def test_left_closed_event_onset_takes_opening_window() -> None:
+    """行数不等且带亚容差漂移：事件起点必须取新窗口。
+
+    取自 runs/b52/training 第 22499 行，t=4.5000000000006475（漂移 6.5e-13）。
+    旧实现用 bisect_left(t_end, sample - 1e-12) 把它拨回 window 20，使
+    JET_03=0 而 STAR 实测 actual_massflow_03=2.86，被 B04 误判为关阀泄漏。
+    """
+    schedule = [
+        {"window_id": 20, "t_start": 4.4998, "t_end": 4.5, "JET_03": 0, "cmd_massflow_03": 0.0},
+        {"window_id": 21, "t_start": 4.5, "t_end": 4.5002, "JET_03": 1, "cmd_massflow_03": 2.86},
+        {"window_id": 22, "t_start": 4.5002, "t_end": 4.5004, "JET_03": 1, "cmd_massflow_03": 2.86},
+        {"window_id": 23, "t_start": 4.5004, "t_end": 4.5006, "JET_03": 1, "cmd_massflow_03": 2.86},
+    ]
+    outputs = [
+        {"physical_time": 4.5000000000006475},  # 漂移 6.5e-13 < 旧实现的 1e-12 容差
+        {"physical_time": 4.500200000001491},  # 漂移 1.491e-12 > 旧实现的 1e-12 容差
+    ]
+
+    merged = _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_LEFT_CLOSED)
+
+    assert [row["window_id"] for row in merged] == [21, 22]
+    assert [row["JET_03"] for row in merged] == [1, 1]
+    assert [row["cmd_massflow_03"] for row in merged] == [2.86, 2.86]
+    assert [row["t_start"] for row in merged] == [4.5, 4.5002]
+
+
+def test_embedded_window_id_is_preserved_and_validated() -> None:
+    """runtime CSV 自带可信 window_id 时优先信任，不重新按时间猜测。"""
+    schedule = [
+        {"window_id": 0, "t_start": 0.0, "t_end": 0.1, "JET_01": 1, "cmd_massflow_01": 1.0},
+        {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_01": 0, "cmd_massflow_01": 0.0},
+    ]
+    outputs = [
+        {"physical_time": 0.1, "window_id": 0},
+        {"physical_time": 0.2, "window_id": 1},
+    ]
+
+    merged = _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_EMBEDDED)
+
+    assert [row["window_id"] for row in merged] == [0, 1]
+    assert [row["cmd_massflow_01"] for row in merged] == [1.0, 0.0]
+    assert [row["t_end"] for row in merged] == [0.1, 0.2]
+
+
+def test_embedded_window_id_absent_from_schedule_is_rejected() -> None:
+    schedule = [
+        {"window_id": 0, "t_start": 0.0, "t_end": 0.1, "JET_01": 1, "cmd_massflow_01": 1.0},
+        {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_01": 0, "cmd_massflow_01": 0.0},
+    ]
+    outputs = [{"physical_time": 0.1, "window_id": 99}]
+
+    with pytest.raises(ScheduleWindowError, match="window_id"):
+        _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_EMBEDDED)
+
+
+def test_embedded_window_id_contradicting_sample_time_is_rejected() -> None:
+    """自带 window_id 与样本时间矛盾时必须明确失败，不能静默采信。"""
+    schedule = [
+        {"window_id": 0, "t_start": 0.0, "t_end": 0.1, "JET_01": 1, "cmd_massflow_01": 1.0},
+        {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_01": 0, "cmd_massflow_01": 0.0},
+    ]
+    outputs = [{"physical_time": 0.5, "window_id": 0}]
+
+    with pytest.raises(ScheduleWindowError, match="contradict"):
+        _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_EMBEDDED)
+
+
+def test_auto_prefers_embedded_when_runtime_carries_window_id() -> None:
+    schedule = [
+        {"window_id": 0, "t_start": 0.0, "t_end": 0.1, "JET_01": 1, "cmd_massflow_01": 1.0},
+        {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_01": 0, "cmd_massflow_01": 0.0},
+    ]
+    outputs = [{"physical_time": 0.1, "window_id": 0}, {"physical_time": 0.2, "window_id": 1}]
+
+    merged = _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_AUTO)
+
+    assert [row["window_id"] for row in merged] == [0, 1]
+
+
+def test_auto_refuses_to_guess_for_monitor_only_rows() -> None:
+    """monitor-only 导出无法证明样本语义，必须要求显式声明而不是静默猜测。"""
+    schedule = [
+        {"window_id": 0, "t_start": 0.0, "t_end": 0.1, "JET_01": 1, "cmd_massflow_01": 1.0},
+        {"window_id": 1, "t_start": 0.1, "t_end": 0.2, "JET_01": 0, "cmd_massflow_01": 0.0},
+    ]
+    outputs = [{"physical_time": 0.1}, {"physical_time": 0.15}]
+
+    with pytest.raises(ScheduleWindowError, match="sample_ownership"):
+        _attach_schedule(outputs, schedule, ownership=SAMPLE_OWNERSHIP_AUTO)
 
 
 def test_input_directory_requires_actuation_schedule(tmp_path: Path) -> None:
@@ -113,6 +229,7 @@ def test_schedule_and_star_outputs_can_come_from_separate_directories(tmp_path: 
         input_dir=input_dir,
         star_output_dir=star_output_dir,
         output_dir=target,
+        sample_ownership=SAMPLE_OWNERSHIP_RIGHT_CLOSED,
     )
 
     assert result["timeseries_path"].is_file()
@@ -121,6 +238,31 @@ def test_schedule_and_star_outputs_can_come_from_separate_directories(tmp_path: 
     assert rows[0]["Fz_Total"] == "-10.0"
     assert (target / "input" / "actuation_heatmap.svg").read_text(encoding="utf-8") == "<svg/>\n"
     assert (target / "raw_star" / "out_put" / "screenshots" / "flow.png").read_bytes() == b"png-data"
+    manifest_text = (target / "case_manifest.yaml").read_text(encoding="utf-8")
+    assert "sample_ownership_rule: right_closed" in manifest_text
+
+
+def test_organize_monitor_only_requires_explicit_sample_ownership(tmp_path: Path) -> None:
+    """monitor-only 导出不得静默猜测样本语义。"""
+    input_dir = tmp_path / "schedule_source" / "input"
+    star_output_dir = tmp_path / "star_source" / "out_put"
+    input_dir.mkdir(parents=True)
+    star_output_dir.mkdir(parents=True)
+    (input_dir / "actuation_schedule.csv").write_text(
+        "window_id,t_start,t_end,JET_01,cmd_massflow_01\n0,0.0,0.1,1,1.0\n",
+        encoding="utf-8",
+    )
+    (star_output_dir / "force.csv").write_text(
+        '"时间","Fz Monitor: Fz Monitor (N)"\n0.05,-10.0\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ScheduleWindowError, match="sample_ownership"):
+        organize_ccm_outputs(
+            input_dir=input_dir,
+            star_output_dir=star_output_dir,
+            output_dir=tmp_path / "merged_case",
+        )
 
 
 def test_organize_merges_step_runtime_actual_massflow_with_split_monitors(tmp_path: Path) -> None:

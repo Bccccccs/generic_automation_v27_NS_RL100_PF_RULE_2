@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from flow_control.cli.organize_outputs import _choose_directory
+from flow_control.data_schema import initial_transient_crop_end_s
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from flow_control.mock.mock_plant import spatial_nonuniformity, write_plots
 from flow_control.star_ingest.case_data_loader import load_case
@@ -39,19 +40,37 @@ def _effective_inputs(rows: list[dict[str, object]]) -> np.ndarray:
 
 
 def _downsample_by_max(values: np.ndarray, max_rows: int = 1200) -> np.ndarray:
+    """限制热图宽度，并用分块最大值保留短喷气脉冲。"""
     if values.shape[0] <= max_rows:
         return values
     block_size = int(np.ceil(values.shape[0] / max_rows))
-    padded_rows = int(np.ceil(values.shape[0] / block_size)) * block_size
-    padded = np.zeros((padded_rows, values.shape[1]), dtype=float)
-    padded[: values.shape[0]] = values
-    return padded.reshape(-1, block_size, values.shape[1]).max(axis=1)
+    blocks = [
+        values[start : start + block_size].max(axis=0)
+        for start in range(0, values.shape[0], block_size)
+    ]
+    return np.asarray(blocks, dtype=float)
 
 
-def _summary_plot_data(checked: dict[str, object]) -> dict[str, object]:
+def _summary_plot_data(
+    checked: dict[str, object],
+    *,
+    start_time: float | None = None,
+) -> dict[str, object]:
     rows = checked.get("timeseries", [])
     if not isinstance(rows, list) or not rows:
         raise ValueError("Case timeseries is empty; cannot generate summary figures")
+    if start_time is None:
+        start_time = initial_transient_crop_end_s(checked.get("manifest"))
+    rows = [
+        row
+        for row in rows
+        if _float_value(row, "physical_time") >= start_time
+    ]
+    if not rows:
+        raise ValueError(
+            f"No timeseries rows at or after {start_time:g} s; "
+            "choose a smaller --start-time (use 0 to include the initial transient)."
+        )
     time_values = np.asarray([_float_value(row, "physical_time") for row in rows], dtype=float)
     outputs = _rows_to_matrix(rows, FZ_SENSOR_COLUMNS)
     inputs = _effective_inputs(rows)
@@ -90,7 +109,22 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Allow an incomplete schema for debugging.",
     )
+    parser.add_argument(
+        "--start-time",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help=(
+            "Override the initial-transient crop cutoff in seconds. By default "
+            "the manifest's initial_transient_crop is used (uniform 0.5 s); pass "
+            "0 to include the initial transient."
+        ),
+    )
     args = parser.parse_args(argv)
+    if args.start_time is not None and (
+        not np.isfinite(args.start_time) or args.start_time < 0.0
+    ):
+        parser.error("--start-time must be a finite, non-negative number")
 
     case_dir = (
         Path(args.case_dir).expanduser()
@@ -110,7 +144,13 @@ def main(argv: list[str] | None = None) -> int:
         check_mode=args.mode,
     )
     print("[2/2] 正在生成 5 张 SVG 汇总图…")
-    write_plots(case_dir, _summary_plot_data(checked))
+    start_time = (
+        args.start_time
+        if args.start_time is not None
+        else initial_transient_crop_end_s(checked.get("manifest"))
+    )
+    plot_data = _summary_plot_data(checked, start_time=start_time)
+    write_plots(case_dir, plot_data)
     summary_names = (
         "input_heatmap",
         "fz_regions",
@@ -130,6 +170,11 @@ def main(argv: list[str] | None = None) -> int:
     report["summary_figures"] = {
         name: str(path.relative_to(case_dir)) if path else None
         for name, path in figures.items()
+    }
+    report["summary_figure_options"] = {
+        "start_time_s": start_time,
+        "end_time_s": float(plot_data["physical_time"][-1]),
+        "sample_count": int(len(plot_data["physical_time"])),
     }
     report_path.write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"

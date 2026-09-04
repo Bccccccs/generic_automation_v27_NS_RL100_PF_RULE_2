@@ -113,15 +113,7 @@
         },
         {
           "severity": "error",
-          "message": "STAR sample time falls outside the paired actuation window",
-          "examples": [
-            {
-              "row": 2,
-              "sample": 0.2,
-              "t_start": 0.3,
-              "t_end": 0.2
-            }
-          ]
+          "message": "actuation schedule windows are invalid; cannot resolve sample ownership: actuation schedule row 2 has t_end <= t_start (0.3 .. 0.2)"
         }
       ],
       "name_or_coordinate_errors": [],
@@ -131,12 +123,6 @@
       "physical_questions_for_haokun": []
     },
     "summaries": {
-      "time_alignment": {
-        "paired_rows_checked": 4,
-        "sample_matches_t_start_rows": 0,
-        "sample_matches_t_end_rows": 4,
-        "sample_inside_window_rows": 3
-      },
       "star_csv_alignment": {
         "checked_source_csv_count": 0,
         "checked_source_csvs": []

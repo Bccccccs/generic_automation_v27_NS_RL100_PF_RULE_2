@@ -4,6 +4,9 @@ case_type: "<jet_on|no_jet>"
 case_stage: starccm_output_organized
 created_time: "<ISO-8601 UTC>"
 source_product_dir: raw_star/out_put
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: "physical_time >= 0.5 s"
 reference_cases:
   j02_pulse: runs/week4/j02_pluse_0816
   j06_pulse: runs/week4/j06_pluse_0816
@@ -18,11 +21,12 @@ star:
   coordinate_system: Laboratory
 field_contract:
   action_schedule_columns:
-    time: [physical_time, window_id, t_start, t_end]
+    time: [time, window_id, t_start, t_end]
     switches: JET_01..JET_24
     commanded_massflow: cmd_massflow_01..cmd_massflow_24
   timeseries_columns:
     action: [JET_01..JET_24, cmd_massflow_01..cmd_massflow_24]
+    star_raw_actual_massflow: star_actual_massflow_01..star_actual_massflow_24
     actual_massflow: actual_massflow_01..actual_massflow_24
     force_and_moment: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R, Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z]
     raw_only_not_in_processed_timeseries: [fz]
@@ -62,7 +66,14 @@ units:
   moment: N-m
   massflow: kg/s
   area: m^2
-sign_convention: "jet massflow is positive for injection into the flow domain; force and moment retain STAR-CCM+ report signs"
+sign_convention: "force and moment retain STAR-CCM+ report signs"
+massflow_sign_convention:
+  raw_columns: star_actual_massflow_01..star_actual_massflow_24
+  algorithm_columns: actual_massflow_01..actual_massflow_24
+  algorithm_positive_direction: into_flow_domain
+  conversion: "actual_massflow_NN = sign_to_domain * star_actual_massflow_NN"
+  sign_to_domain: -1.0
+  source: "STAR boundary mass-flow report on J01..J24"
 validation:
   mode: partial_timeseries
   action_column_rule: "JET_NN/cmd_massflow_NN/actual_massflow_NN use the same NN and map only to JNN; JETNN is never an action target."

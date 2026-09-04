@@ -12,6 +12,17 @@ from typing import Any
 
 import yaml
 
+from flow_control.data_schema import INITIAL_TRANSIENT_CROP
+
+MASSFLOW_SIGN_CONVENTION = {
+    "raw_columns": "star_actual_massflow_01..star_actual_massflow_24",
+    "algorithm_columns": "actual_massflow_01..actual_massflow_24",
+    "algorithm_positive_direction": "into_flow_domain",
+    "conversion": "actual_massflow_NN = sign_to_domain * star_actual_massflow_NN",
+    "sign_to_domain": -1.0,
+    "source": "STAR boundary mass-flow report on J01..J24",
+}
+
 
 def prepare_preflight_manifest(*, template_path: Path, sim_path: Path, schedule_path: Path, output_dir: Path, time_step: float | None) -> Path:
     """Fill reproducible host-side fields before STAR is launched."""
@@ -19,6 +30,8 @@ def prepare_preflight_manifest(*, template_path: Path, sim_path: Path, schedule_
     if not isinstance(template, dict):
         raise ValueError(f"manifest template must be a mapping: {template_path}")
     data = deepcopy(template)
+    data["initial_transient_crop"] = deepcopy(INITIAL_TRANSIENT_CROP)
+    data["massflow_sign_convention"] = deepcopy(MASSFLOW_SIGN_CONVENTION)
     data["case_id"] = output_dir.name
     data["created_time"] = datetime.now(timezone.utc).isoformat()
     data["source_product_dir"] = "raw_star/out_put"

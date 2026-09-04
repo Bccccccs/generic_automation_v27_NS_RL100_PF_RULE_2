@@ -63,7 +63,7 @@ actuation_schedule.csv
 核心列：
 
 ```text
-physical_time
+time
 window_id
 t_start
 t_end
@@ -646,7 +646,7 @@ Fz_S3R
 Fz_Total
 ```
 
-如果 `cmd_massflow_*` 在 `actuation_schedule.csv` 里而不在 `timeseries.csv` 里，ARX 模块会按 `window_id` 或 `physical_time` 自动合并。
+如果 `cmd_massflow_*` 在 `actuation_schedule.csv` 里而不在 `timeseries.csv` 里，ARX 模块会优先按 `window_id` 自动合并，无窗口号时再用动作表的 `time` 与时间序列的 `physical_time` 对齐。
 
 ### 5.5 训练入口
 

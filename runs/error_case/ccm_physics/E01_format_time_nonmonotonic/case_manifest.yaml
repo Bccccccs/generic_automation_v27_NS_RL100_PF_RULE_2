@@ -1,3 +1,6 @@
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
 case_id: E01_format_time_nonmonotonic
 case_type: no_jet
 check_mode: ccm

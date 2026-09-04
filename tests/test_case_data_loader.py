@@ -65,6 +65,7 @@ def _good_rows(n: int = 5, *, jet: bool = False) -> list[dict]:
             for idx in range(1, 25):
                 row[f"JET_{idx:02d}"] = 1.0 if idx == 1 and i % 2 == 0 else 0.0
                 row[f"cmd_massflow_{idx:02d}"] = 0.01 if idx == 1 and i % 2 == 0 else 0.0
+                row[f"star_actual_massflow_{idx:02d}"] = -0.0095 if idx == 1 and i % 2 == 0 else 0.0
                 row[f"actual_massflow_{idx:02d}"] = 0.0095 if idx == 1 and i % 2 == 0 else 0.0
         rows.append(row)
     return rows
@@ -153,6 +154,14 @@ class TestRequiredColumns:
         case_dir = _write_case(tmp_path, "missing_actual_mf", rows)
         result = load_case(case_dir)
         assert any("actual_massflow_01" in e for e in result["errors"])
+
+    def test_missing_star_raw_actual_massflow_raises_error(self, tmp_path):
+        rows = _good_rows(jet=True)
+        for row in rows:
+            row.pop("star_actual_massflow_01")
+        case_dir = _write_case(tmp_path, "missing_star_actual_mf", rows)
+        result = load_case(case_dir)
+        assert any("star_actual_massflow_01" in error for error in result["errors"])
 
     def test_all_required_columns_present_passes(self, tmp_path):
         rows = _good_rows(jet=True)
@@ -377,6 +386,7 @@ class TestStarExportReader:
         assert mapping["JET_01"] == '"JET_01"'
         assert mapping["JET_24"] == '"JET_24"'
         assert mapping["cmd_massflow_01"] == '"cmd_massflow_01"'
+        assert mapping["star_actual_massflow_01"] == '"actual_massflow_01"'
         assert mapping["actual_massflow_01"] == '"actual_massflow_01"'
 
     def test_star_bottom_jet_boundary_name_is_not_switch_column(self):
@@ -412,17 +422,21 @@ class TestStarExportReader:
         assert data["rows"][1]["Fz_S1R"] == 4.0
         assert data["units"].get("Fz_S1L") == "N"
 
-    def test_star_inlet_actual_massflow_is_normalized_positive(self, tmp_path):
+    def test_star_actual_massflow_keeps_raw_sign_and_converts_domain_direction(self, tmp_path):
         csv_path = tmp_path / "massflow.csv"
         csv_path.write_text(
             '"时间","actual_massflow_02 Monitor: actual_massflow_02 Monitor (kg/s)"\n'
-            '0.0001,-1.0\n',
+            '0.0001,-1.0\n'
+            '0.0002,0.25\n',
             encoding="utf-8",
         )
 
         data = read_star_export_csv(csv_path)
 
+        assert data["rows"][0]["star_actual_massflow_02"] == pytest.approx(-1.0)
         assert data["rows"][0]["actual_massflow_02"] == pytest.approx(1.0)
+        assert data["rows"][1]["star_actual_massflow_02"] == pytest.approx(0.25)
+        assert data["rows"][1]["actual_massflow_02"] == pytest.approx(-0.25)
 
     def test_compute_fz_total(self):
         """Verify underbody total computation without inventing vehicle lift."""
@@ -522,6 +536,69 @@ class TestStarExportReader:
             assert key in figures
             assert figures[key] is not None
             assert figures[key].exists()
+
+    def test_generate_all_figures_crops_initial_transient_per_manifest(
+        self, tmp_path, monkeypatch
+    ):
+        import flow_control.star_ingest.figures_generator as fg
+
+        rows = [
+            {"physical_time": 0.1, "Fz_S1L": 1.0},
+            {"physical_time": 0.5, "Fz_S1L": 2.0},
+            {"physical_time": 0.9, "Fz_S1L": 3.0},
+        ]
+        seen: dict[str, list] = {}
+
+        def fake_force(force_rows, path):
+            seen["force"] = force_rows
+            return Path(path)
+
+        monkeypatch.setattr(fg, "generate_force_timeseries", fake_force)
+        monkeypatch.setattr(fg, "generate_jet_schedule", lambda r, p, **k: None)
+        monkeypatch.setattr(fg, "generate_massflow_check", lambda r, p, **k: {})
+        monkeypatch.setattr(fg, "generate_quality_summary", lambda res, p: Path(p))
+
+        result = {
+            "case_id": "crop_case",
+            "timeseries": rows,
+            "manifest": {"initial_transient_crop": {"end_time_s": 0.5}},
+            "has_jet_data": False,
+            "errors": [],
+            "warnings": [],
+        }
+        fg.generate_all_figures(result, tmp_path / "figures")
+        assert [row["physical_time"] for row in seen["force"]] == [0.5, 0.9]
+
+    def test_generate_all_figures_keeps_rows_when_crop_would_empty_them(
+        self, tmp_path, monkeypatch
+    ):
+        import flow_control.star_ingest.figures_generator as fg
+
+        rows = [
+            {"physical_time": 0.1, "Fz_S1L": 1.0},
+            {"physical_time": 0.2, "Fz_S1L": 2.0},
+        ]
+        seen: dict[str, list] = {}
+
+        def fake_force(force_rows, path):
+            seen["force"] = force_rows
+            return Path(path)
+
+        monkeypatch.setattr(fg, "generate_force_timeseries", fake_force)
+        monkeypatch.setattr(fg, "generate_jet_schedule", lambda r, p, **k: None)
+        monkeypatch.setattr(fg, "generate_massflow_check", lambda r, p, **k: {})
+        monkeypatch.setattr(fg, "generate_quality_summary", lambda res, p: Path(p))
+
+        result = {
+            "case_id": "short_case",
+            "timeseries": rows,
+            "manifest": {"initial_transient_crop": {"end_time_s": 0.5}},
+            "has_jet_data": False,
+            "errors": [],
+            "warnings": [],
+        }
+        fg.generate_all_figures(result, tmp_path / "figures")
+        assert [row["physical_time"] for row in seen["force"]] == [0.1, 0.2]
 
     def test_missing_file_errors(self, tmp_path):
         """Missing required files produce file-completeness error."""

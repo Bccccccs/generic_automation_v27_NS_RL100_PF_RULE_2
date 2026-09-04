@@ -1,3 +1,6 @@
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
 case_id: E02_name_coordinate_bad_lift_direction
 case_type: no_jet
 check_mode: ccm

@@ -88,7 +88,7 @@ Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z
 当前动作表约定来自 `docs/week2/B02_喷气激励数据字典.md`：
 
 ```text
-physical_time, window_id, t_start, t_end,
+time, window_id, t_start, t_end,
 JET_01 ... JET_24,
 cmd_massflow_01 ... cmd_massflow_24
 ```
@@ -107,7 +107,7 @@ cmd_massflow_01 ... cmd_massflow_24
 
 ```text
 row i defines one physical action window from t_start to t_end seconds
-physical_time == t_start
+time == t_start
 ```
 
 也就是说，`t_start` 是本行动作开始生效的物理时间，`t_end` 是本行动作结束边界。STAR 内部可以在同一个物理窗口里做多个 time step 或内迭代，但后续训练和对齐只能使用物理时间 `s`，不能用 solver iteration 代替。
@@ -196,10 +196,12 @@ boundary/report mapping file versions
 | STAR 命名口径 | `JET01..JET24` 是底部边界，`J01..J24` 是喷气口。 |
 | 控制候选边界 | 算法侧 `JET_01..JET_24` 控制候选对象应是 STAR `J01..J24`。 |
 | 当前 J01 边界状态 | `J01` 已确认可设为质量流量入口，质量流率方法为常数，值为 `2.57 kg/s`。 |
-| 动作窗口语义 | 每行表示物理时间窗口，`physical_time == t_start`。 |
+| 动作窗口语义 | 每行表示物理时间窗口，`time == t_start`。 |
 | 喷气窗口语义 | 某个喷口连续开启的一段物理时间，由连续的 active 动作窗口合并得到；不能把单行动作窗口直接称为一次喷气窗口。 |
 | 当前 JET_01 喷气窗口 | `G01_JET01_existing` 中 `JET_01=1` 且 `cmd_massflow_01=2.57 kg/s` 覆盖全部 30000 行，所以喷气窗口为 `0.0-3.0 s`。 |
 | 当前 CLI 采样归属 | 命令行宏在写入 row i 的质量流量后推进到 `t_end`，然后采样 report；`t_end` 样本归属同一个 `window_id=i`。 |
+| 当前 B52 monitor-only 采样归属 | B52 training/validation 的 monitor 导出按实际 STAR 时间采用左闭右开 `[t_start, t_end)`，即样本时间等于窗口起点时归属该窗口。必须在 `case_manifest.yaml` 的 `actuation.sample_ownership_rule` 显式声明为 `left_closed`，不得按行数或文件名推断。 |
+| 采样归属统一实现 | `flow_control/sampling.py` 的 `parse_schedule_windows` / `locate_schedule_window` / `resolve_sample_window` 是唯一实现，organizer、B04、physics checker、B53 共用；禁止在各模块自行 `bisect` 或按行号 `zip` 配对。 |
 | 当前真实样本 | 两个 temp case 均为 30000 个动作窗口和 30000 个 STAR 输出样本，`dt=0.0001 s`。 |
 | 当前 STAR 导出列 | 已确认 6 个区域力、总 Fz、Drag、Pitch、Roll、Jet_Reaction_Z 的 CSV header 和单位。 |
 | 标准载荷列 | 6 个区域力、整车总力、阻力、俯仰、滚转、喷气反作用力。 |

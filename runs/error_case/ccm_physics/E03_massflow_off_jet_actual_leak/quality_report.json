@@ -1,8 +1,33 @@
 {
   "case_id": "E03_massflow_off_jet_actual_leak",
-  "num_errors": 0,
+  "num_errors": 24,
   "num_warnings": 0,
-  "errors": [],
+  "errors": [
+    "Missing required column: star_actual_massflow_01",
+    "Missing required column: star_actual_massflow_02",
+    "Missing required column: star_actual_massflow_03",
+    "Missing required column: star_actual_massflow_04",
+    "Missing required column: star_actual_massflow_05",
+    "Missing required column: star_actual_massflow_06",
+    "Missing required column: star_actual_massflow_07",
+    "Missing required column: star_actual_massflow_08",
+    "Missing required column: star_actual_massflow_09",
+    "Missing required column: star_actual_massflow_10",
+    "Missing required column: star_actual_massflow_11",
+    "Missing required column: star_actual_massflow_12",
+    "Missing required column: star_actual_massflow_13",
+    "Missing required column: star_actual_massflow_14",
+    "Missing required column: star_actual_massflow_15",
+    "Missing required column: star_actual_massflow_16",
+    "Missing required column: star_actual_massflow_17",
+    "Missing required column: star_actual_massflow_18",
+    "Missing required column: star_actual_massflow_19",
+    "Missing required column: star_actual_massflow_20",
+    "Missing required column: star_actual_massflow_21",
+    "Missing required column: star_actual_massflow_22",
+    "Missing required column: star_actual_massflow_23",
+    "Missing required column: star_actual_massflow_24"
+  ],
   "warnings": [],
   "has_jet_data": true,
   "check_mode": "ccm",
@@ -114,10 +139,12 @@
     },
     "summaries": {
       "time_alignment": {
-        "paired_rows_checked": 4,
-        "sample_matches_t_start_rows": 0,
-        "sample_matches_t_end_rows": 4,
-        "sample_inside_window_rows": 4
+        "sample_ownership_rule": "right_closed",
+        "sample_ownership_source": "legacy_default",
+        "rows_checked": 4,
+        "aligned_rows": 4,
+        "unassigned_rows": 0,
+        "window_id_mismatch_rows": 0
       },
       "star_csv_alignment": {
         "checked_source_csv_count": 0,

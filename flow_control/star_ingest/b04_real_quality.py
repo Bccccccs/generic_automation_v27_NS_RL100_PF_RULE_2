@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 from dataclasses import dataclass
@@ -23,6 +24,17 @@ import matplotlib.pyplot as plt
 import yaml
 
 from flow_control.case_paths import find_case_timeseries_path
+from flow_control.sampling import (
+    SAMPLE_OWNERSHIP_EMBEDDED,
+    SAMPLE_OWNERSHIP_RIGHT_CLOSED,
+    ScheduleWindowError,
+    locate_schedule_window,
+    resolve_declared_ownership,
+    parse_schedule_windows,
+    schedule_window_id_lookup,
+    schedule_window_spans,
+    validate_embedded_window,
+)
 from flow_control.star_ingest.star_export_reader import read_star_export_csv
 
 
@@ -95,8 +107,13 @@ def check_real_case(
     }
     timeseries_path = find_case_timeseries_path(case_path)
     rows, columns, read_error = _read_csv(timeseries_path)
+    if timeseries_path.is_file():
+        report["metrics"]["timeseries_sha256"] = _sha256_file(timeseries_path)
     schedule, schedule_columns, schedule_error = _read_csv(case_path / "actuation_schedule.csv")
-    manifest = _read_yaml(case_path / "case_manifest.yaml")
+    manifest_path = case_path / "case_manifest.yaml"
+    manifest = _read_yaml(manifest_path)
+    if manifest_path.is_file():
+        report["metrics"]["case_manifest_sha256"] = _sha256_file(manifest_path)
 
     if read_error:
         _issue(report, "format_errors", "error", read_error)
@@ -109,7 +126,7 @@ def check_real_case(
         _issue(report, "format_errors", "error", "actuation_schedule.csv is missing or empty")
 
     _check_numeric_columns(report, rows, columns)
-    _check_time(report, rows, schedule, schedule_columns, threshold)
+    _check_time(report, rows, schedule, schedule_columns, threshold, manifest)
     active_jets = _check_massflow(
         report,
         rows,
@@ -212,12 +229,43 @@ def _check_numeric_columns(report: dict[str, Any], rows: list[dict[str, str]], c
         _issue(report, "format_errors", "error", "数值字段存在缺失、NaN、Inf 或非数值内容", examples=invalid_examples)
 
 
+def _is_contiguous_prefix(
+    sample_times: list[float],
+    resolved: list[int],
+    starts: list[float],
+    schedule_row_count: int,
+) -> bool:
+    """timeseries 是否为动作表的连续前缀：从起点开始、中间无缺行、提前结束。
+
+    不要求解析出的动作表行下标完全连续：STAR 时间列的浮点漂移会让个别采样点
+    落到相邻窗口，造成下标重复或跳过一格。中间缺行则会让相邻采样时间间隔成倍
+    放大，用动作表行间隔作基准即可区分两者。
+    """
+    if not resolved or not sample_times or schedule_row_count <= 0:
+        return False
+    if max(resolved) >= schedule_row_count:
+        return False
+    # 首个采样落在 t=dt，对应动作表第 1 行；再往后就说明开头缺行
+    if min(resolved) > 1:
+        return False
+    if any(later < earlier for earlier, later in zip(resolved, resolved[1:])):
+        return False
+    if len(starts) < 2 or len(sample_times) < 2:
+        return True
+    schedule_dt = median(later - earlier for earlier, later in zip(starts, starts[1:]))
+    if schedule_dt <= 0:
+        return False
+    largest_gap = max(later - earlier for earlier, later in zip(sample_times, sample_times[1:]))
+    return largest_gap <= 1.5 * schedule_dt
+
+
 def _check_time(
     report: dict[str, Any],
     rows: list[dict[str, str]],
     schedule: list[dict[str, str]],
     schedule_columns: list[str],
     threshold: B04Thresholds,
+    manifest: dict[str, Any],
 ) -> None:
     times = [_number(row.get("physical_time")) for row in rows]
     for index in range(1, len(times)):
@@ -229,26 +277,136 @@ def _check_time(
     if "t_start" not in schedule_columns or "t_end" not in schedule_columns:
         _issue(report, "time_errors", "error", "动作表缺少 t_start/t_end，无法验证动作窗口")
         return
-    if len(rows) != len(schedule):
-        _issue(report, "time_errors", "error", "采样行数与动作窗口行数不一致", timeseries_rows=len(rows), schedule_rows=len(schedule))
-    outside: list[dict[str, Any]] = []
+
+    ownership, ownership_source = resolve_declared_ownership(manifest)
+
+    alignment: dict[str, Any] = {
+        "sample_ownership_rule": ownership,
+        "sample_ownership_source": ownership_source,
+        "aligned_row_count": 0,
+        "unmatched_row_count": 0,
+        "window_id_mismatch_count": 0,
+        "partial_completion_ratio": len(rows) / len(schedule),
+        "result_end_time": times[-1] if times else None,
+        "scheduled_end_time": None,
+    }
+    report["metrics"]["time_alignment"] = alignment
+
+    try:
+        starts, ends = parse_schedule_windows(schedule)
+    except ScheduleWindowError as exc:
+        _issue(report, "time_errors", "error", f"动作表窗口非法，无法验证样本归属: {exc}")
+        return
+    alignment["scheduled_end_time"] = ends[-1]
+
+    embedded = ownership == SAMPLE_OWNERSHIP_EMBEDDED
+    window_lookup = schedule_window_id_lookup(schedule) if embedded else {}
+    window_spans = schedule_window_spans(schedule) if embedded else {}
+
+    unmatched: list[dict[str, Any]] = []
     misaligned_window_ids: list[dict[str, Any]] = []
-    for index, (row, action) in enumerate(zip(rows, schedule)):
+    resolved: list[int] = []
+    resolved_times: list[float] = []
+    for index, row in enumerate(rows):
         sample = _number(row.get("physical_time"))
-        start = _number(action.get("t_start"))
-        end = _number(action.get("t_end"))
-        if sample is None or start is None or end is None or not (start - threshold.time_tolerance <= sample <= end + threshold.time_tolerance):
-            if len(outside) < 10:
-                outside.append({"row": index, "physical_time": sample, "t_start": start, "t_end": end})
+        if sample is None:
+            continue
+        if embedded:
+            # window_id 是数据自带的声明，没有独立第二来源可比对；
+            # 改为校验它与样本时间是否矛盾
+            try:
+                validate_embedded_window(window_spans, row.get("window_id"), sample)
+            except ScheduleWindowError as exc:
+                alignment["window_id_mismatch_count"] += 1
+                if len(misaligned_window_ids) < 10:
+                    misaligned_window_ids.append({
+                        "row": index,
+                        "physical_time": sample,
+                        "timeseries_window_id": row.get("window_id"),
+                        "reason": str(exc),
+                    })
+                continue
+            alignment["aligned_row_count"] += 1
+            resolved.append(window_lookup[int(float(str(row.get("window_id"))))])
+            resolved_times.append(sample)
+            continue
+        try:
+            schedule_index = locate_schedule_window(starts, ends, sample, ownership=ownership)
+        except ScheduleWindowError as exc:
+            alignment["unmatched_row_count"] += 1
+            if len(unmatched) < 10:
+                unmatched.append({"row": index, "physical_time": sample, "reason": str(exc)})
+            continue
+        resolved.append(schedule_index)
+        resolved_times.append(sample)
+        alignment["aligned_row_count"] += 1
         row_window = _number(row.get("window_id"))
-        action_window = _number(action.get("window_id"))
-        if row_window is not None and action_window is not None and row_window != action_window and len(misaligned_window_ids) < 10:
-            misaligned_window_ids.append({"row": index, "timeseries_window_id": row_window, "schedule_window_id": action_window})
-    if outside:
-        _issue(report, "time_errors", "error", "采样时间未落入配对动作窗口", examples=outside)
+        action_window = _number(schedule[schedule_index].get("window_id"))
+        if row_window is not None and action_window is not None and row_window != action_window:
+            alignment["window_id_mismatch_count"] += 1
+            if len(misaligned_window_ids) < 10:
+                misaligned_window_ids.append({
+                    "row": index,
+                    "physical_time": sample,
+                    "timeseries_window_id": row_window,
+                    "schedule_window_id": action_window,
+                    "schedule_row": schedule_index,
+                })
+    if unmatched:
+        _issue(report, "time_errors", "error", "采样时间无法归属任何动作窗口", examples=unmatched)
     if misaligned_window_ids:
-        _issue(report, "time_errors", "error", "timeseries 与动作表的 window_id 未对齐", examples=misaligned_window_ids)
-    report["metrics"]["time_alignment"] = {"rows_checked": min(len(rows), len(schedule)), "outside_window_count_capped": len(outside)}
+        _issue(
+            report,
+            "time_errors",
+            "error",
+            "行自带的 window_id 与样本时间矛盾"
+            if embedded
+            else "timeseries 与动作表的 window_id 未对齐",
+            examples=misaligned_window_ids,
+        )
+
+    if len(rows) == len(schedule):
+        return
+    declared_partial = str(manifest.get("validation_mode", "")).strip().lower() == "partial_timeseries"
+    contiguous_prefix = _is_contiguous_prefix(resolved_times, resolved, starts, len(schedule))
+    if (
+        len(rows) < len(schedule)
+        and declared_partial
+        and alignment["unmatched_row_count"] == 0
+        and contiguous_prefix
+    ):
+        _issue(
+            report,
+            "time_errors",
+            "warning",
+            "timeseries 是动作表的连续前缀，按提前结束处理；不阻塞，但不得当成完整运行",
+            timeseries_rows=len(rows),
+            schedule_rows=len(schedule),
+            completion_ratio=alignment["partial_completion_ratio"],
+            result_end_time=alignment["result_end_time"],
+            scheduled_end_time=alignment["scheduled_end_time"],
+        )
+    elif len(rows) > len(schedule):
+        _issue(
+            report,
+            "time_errors",
+            "error",
+            "timeseries 行数多于动作窗口行数",
+            timeseries_rows=len(rows),
+            schedule_rows=len(schedule),
+        )
+    else:
+        _issue(
+            report,
+            "time_errors",
+            "error",
+            "采样行数与动作窗口行数不一致，且不构成合法的连续前缀",
+            timeseries_rows=len(rows),
+            schedule_rows=len(schedule),
+            declared_partial_timeseries=declared_partial,
+            unmatched_row_count=alignment["unmatched_row_count"],
+            contiguous_prefix=contiguous_prefix,
+        )
 
 
 def _check_massflow(
@@ -529,7 +687,12 @@ def _write_blocking_issues(path: Path, reports: list[dict[str, Any]], expected_c
         for category in CATEGORY_KEYS:
             for issue in report["categories"][category]:
                 found = True
-                tag = "需浩坤判断" if category == "physical_questions_for_haokun" else "阻塞"
+                if category == "physical_questions_for_haokun":
+                    tag = "需浩坤判断"
+                elif issue.get("severity") == "warning":
+                    tag = "警告"
+                else:
+                    tag = "阻塞"
                 lines.append(f"- [{tag} / {category}] {issue['message']}")
         if not found:
             lines.append("- 未发现问题。")
@@ -548,6 +711,14 @@ def _read_csv(path: Path) -> tuple[list[dict[str, str]], list[str], str | None]:
             return list(reader), list(reader.fieldnames), None
     except (OSError, csv.Error, UnicodeError) as exc:
         return [], [], f"CSV 读取失败: {path}: {exc}"
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
@@ -628,7 +799,13 @@ def _issue(report: dict[str, Any], category: str, severity: str, message: str, *
 
 def _finalize(report: dict[str, Any]) -> dict[str, Any]:
     counts = {key: len(report["categories"][key]) for key in CATEGORY_KEYS}
-    blocking = sum(counts[key] for key in BLOCKING_CATEGORIES)
+    # 只有 severity == "error" 才阻塞；warning 记录需知情但不拦路的事实（如提前结束）
+    blocking = sum(
+        1
+        for key in BLOCKING_CATEGORIES
+        for issue in report["categories"][key]
+        if issue.get("severity") == "error"
+    )
     report["summary"] = {
         "category_counts": counts,
         "blocking_issue_count": blocking,

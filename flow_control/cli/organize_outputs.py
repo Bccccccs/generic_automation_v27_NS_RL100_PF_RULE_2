@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from flow_control.sampling import SAMPLE_OWNERSHIP_AUTO, SAMPLE_OWNERSHIP_MODES
 from flow_control.star_ingest.output_organizer import organize_ccm_outputs
 
 
@@ -72,6 +73,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Target standard case directory; omit to enter it interactively.",
     )
     parser.add_argument("--force", action="store_true", help="Allow overwriting generated files in the target case.")
+    parser.add_argument(
+        "--sample-ownership",
+        default=SAMPLE_OWNERSHIP_AUTO,
+        choices=list(SAMPLE_OWNERSHIP_MODES),
+        help=(
+            "STAR 样本归属哪个动作窗口：left_closed 表示 [t_start,t_end)，"
+            "right_closed 表示 (t_start,t_end]，embedded 表示信任 runtime CSV 自带的 window_id。"
+            "auto 仅在 runtime 行自带 window_id 时才推断为 embedded；"
+            "monitor-only 导出必须显式指定，不会静默猜测。"
+        ),
+    )
     args = parser.parse_args(argv)
 
     runs_root = Path("runs")
@@ -97,11 +109,13 @@ def main(argv: list[str] | None = None) -> int:
         output_dir=output_dir,
         star_output_dir=star_output_dir,
         overwrite=overwrite,
+        sample_ownership=args.sample_ownership,
     )
     print(f"case_dir: {result['case_dir']}")
     print(f"timeseries: {result['timeseries_path']}")
     print(f"schedule: {result['schedule_path']}")
     print(f"raw_star: {result['raw_star_dir']}")
+    print(f"sample_ownership: {result['sample_ownership']}")
     print("next: python scripts/workflow.py check --case-dir " + str(result["case_dir"]) + " --mode ccm")
     return 0
 

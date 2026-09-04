@@ -49,6 +49,7 @@ from flow_control.case_paths import (
     find_case_timeseries_path,
     legacy_case_timeseries_path,
 )
+from flow_control.sampling import ACTUATION_TIME_COLUMN
 
 from .star_export_reader import (
     discover_star_export_csvs,
@@ -59,6 +60,7 @@ from .star_export_reader import (
     GLOBAL_COLUMNS,
     JET_COLUMNS,
     CMD_MASSFLOW_COLUMNS,
+    STAR_ACTUAL_MASSFLOW_COLUMNS,
     ACTUAL_MASSFLOW_COLUMNS,
 )
 from .quality_checker import QualityChecker
@@ -253,6 +255,12 @@ def load_case(
     if jet_case and require_complete_schema:
         jet_col_errors = checker.check_required_columns(result["timeseries"], JET_REQUIRED_EXTRA_COLUMNS)
         result["errors"].extend(jet_col_errors)
+        if _quality_check_profile(check_mode) == "ccm":
+            result["errors"].extend(
+                checker.check_required_columns(
+                    result["timeseries"], STAR_ACTUAL_MASSFLOW_COLUMNS
+                )
+            )
     elif not jet_case and (require_complete_schema or "Jet_Reaction_Z" in ts_columns):
         # No-jet case: Jet_Reaction_Z should be 0 or N/A when present.
         # 无喷气工况:检查 Jet_Reaction_Z 的合理性
@@ -408,14 +416,14 @@ def ingest_star_export(
     # schema; input/ keeps the backend command source for traceability.
     # 写入驱动指令 CSV:根目录是标准副本,input/ 下保存后端命令源用于追溯
     if actuation_schedule is not None:
-        sch_cols = list(actuation_schedule[0].keys()) if actuation_schedule else ["physical_time"]
+        sch_cols = list(actuation_schedule[0].keys()) if actuation_schedule else [ACTUATION_TIME_COLUMN]
         _write_csv_rows(case_path / "actuation_schedule.csv", sch_cols, actuation_schedule)
         _write_csv_rows(case_path / "input" / "actuation_schedule.csv", sch_cols, actuation_schedule)
     else:
         # Write an empty schedule with just the header
         # 写入只有表头的空驱动指令表
-        _write_csv_rows(case_path / "actuation_schedule.csv", ["physical_time"], [])
-        _write_csv_rows(case_path / "input" / "actuation_schedule.csv", ["physical_time"], [])
+        _write_csv_rows(case_path / "actuation_schedule.csv", [ACTUATION_TIME_COLUMN], [])
+        _write_csv_rows(case_path / "input" / "actuation_schedule.csv", [ACTUATION_TIME_COLUMN], [])
 
     # 5. Write case_manifest.yaml / 写入 Case 元数据(自动填充默认值)
     manifest_data = manifest or {}
@@ -709,7 +717,7 @@ def _build_no_jet_actuation_schedule(rows: list[dict[str, Any]]) -> list[dict[st
             float(t) + default_dt if isinstance(t, (int, float)) else t
         )
         record: dict[str, Any] = {
-            "physical_time": t,
+            ACTUATION_TIME_COLUMN: t,
             "window_id": idx,
             "t_start": t,
             "t_end": t_end,
@@ -778,6 +786,7 @@ def _ordered_columns_from_rows(rows: list[dict[str, Any]]) -> list[str]:
         "solver_status",
         *JET_COLUMNS,
         *CMD_MASSFLOW_COLUMNS,
+        *STAR_ACTUAL_MASSFLOW_COLUMNS,
         *ACTUAL_MASSFLOW_COLUMNS,
         "case_stage",
     )

@@ -1,3 +1,6 @@
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
 case_id: E03_massflow_off_jet_actual_leak
 case_type: jet_on
 check_mode: ccm

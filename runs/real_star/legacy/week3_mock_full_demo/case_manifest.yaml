@@ -1,4 +1,7 @@
 geometry_version: mock-dynamic24x6
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
 mesh_version: not-applicable
 flow_velocity: 0.0
 gap: 0.0

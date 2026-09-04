@@ -11,4 +11,5 @@ Drag_Total,Drag_Monitor_绘图_image_10000.csv,Drag Monitor,N,Laboratory,"[1.0, 
 Pitch_Moment,Pitch_Moment_Monitor_绘图_image_10000.csv,Pitch_Moment Monitor,N-m,Laboratory,"[0.0, 1.0, 0.0]","[29.0, 0.0, 1.52]",JET01..JET24,confirmed,当前俯仰力矩
 Roll_Moment,Roll_Moment_Monitor_绘图_image_10000.csv,Roll_Moment Monitor,N-m,Laboratory,"[1.0, 0.0, 0.0]","[29.0, 0.0, 1.52]",JET01..JET24,confirmed,当前滚转力矩
 Jet_Reaction_Z,Jet_Reaction_Z_Monitor_绘图_image_10000.csv,Jet_Reaction_Z Monitor,N,Laboratory,"[0.0, 0.0, 1.0]",,J01..J24,pending_浩坤_confirmation,当前J表面+Z力；是否为项目定义的喷气动量反作用力等待浩坤确认
-actual_massflow_01..24,actual_massflow_image_10000.csv,actual_massflow_01..24 Monitor,kg/s,Laboratory,UNCONFIRMED,,J01..J24,confirmed,按NN编号对应JNN喷气口的实际质量流量
+star_actual_massflow_01..24,actual_massflow_image_10000.csv,actual_massflow_01..24 Monitor,kg/s,Laboratory,STAR report signed direction,,J01..J24,confirmed,STAR原始带符号实际质量流量
+actual_massflow_01..24,actual_massflow_image_10000.csv,actual_massflow_01..24 Monitor,kg/s,Laboratory,into_flow_domain_positive,,J01..J24,confirmed,由同一STAR原始report乘sign_to_domain得到的算法输入值；不得用指令值代替

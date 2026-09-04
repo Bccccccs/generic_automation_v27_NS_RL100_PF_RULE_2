@@ -14,6 +14,7 @@ Standard output columns may include any subset of::
     physical_time, Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R,
     Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z,
     JET_01 … JET_24, cmd_massflow_01 … cmd_massflow_24,
+    star_actual_massflow_01 … star_actual_massflow_24,
     actual_massflow_01 … actual_massflow_24
 
 The reader preserves the columns actually exported by STAR-CCM+.  It only
@@ -105,19 +106,23 @@ STANDARD_LOAD_COLUMNS = (*FZ_SENSOR_COLUMNS, *GLOBAL_COLUMNS)
 JET_COLUMNS = tuple(f"JET_{idx:02d}" for idx in range(1, 25))
 # 24 个喷气口指令质量流量列名 cmd_massflow_01 ~ cmd_massflow_24
 CMD_MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{idx:02d}" for idx in range(1, 25))
-# 24 个喷气口实际质量流量列名 actual_massflow_01 ~ actual_massflow_24
+# 24 个喷气口 STAR 原始带符号实际质量流量
+STAR_ACTUAL_MASSFLOW_COLUMNS = tuple(
+    f"star_actual_massflow_{idx:02d}" for idx in range(1, 25)
+)
+# 24 个喷气口算法侧实际质量流量，向计算域喷入为正
 ACTUAL_MASSFLOW_COLUMNS = tuple(f"actual_massflow_{idx:02d}" for idx in range(1, 25))
 
 
-def normalize_actual_massflow(value: float) -> float:
+def normalize_actual_massflow(value: float, *, sign_to_domain: float = -1.0) -> float:
     """Return project-standard jet mass flow with injection defined positive.
 
     STAR inlet reports may be negative because their sign follows the boundary
     outward normal.  The flow-control contract instead stores the physical
-    injection rate as a non-negative magnitude.  Raw STAR files remain
-    untouched; normalization happens only while building standard products.
+    injection rate using a signed direction transform.  Reverse flow therefore
+    remains negative instead of being hidden by ``abs``.
     """
-    return abs(float(value))
+    return float(sign_to_domain) * float(value)
 
 # 需要忽略的 STAR 产品目录下的 CSV 文件名模式。
 # "报告"和"pressure"类型的文件与力/力矩时间序列无关,跳过。
@@ -220,6 +225,7 @@ def detect_star_column_mapping(headers: list[str]) -> dict[str, str]:
         if actual_match:
             idx = int(actual_match.group(1))
             if 1 <= idx <= 24:
+                mapping[f"star_actual_massflow_{idx:02d}"] = header
                 mapping[f"actual_massflow_{idx:02d}"] = header
                 continue
 
@@ -494,7 +500,8 @@ def _order_columns(present: list[str]) -> list[str]:
     这个顺序保证了生成的时间序列 CSV 有良好的可读性和一致性。
     """
     priority = ("physical_time", *FZ_SENSOR_COLUMNS, *GLOBAL_COLUMNS,
-                *JET_COLUMNS, *CMD_MASSFLOW_COLUMNS, *ACTUAL_MASSFLOW_COLUMNS)
+                *JET_COLUMNS, *CMD_MASSFLOW_COLUMNS,
+                *STAR_ACTUAL_MASSFLOW_COLUMNS, *ACTUAL_MASSFLOW_COLUMNS)
     ordered = [c for c in priority if c in present]
     extras = [c for c in present if c not in priority]
     return ordered + extras
