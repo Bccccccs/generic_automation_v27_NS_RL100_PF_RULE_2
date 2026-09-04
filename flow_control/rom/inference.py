@@ -24,6 +24,8 @@ from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from flow_control.mock.mock_plant import spatial_nonuniformity, write_plots
 from flow_control.sampling import (
+    ACTUATION_TIME_COLUMN,
+    actuation_time_value,
     expand_schedule_rows,
     infer_time_step,
     infer_window_duration,
@@ -324,7 +326,7 @@ def _read_schedule_rows(case_dir: str | Path) -> list[dict[str, str]]:
     # 回退方案：从 timeseries 数据中提取喷射器状态和质量流量列组成调度表
     return [
         {
-            "physical_time": row.get("physical_time", ""),
+            ACTUATION_TIME_COLUMN: row.get("physical_time", ""),
             "window_id": row.get("window_id", idx),
             **{column: row.get(column, 0.0) for column in JET_COLUMNS},
             **{column: row.get(column, 0.0) for column in MASSFLOW_COLUMNS},
@@ -356,10 +358,12 @@ def _schedule_source_rows(
 
 
 def _schedule_time(row: dict[str, str], row_idx: int) -> float:
-    for key in ("physical_time", "t_start"):
-        value = row.get(key)
-        if value not in (None, ""):
-            return float(value)
+    value = actuation_time_value(row)
+    if value not in (None, ""):
+        return float(value)
+    value = row.get("t_start")
+    if value not in (None, ""):
+        return float(value)
     return float(row_idx)
 
 

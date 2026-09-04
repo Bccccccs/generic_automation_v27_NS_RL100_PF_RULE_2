@@ -1,0 +1,89 @@
+{
+  "schema_version": "B04_real_ROM_v1",
+  "status": "BLOCKED",
+  "run_status": "BLOCKED",
+  "acceptance_status": "NOT_EVALUATED",
+  "model_trained": false,
+  "validation_performed": false,
+  "issues": [
+    "baseline case /Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/runs/b52/b52_no: B04 real-data quality gate is not PASS",
+    "training case /Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/runs/b52/training: B04 real-data quality gate is not PASS",
+    "validation case /Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/runs/b52/validation: B04 real-data quality gate is not PASS"
+  ],
+  "stale_success_artifacts_quarantined": [],
+  "data_contract": {
+    "input_columns": [
+      "actual_massflow_02",
+      "actual_massflow_03",
+      "actual_massflow_09",
+      "actual_massflow_11",
+      "actual_massflow_17",
+      "actual_massflow_19"
+    ],
+    "output_columns": [
+      "Fz_S1L",
+      "Fz_S1R",
+      "Fz_S2L",
+      "Fz_S2R",
+      "Fz_S3L",
+      "Fz_S3R"
+    ],
+    "input_source_policy": "actual_massflow only; no fallback or zero fill",
+    "source_audit_columns": [
+      "actual_massflow_01",
+      "actual_massflow_02",
+      "actual_massflow_03",
+      "actual_massflow_04",
+      "actual_massflow_05",
+      "actual_massflow_06",
+      "actual_massflow_07",
+      "actual_massflow_08",
+      "actual_massflow_09",
+      "actual_massflow_10",
+      "actual_massflow_11",
+      "actual_massflow_12",
+      "actual_massflow_13",
+      "actual_massflow_14",
+      "actual_massflow_15",
+      "actual_massflow_16",
+      "actual_massflow_17",
+      "actual_massflow_18",
+      "actual_massflow_19",
+      "actual_massflow_20",
+      "actual_massflow_21",
+      "actual_massflow_22",
+      "actual_massflow_23",
+      "actual_massflow_24"
+    ],
+    "nonrepresentative_jet_policy": "the other 18 actual_massflow columns must be present and inactive"
+  },
+  "expected_cases": {
+    "baseline_case": "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/runs/b52/b52_no",
+    "training_cases": [
+      "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/runs/b52/training"
+    ],
+    "validation_cases": [
+      "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/runs/b52/validation"
+    ]
+  },
+  "reproducibility": {
+    "config_path": "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/configs/b54/real_rom.yaml",
+    "config_file_sha256": "3045bee1848f8771af182a7015d2f94d112682c3c95544b531b1a576acd755fd",
+    "effective_config_sha256": "f8bab20dc0509d9af08cbfe29198504a23740c126632945a9a0799b0e0ed3166",
+    "config_sha256": "f8bab20dc0509d9af08cbfe29198504a23740c126632945a9a0799b0e0ed3166",
+    "command_argv": [
+      "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/.venv/bin/python",
+      "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/scripts/analysis/run_b54_real_rom.py",
+      "--config",
+      "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/configs/b54/real_rom.yaml",
+      "--output-dir",
+      "/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/artifacts"
+    ],
+    "command": "'/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/.venv/bin/python' '/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/scripts/analysis/run_b54_real_rom.py' --config '/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/configs/b54/real_rom.yaml' --output-dir '/Users/yanbochao/Documents/研究生/项目/generic_automation_v27_NS_RL100_PF_RULE_2/artifacts'",
+    "runner_sha256": "453be0a739b2c88094e38662265d745b41c5aa0b1d761de88b3eaa47d3066b93",
+    "module_sha256": "439a608ee75b2b51507191453801575b9e987c84dbf9d03393be4aef5503f2f1",
+    "arx_module_sha256": "cb2a3d664edb32f985fe3996a147d7f464d5d1982331c74d65f1e452cae38a83",
+    "quality_gate_module_sha256": "d588b5d300eb6ba9cdd7604e49534f16c35589f889b47b540adfbcdbfaff17e3",
+    "random_operations": false
+  }
+}

@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from flow_control.case_paths import find_case_timeseries_path
+from flow_control.sampling import actuation_time_value
 from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 # 质量流量命令列名：cmd_massflow_01 到 cmd_massflow_24，对应 24 个喷射器的质量流量指令
@@ -41,7 +42,7 @@ def load_case_table(case_dir: str | Path) -> list[dict[str, str]]:
     if not rows:
         raise ValueError(f"{timeseries_path} contains no rows")
     if schedule_path.exists():
-        # 若调度文件存在，通过 window_id 或 physical_time 做键值匹配，合并质量流量列
+        # 若调度文件存在，通过 window_id 或动作表 time 做键值匹配，合并质量流量列
         rows = merge_schedule_columns(rows, read_csv_rows(schedule_path))
     return rows
 
@@ -53,7 +54,7 @@ def read_csv_rows(path: str | Path) -> list[dict[str, str]]:
 
 
 # 将调度表中的质量流量列合并到时间序列行中
-# 优先使用 window_id 进行匹配，回退到四舍五入的 physical_time
+# 优先使用 window_id 进行匹配，回退到四舍五入的动作时间
 def merge_schedule_columns(
     timeseries_rows: list[dict[str, str]],
     schedule_rows: list[dict[str, str]],
@@ -61,7 +62,8 @@ def merge_schedule_columns(
     """Attach mass-flow command columns to timeseries rows.
 
     Prefer ``window_id`` when available, otherwise fall back to rounded
-    ``physical_time``.  Existing timeseries columns are preserved.
+    schedule ``time`` (or legacy ``physical_time``). Existing timeseries
+    columns are preserved.
     """
     if not schedule_rows:
         # 调度表为空时，直接返回 time series 的深拷贝
@@ -354,7 +356,7 @@ def write_single_jet_response_summary(
 def _row_key(row: dict[str, str]) -> tuple[str, str]:
     if "window_id" in row and row.get("window_id", "") != "":
         return ("window_id", str(int(float(row["window_id"]))))
-    return ("physical_time", f"{float(row.get('physical_time', 0.0)):.12g}")
+    return ("physical_time", f"{float(actuation_time_value(row, 0.0)):.12g}")
 
 
 # 安全地将字符串转为浮点数，遇到非数值时抛出带上下文的 ValueError
