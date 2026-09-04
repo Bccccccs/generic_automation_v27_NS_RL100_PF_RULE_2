@@ -29,6 +29,9 @@ from flow_control.config import load_config_with_system_defaults
 from flow_control.data_schema import CaseSchema
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
 from flow_control.sampling import (
+    ACTUATION_TIME_COLUMN,
+    LEGACY_ACTUATION_TIME_COLUMN,
+    actuation_time_value,
     expand_schedule_rows,
     infer_time_step,
     infer_window_duration,
@@ -128,7 +131,9 @@ class MockDynamicPlant24x6:
             raise ValueError("actuation_schedule.csv must contain at least one row")
 
         sample_rows = expand_schedule_rows(schedule_rows, time_step=self.config.time_step)
-        physical_time = np.asarray([float(row["physical_time"]) for row in sample_rows])
+        physical_time = np.asarray(
+            [float(actuation_time_value(row)) for row in sample_rows]
+        )
         window_id = np.asarray([int(float(row["window_id"])) for row in sample_rows])
         dt_values = _infer_dt_values(sample_rows, physical_time)
 
@@ -353,8 +358,11 @@ def read_actuation_schedule(path: str | Path) -> list[dict[str, Any]]:
     csv_path = Path(path)
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
-    required = {"physical_time", "window_id", *JET_COLUMNS}
-    missing = sorted(required - set(rows[0].keys())) if rows else sorted(required)
+    columns = set(rows[0]) if rows else set()
+    required = {"window_id", *JET_COLUMNS}
+    if not ({ACTUATION_TIME_COLUMN, LEGACY_ACTUATION_TIME_COLUMN} & columns):
+        required.add(ACTUATION_TIME_COLUMN)
+    missing = sorted(required - columns)
     if missing:
         raise ValueError(f"actuation_schedule.csv missing required columns: {', '.join(missing)}")
     return rows
@@ -530,7 +538,7 @@ def write_multi_series_svg(
         points = _polyline_points(time_values, series[:, idx], left, top, plot_w, plot_h, min_y, max_y)
         color = colors[idx % len(colors)]
         lines.append(f'<polyline fill="none" stroke="{color}" stroke-width="1.8" points="{" ".join(points)}"/>')
-        lines.append(_svg_text(left + 8 + idx * 74, 348, label, 10, color))
+        lines.append(_svg_text(left + 8 + idx * 74, 46, label, 10, color))
     lines.append("</svg>")
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -548,28 +556,63 @@ def write_single_series_svg(path: Path, time_values: np.ndarray, values: np.ndar
 
 def _series_svg_base(time_values: np.ndarray, series: np.ndarray, title: str) -> list[str]:
     width = 920
-    height = 360
+    height = 380
     left, top, plot_w, plot_h, min_y, max_y = _plot_bounds(series)
     lines = _svg_header(width, height, title)
+    t_min, t_max = _time_range(time_values)
+    lines.append(_svg_text(left, 34, f"Displayed time: {t_min:.4g} s to {t_max:.4g} s", 10, "#57606a"))
     lines.append(f'<rect x="{left}" y="{top}" width="{plot_w}" height="{plot_h}" fill="#fbfcfe" stroke="#d0d7de"/>')
     for idx in range(5):
         y = top + idx * plot_h / 4
         lines.append(f'<line x1="{left}" y1="{y:.2f}" x2="{left + plot_w}" y2="{y:.2f}" stroke="#edf2f7"/>')
     lines.append(_svg_text(8, top + 12, f"{max_y:.3g}", 9, "#57606a"))
     lines.append(_svg_text(8, top + plot_h, f"{min_y:.3g}", 9, "#57606a"))
-    if len(time_values):
-        lines.append(_svg_text(left, 338, f"{float(time_values[0]):.3g}s", 9, "#57606a"))
-        lines.append(_svg_text(left + plot_w - 40, 338, f"{float(time_values[-1]):.3g}s", 9, "#57606a"))
+    _append_time_axis(lines, t_min, t_max, left, top, plot_w, top + plot_h, 372)
     return lines
+
+
+def _time_range(time_values: np.ndarray) -> tuple[float, float]:
+    if len(time_values) == 0:
+        return 0.0, 1.0
+    t_min = float(time_values[0])
+    t_max = float(time_values[-1])
+    if math.isclose(t_min, t_max):
+        t_max = t_min + 1.0
+    return t_min, t_max
+
+
+def _append_time_axis(
+    lines: list[str],
+    t_min: float,
+    t_max: float,
+    left: int,
+    plot_top: int,
+    plot_w: int,
+    axis_y: float,
+    label_y: float,
+) -> None:
+    """添加按绝对时间对齐的 0.5 s 主格和 0.1 s 次格。"""
+    major_start = math.ceil((t_min - 1.0e-12) / 0.5) * 0.5
+    minor_start = math.ceil((t_min - 1.0e-12) / 0.1) * 0.1
+    major_times = np.arange(major_start, t_max + 1.0e-9, 0.5)
+    minor_times = np.arange(minor_start, t_max + 1.0e-9, 0.1)
+    for value in minor_times:
+        x = left + (float(value) - t_min) * plot_w / (t_max - t_min)
+        lines.append(f'<line x1="{x:.2f}" y1="{axis_y}" x2="{x:.2f}" y2="{axis_y + 4}" stroke="#8c959f"/>')
+    for value in major_times:
+        x = left + (float(value) - t_min) * plot_w / (t_max - t_min)
+        lines.append(f'<line x1="{x:.2f}" y1="{plot_top}" x2="{x:.2f}" y2="{axis_y}" stroke="#d8dee4" stroke-dasharray="2 3"/>')
+        lines.append(_svg_text(x - 18, axis_y + 16, f"{float(value):.1f} s", 9, "#57606a"))
+    lines.append(_svg_text(left + plot_w / 2 - 42, label_y, "Physical time (s)", 10, "#24292f"))
 
 
 def _plot_bounds(series: np.ndarray) -> tuple[int, int, int, int, float, float]:
     width = 920
-    height = 360
+    height = 380
     left = 54
-    top = 28
+    top = 52
     plot_w = width - left - 24
-    plot_h = height - top - 52
+    plot_h = height - top - 68
     min_y = float(np.min(series)) if series.size else 0.0
     max_y = float(np.max(series)) if series.size else 1.0
     if math.isclose(min_y, max_y):
@@ -626,7 +669,7 @@ def _rows_to_matrix(
 
 
 def _infer_dt_values(rows: list[dict[str, Any]], physical_time: np.ndarray) -> np.ndarray:
-    """从 t_start/t_end 或 physical_time 推断每个窗口的时间步长。"""
+    """从 t_start/t_end 或动作表时间列推断每个窗口的时间步长。"""
     values = np.zeros(len(rows), dtype=float)
     for idx, row in enumerate(rows):
         if "t_start" in row and "t_end" in row:

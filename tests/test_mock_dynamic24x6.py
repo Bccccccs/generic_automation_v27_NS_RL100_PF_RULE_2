@@ -12,7 +12,7 @@ from starccm.control.control_spec import JET_COLUMNS, LOAD_COLUMNS
 
 def _write_schedule(path):
     columns = [
-        "physical_time",
+        "time",
         "window_id",
         "t_start",
         "t_end",
@@ -22,7 +22,7 @@ def _write_schedule(path):
     rows = []
     for window_id in range(5):
         row = {
-            "physical_time": window_id * 0.1,
+            "time": window_id * 0.1,
             "window_id": window_id,
             "t_start": window_id * 0.1,
             "t_end": (window_id + 1) * 0.1,

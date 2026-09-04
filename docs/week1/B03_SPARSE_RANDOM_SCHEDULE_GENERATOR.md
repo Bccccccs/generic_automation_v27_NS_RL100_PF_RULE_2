@@ -116,7 +116,7 @@ Generated files:
 The main CSV format is:
 
 ```text
-physical_time, window_id, t_start, t_end, JET_01, JET_02, ..., JET_24
+time, window_id, t_start, t_end, JET_01, JET_02, ..., JET_24
 ```
 
 Jet values use:
@@ -126,7 +126,7 @@ Jet values use:
 mass_flow_rate = on, using the configured per-jet mass flow
 ```
 
-`physical_time`, `t_start`, and `t_end` are physical time in seconds. They are
+`time`, `t_start`, and `t_end` are physical time in seconds. They are
 not STAR-CCM+ nonlinear iteration numbers; a single physical control window may
 contain many solver iterations internally.
 

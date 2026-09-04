@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from flow_control.excitation_patterns.common import MASSFLOW_COLUMNS
+from flow_control.sampling import actuation_time_value
 from flow_control.starccm_translator import FlowControlStarCCMTranslator
 from starccm.control import DEFAULT_STARCCM_SPEC, StarCCMControlSpec
 from starccm.control.control_spec import JET_COLUMNS
@@ -143,8 +144,9 @@ class FlowControlStarCCMAdapter:
             active_jets.update(
                 column for column, value in jet_commands.items() if float(value) != 0.0
             )
-            if "physical_time" in row:
-                physical_times.append(self._float_field(row, "physical_time"))
+            schedule_time = actuation_time_value(row)
+            if schedule_time is not None:
+                physical_times.append(float(schedule_time))
 
         metadata: dict[str, Any] = {
             "schedule_path": str(Path(schedule_path)) if schedule_path is not None else None,

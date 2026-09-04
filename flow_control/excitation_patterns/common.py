@@ -1,7 +1,7 @@
 """激励模式公共数据模型与 IO 工具。
 
 定义了一套统一的 ScheduleTable 数据结构和激励模式生成/验证/输出流程。
-所有 6 种激励模式都遵循相同的接口规范。
+所有激励模式都遵循相同的接口规范。
 
 数据流动：
   YAML 配置 → ActuationConfig → generate_pattern_table() → ScheduleTable
@@ -21,10 +21,11 @@ from typing import Any, Callable
 import yaml
 
 from flow_control.data_schema import JET_COLUMNS
+from flow_control.sampling import ACTUATION_TIME_COLUMN
 
 # 标准质量流量列名：cmd_massflow_01 到 cmd_massflow_24
 MASSFLOW_COLUMNS = tuple(f"cmd_massflow_{idx:02d}" for idx in range(1, 25))
-# 当前支持的 6 种激励模式
+# 当前支持的激励模式
 SUPPORTED_ACTUATION_MODES = {
     "no_jet_reference",       # 全关参考模式
     "pulse_singlejet",        # 单喷口脉冲
@@ -32,6 +33,7 @@ SUPPORTED_ACTUATION_MODES = {
     "chirp_keyjets",          # 关键喷口频率扫描
     "prbs_demo",              # 伪随机二进制序列
     "sparse_random_groups",   # 稀疏随机分组
+    "balanced_singlejet_pulses",  # 平衡随机单喷口脉冲
 }
 
 
@@ -111,6 +113,12 @@ class ActuationConfig:
 
     # --- PRBS 专用参数 ---
     prbs_switch_probability: float = 0.35   # 每个喷口每一步的切换概率
+
+    # --- balanced_singlejet_pulses 专用参数 ---
+    mass_flow_levels: tuple[float, ...] = ()
+    repetitions_per_jet: int = 1
+    checkpoint_duration: float = 0.0
+    recovery_duration: float = 0.0
 
     def __post_init__(self) -> None:
         """初始化后处理：统一 command_amplitude 和 mass_flow_rate 两个字段。"""
@@ -290,6 +298,12 @@ class ActuationConfig:
             chirp_start_frequency_hz=float(actuation.get("chirp_start_frequency_hz", 1.0)),
             chirp_end_frequency_hz=float(actuation.get("chirp_end_frequency_hz", 8.0)),
             prbs_switch_probability=float(actuation.get("prbs_switch_probability", 0.35)),
+            mass_flow_levels=tuple(
+                float(value) for value in actuation.get("mass_flow_levels", [])
+            ),
+            repetitions_per_jet=int(actuation.get("repetitions_per_jet", 1)),
+            checkpoint_duration=float(actuation.get("checkpoint_duration", 0.0)),
+            recovery_duration=float(actuation.get("recovery_duration", 0.0)),
         )
 
     @classmethod
@@ -309,6 +323,7 @@ class ScheduleTable:
 
     switches: list[list[int]]
     massflows: list[list[float]]
+    window_durations: list[float] | None = None
 
     @property
     def n_windows(self) -> int:
@@ -364,23 +379,34 @@ def rows_from_table(config: ActuationConfig, table: ScheduleTable) -> list[dict[
     求解器物理时间步。因此同一 window_id 会持续
     actuation_window_duration / solver_time_step 行，且这些行的喷气指令完全相同。
 
-    每行包含：physical_time, window_id, t_start, t_end,
+    每行包含：time, window_id, t_start, t_end,
     算法侧 JET_01..JET_NN 的 0/1 开关值，cmd_massflow_01..cmd_massflow_NN 的质量流量值。
     这里的 JET_XX 是表格列名；落到 STAR 时必须映射到 JXX 喷气口，不能映射到 JETXX 底面区域。
     """
     rows: list[dict[str, Any]] = []
-    steps_per_window = round(
-        config.actuation_window_duration / config.solver_time_step
-    )
+    window_start = 0.0
     for window_id, (switch_row, massflow_row) in enumerate(zip(table.switches, table.massflows)):
-        window_start = window_id * config.actuation_window_duration
+        duration = (
+            table.window_durations[window_id]
+            if table.window_durations is not None
+            else config.actuation_window_duration
+        )
+        steps_per_window = round(duration / config.solver_time_step)
+        if not math.isclose(
+            steps_per_window * config.solver_time_step,
+            duration,
+            abs_tol=1e-10,
+        ):
+            raise ValueError(
+                f"window {window_id} duration must be an integer multiple of solver_time_step"
+            )
         for step_in_window in range(steps_per_window):
             start = round(
                 window_start + step_in_window * config.solver_time_step, 12
             )
             end = round(start + config.solver_time_step, 12)
             record: dict[str, Any] = {
-                "physical_time": start,
+                ACTUATION_TIME_COLUMN: start,
                 "window_id": window_id,
                 "t_start": start,
                 "t_end": end,
@@ -390,13 +416,14 @@ def rows_from_table(config: ActuationConfig, table: ScheduleTable) -> list[dict[
             for idx, column in enumerate(config.massflow_names):
                 record[column] = float(massflow_row[idx]) if idx < len(massflow_row) else 0.0
             rows.append(record)
+        window_start = round(window_start + duration, 12)
     return rows
 
 
 def write_schedule_csv(config: ActuationConfig, table: ScheduleTable) -> None:
     """将激励计划写入 actuation_schedule.csv。"""
     config.output_dir.mkdir(parents=True, exist_ok=True)
-    columns = ["physical_time", "window_id", "t_start", "t_end", *config.jet_names, *config.massflow_names]
+    columns = [ACTUATION_TIME_COLUMN, "window_id", "t_start", "t_end", *config.jet_names, *config.massflow_names]
     with (config.output_dir / "actuation_schedule.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
@@ -446,7 +473,7 @@ def write_config_summary(
             "errors": validation_errors,
         },
         "notes": {
-            "time_columns": "physical_time, t_start, and t_end are seconds, not solver iterations",
+            "time_columns": "time, t_start, and t_end are seconds, not solver iterations",
             "time_model": "Each CSV row is one solver physical-time step; consecutive rows sharing window_id form one actuation window.",
             "pulse_numbering": "pulse_window_numbers are 1-based; CSV window_id is 0-based.",
             "switch_columns": "JET_01..JET_24 are algorithm-side 0/1 nozzle switch columns",
@@ -465,13 +492,13 @@ def write_total_mass_flow_csv(config: ActuationConfig, table: ScheduleTable) -> 
     """写入总质量流量 CSV（每窗口的活跃喷口数和总质量流量）。"""
     with (config.output_dir / "total_mass_flow.csv").open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["physical_time", "window_id", "t_start", "t_end", "active_jets", "total_mass_flow"])
+        writer.writerow([ACTUATION_TIME_COLUMN, "window_id", "t_start", "t_end", "active_jets", "total_mass_flow"])
         for row in rows_from_table(config, table):
             switch_values = [int(row[name]) for name in config.jet_names]
             massflow_values = [float(row[name]) for name in config.massflow_names]
             writer.writerow(
                 [
-                    row["physical_time"],
+                    row[ACTUATION_TIME_COLUMN],
                     row["window_id"],
                     row["t_start"],
                     row["t_end"],
@@ -578,6 +605,11 @@ def validate_table(config: ActuationConfig, table: ScheduleTable) -> list[str]:
         errors.append(f"expected {config.n_jets} jet columns, got {table.n_jets}")
     if len(table.massflows) != len(table.switches):
         errors.append("switch and mass-flow rows must have the same length")
+    if table.window_durations is not None:
+        if len(table.window_durations) != len(table.switches):
+            errors.append("window durations and switch rows must have the same length")
+        elif any(duration <= 0.0 for duration in table.window_durations):
+            errors.append("window durations must be positive")
     for window_id, (switch_row, massflow_row) in enumerate(zip(table.switches, table.massflows)):
         if len(switch_row) != config.n_jets or len(massflow_row) != config.n_jets:
             errors.append(f"window {window_id} must contain {config.n_jets} switch and mass-flow values")
@@ -643,6 +675,7 @@ def generate_pattern_table(config: ActuationConfig) -> tuple[ScheduleTable, dict
     generators: dict[str, Callable[[ActuationConfig], tuple[ScheduleTable, dict[str, Any], list[str]]]] = {}
     # 延迟导入，避免循环依赖
     from .chirp import generate as generate_chirp
+    from .balanced_pulses import generate as generate_balanced_pulses
     from .prbs import generate as generate_prbs
     from .pulse import generate as generate_pulse
     from .reference import generate as generate_reference
@@ -657,6 +690,7 @@ def generate_pattern_table(config: ActuationConfig) -> tuple[ScheduleTable, dict
             "chirp_keyjets": generate_chirp,
             "prbs_demo": generate_prbs,
             "sparse_random_groups": generate_sparse,
+            "balanced_singlejet_pulses": generate_balanced_pulses,
         }
     )
     return generators[config.mode](config)

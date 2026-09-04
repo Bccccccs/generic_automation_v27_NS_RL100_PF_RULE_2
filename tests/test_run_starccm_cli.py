@@ -119,7 +119,7 @@ def test_solver_time_step_is_read_separately_from_actuation_window(tmp_path):
     input_dir.mkdir(parents=True)
     schedule_path = input_dir / "actuation_schedule.csv"
     schedule_path.write_text(
-        "physical_time,window_id,t_start,t_end\n0.0,0,0.0,0.1\n",
+        "time,window_id,t_start,t_end\n0.0,0,0.0,0.1\n",
         encoding="utf-8",
     )
     (input_dir / "config_summary.yaml").write_text(

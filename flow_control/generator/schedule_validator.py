@@ -4,7 +4,7 @@
   1. 列顺序必须与 B02 统一格式一致
   2. 至少包含一个窗口
   3. window_id 必须保持不变或连续递增（每次最多增加 1）
-  4. physical_time 必须等于 t_start
+  4. time 必须等于 t_start（仍可读取旧表头 physical_time）
   5. t_end 必须大于 t_start
   6. 时间窗口必须连续（t_start 等于上一行的 t_end）
   7. JET_NN 值只能是 0 或 1
@@ -20,6 +20,11 @@ from pathlib import Path
 
 from ..excitation_patterns.common import MASSFLOW_COLUMNS
 from ..data_schema import JET_COLUMNS
+from ..sampling import (
+    ACTUATION_TIME_COLUMN,
+    LEGACY_ACTUATION_TIME_COLUMN,
+    actuation_time_value,
+)
 
 
 def validate_actuation_schedule_csv(
@@ -49,9 +54,10 @@ def validate_actuation_schedule_csv(
 
     jet_columns = list(JET_COLUMNS[:n_jets])
     massflow_columns = list(MASSFLOW_COLUMNS[:n_jets])
-    expected = ["physical_time", "window_id", "t_start", "t_end", *jet_columns, *massflow_columns]
+    expected = [ACTUATION_TIME_COLUMN, "window_id", "t_start", "t_end", *jet_columns, *massflow_columns]
+    legacy_expected = [LEGACY_ACTUATION_TIME_COLUMN, *expected[1:]]
     errors: list[str] = []
-    if header != expected:
+    if header not in (expected, legacy_expected):
         errors.append("actuation_schedule.csv columns do not match the unified B02 format")
     if not rows:
         errors.append("actuation_schedule.csv must contain at least one window")
@@ -62,7 +68,7 @@ def validate_actuation_schedule_csv(
     for row_idx, row in enumerate(rows):
         try:
             window_id = int(row["window_id"])
-            physical_time = float(row["physical_time"])
+            schedule_time = float(actuation_time_value(row))
             t_start = float(row["t_start"])
             t_end = float(row["t_end"])
         except (KeyError, TypeError, ValueError) as exc:
@@ -75,8 +81,8 @@ def validate_actuation_schedule_csv(
             errors.append(
                 f"row {row_idx} window_id must stay unchanged or increase by 1"
             )
-        if abs(physical_time - t_start) > 1e-12:
-            errors.append(f"row {row_idx} physical_time must equal t_start")
+        if abs(schedule_time - t_start) > 1e-12:
+            errors.append(f"row {row_idx} time must equal t_start")
         if t_end <= t_start:
             errors.append(f"row {row_idx} t_end must be greater than t_start")
         if previous_t_end is not None and abs(t_start - previous_t_end) > 1e-12:

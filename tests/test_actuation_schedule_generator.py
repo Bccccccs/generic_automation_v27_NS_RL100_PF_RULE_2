@@ -1,4 +1,5 @@
 import csv
+import hashlib
 from itertools import groupby
 from pathlib import Path
 
@@ -97,16 +98,16 @@ def test_actuation_outputs_are_written(tmp_path):
     with (tmp_path / "actuation_schedule.csv").open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
 
-    assert float(rows[0]["physical_time"]) == 0.0
+    assert float(rows[0]["time"]) == 0.0
     assert list(rows[0]) == [
-        "physical_time",
+        "time",
         "window_id",
         "t_start",
         "t_end",
         *(f"JET_{idx:02d}" for idx in range(1, 25)),
         *(f"cmd_massflow_{idx:02d}" for idx in range(1, 25)),
     ]
-    assert float(rows[1]["physical_time"]) == 0.1
+    assert float(rows[1]["time"]) == 0.1
     assert float(rows[1]["t_start"]) == 0.1
     assert float(rows[1]["t_end"]) == 0.2
     for row in rows:
@@ -125,7 +126,7 @@ def test_actuation_outputs_are_written(tmp_path):
     assert validate_actuation_schedule_csv(tmp_path / "actuation_schedule.csv") == []
 
 
-def test_pulse_and_step_patterns_use_physical_time():
+def test_pulse_and_step_patterns_use_physical_time_values():
     pulse = ActuationConfig(
         mode="pulse_singlejet",
         total_windows=4,
@@ -176,12 +177,12 @@ def test_explicit_time_and_actuation_window_config_fields_are_separate():
     assert [idx for idx, row in enumerate(table.switches) if row[1]] == [4]
     rows = rows_from_table(config, table)
     assert len(rows) == 10000
-    assert rows[0]["physical_time"] == 0.0
-    assert rows[1]["physical_time"] == 1.0e-4
+    assert rows[0]["time"] == 0.0
+    assert rows[1]["time"] == 1.0e-4
     assert rows[-1]["t_end"] == 1.0
     pulse_rows = [row for row in rows if row["window_id"] == 4]
     assert len(pulse_rows) == 1000
-    assert pulse_rows[0]["physical_time"] == 0.4
+    assert pulse_rows[0]["time"] == 0.4
     assert pulse_rows[-1]["t_start"] == 0.4999
     assert pulse_rows[-1]["t_end"] == 0.5
     assert all(row["JET_02"] == 1 for row in pulse_rows)
@@ -324,3 +325,30 @@ def test_generate_from_yaml_uses_shared_system_config(tmp_path, monkeypatch):
 
     assert config.random_seed == 777
     assert (output_dir / "input" / "actuation_schedule.csv").exists()
+
+
+@pytest.mark.parametrize(
+    ("config_name", "expected_sha256"),
+    [
+        ("training", "55dfb6fe0fb36f2294e817621298cb4e9cb65cf0bfafb6d56514521c04974abb"),
+        ("validation", "bd0122c74387dc01d562c978afedc81d1c55481cb9afc97ab1368f0ea0210cad"),
+    ],
+)
+def test_b52_experiments_use_standard_actions_flow_without_changing_schedule(
+    tmp_path, config_name, expected_sha256
+):
+    project_root = Path(__file__).resolve().parents[1]
+    output_dir = tmp_path / config_name
+
+    generate_from_yaml(
+        project_root / "configs" / "b52" / f"{config_name}.yaml",
+        output_dir=output_dir,
+    )
+
+    schedule_path = output_dir / "input" / "actuation_schedule.csv"
+    assert validate_actuation_schedule_csv(
+        schedule_path,
+        max_active_jets=1,
+        max_total_mass_flow=2.86,
+    ) == []
+    assert hashlib.sha256(schedule_path.read_bytes()).hexdigest() == expected_sha256
