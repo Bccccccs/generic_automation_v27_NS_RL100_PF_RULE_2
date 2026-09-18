@@ -1,0 +1,6 @@
+[SYNTHETIC] STAR-CCM+ 20.02.007 starting on node gpu01
+[SYNTHETIC] initialized device 0 (uuid GPU-1111-aaaa)
+[SYNTHETIC] initialized device 1 (uuid GPU-2222-bbbb)
+[SYNTHETIC] solving on device 0: segregated fluid solver
+[SYNTHETIC] solving on device 1: segregated fluid solver
+[SYNTHETIC] step 12 completed

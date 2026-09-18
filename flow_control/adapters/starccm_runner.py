@@ -9,7 +9,7 @@ import re
 import shutil
 import socket
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,32 @@ from flow_control.star_ingest.manifest_builder import (
     start_runtime_manifest,
 )
 from starccm.control.control_spec import DEFAULT_STARCCM_SPEC, JET_COLUMNS
+from starccm.runtime.gpu_config import (
+    GPUExecutionConfig,
+    gpu_command_tokens,
+    gpu_selection_device_count,
+)
+from starccm.runtime.gpu_evidence import (
+    SIDECAR_NAME,
+    STATE_BLOCKED,
+    STATE_FAILED,
+    STATE_GPU_CONFIRMED,
+    STATE_PREFLIGHT_PASSED,
+    STATE_RUNNING,
+    GPUExecutionError,
+    acquire_gpu_lock,
+    assert_gpu_output_not_reused,
+    assert_gpu_sidecar_replaceable,
+    initial_gpu_record,
+    parse_gpu_log,
+    redact_command,
+    release_gpu_lock,
+    sha256_file,
+    utc_now,
+    validate_gpu_completion,
+    write_gpu_evidence,
+)
+from starccm.runtime.gpu_preflight import GPUPreflightError, preflight_gpu
 
 
 _EXECUTION_MODES = {"run", "dry-run", "package-only", "validate-only"}
@@ -64,6 +90,7 @@ class FlowControlStarCCMRunConfig:
     case_dir: Path | None = None
     require_complete_schema: bool = True
     manifest_template_path: Path | None = None
+    gpu: GPUExecutionConfig = field(default_factory=GPUExecutionConfig)
 
 
 @dataclass(frozen=True)
@@ -112,6 +139,40 @@ class FlowControlStarCCMRunner:
             num_cores=config.num_cores,
         )
 
+        # GPU 的目录复用与 lock 检查必须发生在宏和 runtime plan 写入之前。
+        gpu_context = _prepare_gpu_backend(
+            config,
+            mode=mode,
+            output_dir=output_dir,
+            sim_path=sim_path,
+            schedule_path=schedule_path,
+            machinefile_path=machinefile_path,
+        )
+        try:
+            return self._run_prepared(
+                config,
+                mode=mode,
+                schedule_path=schedule_path,
+                sim_path=sim_path,
+                output_dir=output_dir,
+                machinefile_path=machinefile_path,
+                gpu_context=gpu_context,
+            )
+        finally:
+            if gpu_context.lock_path is not None:
+                release_gpu_lock(gpu_context.lock_path)
+
+    def _run_prepared(
+        self,
+        config: FlowControlStarCCMRunConfig,
+        *,
+        mode: str,
+        schedule_path: Path,
+        sim_path: Path,
+        output_dir: Path,
+        machinefile_path: Path | None,
+        gpu_context: _GPUExecutionContext,
+    ) -> FlowControlStarCCMRunResult:
         output_dir.mkdir(parents=True, exist_ok=True)
         preflight_manifest_path: Path | None = None
         if config.manifest_template_path is not None:
@@ -159,7 +220,9 @@ class FlowControlStarCCMRunner:
             machinefile_path=machinefile_path,
             mpi_env=config.mpi_env,
             pod_key=config.pod_key,
+            gpu=gpu_context.config,
         )
+        _write_gpu_state(gpu_context, command=redact_command(command))
         log_path = output_dir / "starccm_flow_control.log"
         if mode == "dry-run":
             _print_progress("dry-run 完成，已生成宏和运行计划")
@@ -188,6 +251,7 @@ class FlowControlStarCCMRunner:
             _print_progress(f"validate-only 完成，Case: {case_dir}")
             return FlowControlStarCCMRunResult(macro_path, runtime_plan_path, log_path, tuple(command), timeseries_path=timeseries_path)
 
+        expected_steps = _schedule_solver_steps(windows, config.time_step)
         runtime_manifest_path: Path | None = None
         if preflight_manifest_path is not None:
             runtime_manifest_path = output_dir / "case_manifest.yaml"
@@ -200,15 +264,28 @@ class FlowControlStarCCMRunner:
                     command=command,
                     machinefile_path=machinefile_path,
                     log_path=log_path,
-                    total_steps=_schedule_solver_steps(windows, config.time_step),
+                    total_steps=expected_steps,
                 ),
             )
 
         _print_progress(f"开始启动 STAR-CCM+，日志: {log_path}")
+        _write_gpu_state(
+            gpu_context,
+            state=STATE_RUNNING,
+            timing=_gpu_timing(gpu_context, "launched_at"),
+        )
         try:
             with log_path.open("w", encoding="utf-8") as log_file:
                 proc = _run_starccm_command(command, log_file=log_file, cwd=output_dir)
         except (Exception, KeyboardInterrupt) as exc:
+            interrupted = isinstance(exc, KeyboardInterrupt)
+            _record_gpu_failure(
+                gpu_context,
+                failure_code="INTERRUPTED" if interrupted else "LAUNCH_FAILED",
+                detail="STAR-CCM+ run interrupted by user" if interrupted else str(exc),
+                log_path=log_path,
+                timeseries_path=timeseries_path,
+            )
             if runtime_manifest_path is not None:
                 finish_runtime_manifest(
                     manifest_path=runtime_manifest_path,
@@ -227,6 +304,14 @@ class FlowControlStarCCMRunner:
         if proc.returncode != 0:
             _print_progress(f"STAR-CCM+ 失败退出，返回码 {proc.returncode}")
             tail = _tail_text(log_path)
+            _record_gpu_failure(
+                gpu_context,
+                failure_code="STAR_NONZERO_EXIT",
+                detail=tail,
+                returncode=proc.returncode,
+                log_path=log_path,
+                timeseries_path=timeseries_path,
+            )
             if runtime_manifest_path is not None:
                 finish_runtime_manifest(
                     manifest_path=runtime_manifest_path,
@@ -241,19 +326,33 @@ class FlowControlStarCCMRunner:
                 f"--- last log lines ---\n{tail}"
             )
 
+        snapshot_path = output_dir / "sim_template_snapshot.yaml"
+        if preflight_manifest_path is not None and not snapshot_path.is_file():
+            if runtime_manifest_path is not None:
+                finish_runtime_manifest(
+                    manifest_path=runtime_manifest_path,
+                    status="failed",
+                    return_code=proc.returncode,
+                    runtime_log_path=log_path,
+                    completed_steps=_csv_data_row_count(timeseries_path),
+                    failure_summary=f"STAR completed without required template snapshot: {snapshot_path}",
+                )
+            raise RuntimeError(f"STAR completed without required template snapshot: {snapshot_path}")
+
+        # GPU：退出码 0 不等于 GPU 求解成功。必要快照齐备后、写 completed manifest
+        # 之前确认，避免 sidecar 停在 GPU_CONFIRMED 而运行随后失败。
+        _confirm_gpu_execution(
+            gpu_context,
+            log_path=log_path,
+            timeseries_path=timeseries_path,
+            result_sim_path=result_sim_path if config.save_result_sim else None,
+            returncode=proc.returncode,
+            runtime_manifest_path=runtime_manifest_path,
+            expected_steps=expected_steps,
+            require_result_sim=config.save_result_sim,
+        )
+
         if preflight_manifest_path is not None:
-            snapshot_path = output_dir / "sim_template_snapshot.yaml"
-            if not snapshot_path.is_file():
-                if runtime_manifest_path is not None:
-                    finish_runtime_manifest(
-                        manifest_path=runtime_manifest_path,
-                        status="failed",
-                        return_code=proc.returncode,
-                        runtime_log_path=log_path,
-                        completed_steps=_csv_data_row_count(timeseries_path),
-                        failure_summary=f"STAR completed without required template snapshot: {snapshot_path}",
-                    )
-                raise RuntimeError(f"STAR completed without required template snapshot: {snapshot_path}")
             finalize_manifest(
                 preflight_path=preflight_manifest_path,
                 snapshot_path=snapshot_path,
@@ -1090,6 +1189,289 @@ def _read_schedule(path: Path) -> list[_ScheduleWindow]:
     return windows
 
 
+@dataclass(frozen=True)
+class _GPUExecutionContext:
+    """本次运行的 GPU 生命周期上下文；CPU 与非 run 模式的 lifecycle 为 False。"""
+
+    config: GPUExecutionConfig
+    lifecycle: bool = False
+    lock_path: Path | None = None
+    sidecar_path: Path | None = None
+    record: dict[str, Any] | None = None
+    expected_node: str | None = None
+    star_build: str | None = None
+
+
+def _prepare_gpu_backend(
+    config: FlowControlStarCCMRunConfig,
+    *,
+    mode: str,
+    output_dir: Path,
+    sim_path: Path,
+    schedule_path: Path,
+    machinefile_path: Path | None = None,
+) -> _GPUExecutionContext:
+    """GPU 模式的目录守卫、sidecar 初始记录与实时预检。
+
+    返回本次运行的 GPU 上下文。CPU 路径不产生 sidecar、不获取 lock、不启动任何
+    GPU 诊断；package-only / validate-only 只使用既有产物，不探测 GPU 也不覆盖
+    已有证据。
+    """
+
+    if config.gpu.backend != "gpu":
+        # 矛盾配置（CPU 携带 selection 或资格文件）在任何写入之前报错。
+        gpu_command_tokens(config.gpu)
+        return _GPUExecutionContext(config=config.gpu)
+
+    if mode in {"package-only", "validate-only"}:
+        return _GPUExecutionContext(config=config.gpu)
+
+    # 先校验配置，缺 selection 时给出准确错误，而不是把 None 当成选择器字符串。
+    gpu_command_tokens(config.gpu)
+    sidecar = output_dir / SIDECAR_NAME
+    record = initial_gpu_record(
+        backend="gpu",
+        selection=config.gpu.selection,
+        num_processes=config.num_cores,
+        requested_gpu_count=gpu_selection_device_count(str(config.gpu.selection)),
+        qualification_path=config.gpu.qualification_path,
+    )
+    record["inputs"] = {
+        "sim_path": str(sim_path),
+        "schedule_path": str(schedule_path),
+    }
+
+    if mode != "run":
+        # dry-run：只记录请求，不运行 GPU/STAR 探测，不把请求设备写成实际设备。
+        # 但已有真实执行结论的 sidecar 绝不能被离线请求记录覆盖。
+        assert_gpu_sidecar_replaceable(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        write_gpu_evidence(sidecar, record)
+        return _GPUExecutionContext(
+            config=config.gpu, sidecar_path=sidecar, record=record
+        )
+
+    assert_gpu_output_not_reused(output_dir)
+    lock_path = acquire_gpu_lock(output_dir)
+    try:
+        return _preflight_gpu_run(
+            config,
+            record=record,
+            sidecar=sidecar,
+            lock_path=lock_path,
+            output_dir=output_dir,
+            sim_path=sim_path,
+            schedule_path=schedule_path,
+            machinefile_path=machinefile_path,
+        )
+    except BaseException:
+        # 预检之外的意外失败（磁盘错误、KeyboardInterrupt 等）也不能把 lock 留下。
+        release_gpu_lock(lock_path)
+        raise
+
+
+def _preflight_gpu_run(
+    config: FlowControlStarCCMRunConfig,
+    *,
+    record: dict[str, Any],
+    sidecar: Path,
+    lock_path: Path,
+    output_dir: Path,
+    sim_path: Path,
+    schedule_path: Path,
+    machinefile_path: Path | None,
+) -> _GPUExecutionContext:
+    """记录输入 hash 并执行实时预检；失败时留下 BLOCKED 证据再抛出。"""
+
+    record["inputs"] = {
+        "sim_path": str(sim_path),
+        "sim_sha256": sha256_file(sim_path) if sim_path.is_file() else None,
+        "schedule_path": str(schedule_path),
+        "schedule_sha256": sha256_file(schedule_path) if schedule_path.is_file() else None,
+    }
+    write_gpu_evidence(sidecar, record)
+
+    try:
+        preflight = preflight_gpu(
+            config.gpu,
+            starccm_path=config.starccm_path,
+            num_processes=config.num_cores,
+            node=socket.gethostname(),
+            scheduler=config.scheduler,
+            scheduler_job_id=config.scheduler_job_id,
+            output_dir=output_dir,
+            sim_path=sim_path,
+            schedule_path=schedule_path,
+            machinefile_path=machinefile_path,
+        )
+    except GPUPreflightError as exc:
+        record.update(
+            {
+                "state": STATE_BLOCKED,
+                "failure_code": exc.failure_code,
+                "failure_detail": str(exc),
+                "evidence": [exc.evidence] if exc.evidence else [],
+                "devices": list(exc.evidence.get("devices") or []),
+                "node": exc.evidence.get("node"),
+            }
+        )
+        record["timing"]["blocked_at"] = utc_now()
+        write_gpu_evidence(sidecar, record)
+        raise
+
+    record.update(
+        {
+            "state": STATE_PREFLIGHT_PASSED,
+            "node": preflight.evidence.get("node"),
+            "devices": list(preflight.evidence.get("devices") or []),
+            "evidence": [preflight.evidence],
+        }
+    )
+    record["inputs"].update(preflight.evidence.get("inputs") or {})
+    record["timing"]["preflight_at"] = preflight.evidence.get("preflight_at")
+    write_gpu_evidence(sidecar, record)
+    # 实际下发的选择器必须与预检核验过的一致。
+    return _GPUExecutionContext(
+        config=replace(config.gpu, selection=preflight.command_selection),
+        lifecycle=True,
+        lock_path=lock_path,
+        sidecar_path=sidecar,
+        record=record,
+        expected_node=str(preflight.evidence.get("node") or ""),
+        star_build=preflight.evidence.get("star_build"),
+    )
+
+
+def _write_gpu_state(context: _GPUExecutionContext, **fields: Any) -> None:
+    """就地更新 sidecar 记录并原子落盘。
+
+    CPU 与 package-only/validate-only 没有 sidecar，因此是空操作；GPU dry-run
+    也会记录计划下发的脱敏 argv，但状态保持 UNVERIFIED。运行生命周期专属的
+    失败与确认写入由调用方各自的 lifecycle 守卫控制。
+    """
+
+    if context.record is None or context.sidecar_path is None:
+        return
+    context.record.update(fields)
+    write_gpu_evidence(context.sidecar_path, context.record)
+
+
+def _gpu_timing(context: _GPUExecutionContext, key: str) -> dict[str, Any]:
+    timing = dict((context.record or {}).get("timing") or {})
+    timing[key] = utc_now()
+    return timing
+
+
+def _gpu_outputs(
+    log_path: Path,
+    timeseries_path: Path,
+    *,
+    result_sim_path: Path | None = None,
+) -> dict[str, Any]:
+    return {
+        "runtime_log": str(log_path),
+        "log_sha256": sha256_file(log_path) if log_path.is_file() else None,
+        "timeseries": str(timeseries_path) if timeseries_path.is_file() else "",
+        "row_count": _csv_data_row_count(timeseries_path),
+        "result_sim": (
+            str(result_sim_path) if result_sim_path is not None and result_sim_path.is_file() else ""
+        ),
+    }
+
+
+def _record_gpu_failure(
+    context: _GPUExecutionContext,
+    *,
+    failure_code: str,
+    detail: str,
+    returncode: int | None = None,
+    log_path: Path | None = None,
+    timeseries_path: Path | None = None,
+) -> None:
+    """记录 GPU 失败；actual_backend 保持 unknown，不用请求值冒充实际值。"""
+
+    if not context.lifecycle:
+        return
+    outputs = (
+        _gpu_outputs(log_path, timeseries_path)
+        if log_path is not None and timeseries_path is not None
+        else dict((context.record or {}).get("outputs") or {})
+    )
+    _write_gpu_state(
+        context,
+        state=STATE_FAILED,
+        failure_code=failure_code,
+        failure_detail=detail,
+        star_return_code=returncode,
+        actual_backend="unknown",
+        outputs=outputs,
+        timing=_gpu_timing(context, "failed_at"),
+    )
+
+
+def _confirm_gpu_execution(
+    context: _GPUExecutionContext,
+    *,
+    log_path: Path,
+    timeseries_path: Path,
+    result_sim_path: Path | None,
+    returncode: int,
+    runtime_manifest_path: Path | None,
+    expected_steps: int | None = None,
+    require_result_sim: bool = False,
+) -> None:
+    """STAR 正常退出后、写 completed manifest 之前确认 GPU 实际执行。
+
+    证据不足即失败：退出码 0 不构成 GPU 求解验收。失败时按现有 manifest 生命周期
+    记 failed（保留 STAR 的真实退出码），并抛 GPUExecutionError，禁止 CLI 继续把
+    本次运行整理成成功 case。
+    """
+
+    if not context.lifecycle or context.record is None:
+        return
+    log_text = (
+        log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
+    )
+    analysis = parse_gpu_log(log_text, star_build=str(context.star_build or ""))
+    _write_gpu_state(
+        context,
+        star_return_code=returncode,
+        log_analysis=analysis,
+        expectations={
+            "total_steps": expected_steps,
+            "result_sim_required": bool(require_result_sim),
+        },
+        outputs=_gpu_outputs(log_path, timeseries_path, result_sim_path=result_sim_path),
+        timing=_gpu_timing(context, "finished_at"),
+    )
+    try:
+        validate_gpu_completion(context.record, expected_node=str(context.expected_node or ""))
+    except GPUExecutionError as exc:
+        if runtime_manifest_path is not None:
+            finish_runtime_manifest(
+                manifest_path=runtime_manifest_path,
+                status="failed",
+                return_code=returncode,
+                runtime_log_path=log_path,
+                completed_steps=_csv_data_row_count(timeseries_path),
+                failure_summary=f"GPU execution not confirmed: {exc}",
+            )
+        _write_gpu_state(
+            context,
+            state=STATE_FAILED,
+            failure_code=exc.failure_code,
+            failure_detail=str(exc),
+        )
+        raise
+    _write_gpu_state(
+        context,
+        state=STATE_GPU_CONFIRMED,
+        actual_backend="gpu",
+        failure_code=None,
+        failure_detail=None,
+    )
+
+
 def _build_starccm_command(
     starccm_path: str,
     macro_path: Path,
@@ -1099,6 +1481,7 @@ def _build_starccm_command(
     machinefile_path: Path | None = None,
     mpi_env: tuple[str, ...] = (),
     pod_key: str,
+    gpu: GPUExecutionConfig | None = None,
 ) -> list[str]:
     command = [starccm_path]
     if machinefile_path is not None:
@@ -1111,6 +1494,8 @@ def _build_starccm_command(
         command += ["-mppflags", mppflags]
     if pod_key:
         command += ["-podkey", pod_key]
+    if gpu is not None:
+        command += list(gpu_command_tokens(gpu))
     command += ["-batch", str(macro_path), str(sim_path)]
     return command
 

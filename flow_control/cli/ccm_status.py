@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 from collections import deque
@@ -13,6 +14,7 @@ from typing import Any
 import yaml
 
 from flow_control.star_ingest.manifest_builder import read_star_runtime_metadata
+from starccm.runtime.gpu_evidence import GPU_STATES, LOCK_NAME, SIDECAR_NAME
 
 
 ERROR_MARKERS = (
@@ -89,7 +91,74 @@ def main(argv: list[str] | None = None) -> int:
         print(f"最近 {args.tail} 行日志:")
         for line in _tail_lines(log_path, args.tail):
             print(f"  {line}")
-    return 1 if runtime.get("status") == "failed" else 0
+    gpu_lines, gpu_failed = _gpu_status_lines(raw_dir)
+    for line in gpu_lines:
+        print(line)
+    if runtime.get("status") == "failed" or gpu_failed:
+        return 1
+    return 0
+
+
+def _gpu_status_lines(raw_dir: Path) -> tuple[list[str], bool]:
+    """只读展示 GPU sidecar；不存在时不改变任何 CPU 输出。
+
+    requested 与 actual 分开显示：未采集时 actual 保持 unknown，绝不用请求值冒充。
+    """
+
+    path = raw_dir / SIDECAR_NAME
+    if not path.is_file():
+        return [], False
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError, OSError) as exc:
+        return [f"GPU state: UNREADABLE ({path}): {exc}"], True
+    if not isinstance(record, dict):
+        return [f"GPU state: UNREADABLE ({path}): 顶层不是 JSON 对象"], True
+
+    request = record.get("request") if isinstance(record.get("request"), dict) else {}
+    state = str(record.get("state") or "unknown")
+    actual_backend = str(record.get("actual_backend") or "unknown")
+    devices = record.get("devices") if isinstance(record.get("devices"), list) else []
+    requested_count = request.get("requested_gpu_count")
+    requested_processes = request.get("mpi_processes")
+    lines = [
+        f"GPU state: {state}",
+        "GPU requested: "
+        f"selection={request.get('selection') or '-'} "
+        f"mpi_processes={requested_processes if requested_processes is not None else '-'} "
+        f"gpu_count={requested_count if requested_count is not None else '-'}",
+    ]
+    if state == "UNVERIFIED":
+        lines.append(f"GPU actual: backend={actual_backend} devices=未采集（离线请求）")
+    else:
+        qualifier = "" if actual_backend == "gpu" else "（预检采集，非本次实际使用）"
+        lines.append(
+            f"GPU actual: backend={actual_backend} devices={len(devices)}{qualifier}"
+        )
+        if devices:
+            identifiers = [
+                str(device.get("uuid") or device.get("index"))
+                for device in devices
+                if isinstance(device, dict)
+            ]
+            lines.append(f"GPU devices: {', '.join(identifiers)}")
+    stale = False
+    if state in {"RUNNING", "PREFLIGHT_PASSED"} and not (raw_dir / LOCK_NAME).is_file():
+        stale = True
+        lines.append(
+            f"GPU warning: state={state} 但 {LOCK_NAME} 不存在，"
+            "写入者可能已被杀死，该状态不可信"
+        )
+    if record.get("star_return_code") is not None:
+        lines.append(f"GPU star_return_code: {record['star_return_code']}")
+    if record.get("failure_code"):
+        lines.append(f"GPU failure: {record['failure_code']}")
+        detail = str(record.get("failure_detail") or "").strip()
+        if detail:
+            lines.append(f"GPU failure detail: {detail.splitlines()[0][:300]}")
+    lines.append(f"GPU evidence: {path}")
+    failed = state in {"FAILED", "BLOCKED"} or state not in GPU_STATES or stale
+    return lines, failed
 
 
 def _resolve_run_paths(path: Path) -> tuple[Path, Path]:

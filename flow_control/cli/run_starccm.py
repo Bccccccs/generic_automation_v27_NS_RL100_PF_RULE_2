@@ -33,6 +33,11 @@ from flow_control.sampling import resolve_schedule_time_step
 from flow_control.slurm import preflight_slurm_allocation, resolve_slurm_allocation
 from flow_control.star_ingest.output_organizer import organize_ccm_outputs
 from flow_control.star_ingest.case_data_loader import current_git_commit
+from starccm.runtime.gpu_config import (
+    GPUConfigurationError,
+    GPUExecutionConfig,
+    gpu_command_tokens,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -144,6 +149,34 @@ def main(argv: list[str] | None = None) -> int:
             "Can be repeated; required reports are always included."
         ),
     )
+    # --- GPU 计算后端：必须显式启用，默认仍是 CPU ---
+    parser.add_argument(
+        "--compute-backend",
+        choices=("cpu", "gpu"),
+        default="cpu",
+        help=(
+            "Solver backend. Defaults to cpu and keeps the legacy command line. "
+            "gpu is opt-in only; there is no auto-detect mode and no CPU fallback."
+        ),
+    )
+    parser.add_argument(
+        "--gpgpu",
+        default=None,
+        metavar="SELECTION",
+        help=(
+            "GPU selection passed to STAR-CCM+ as -gpgpu, e.g. auto:2:nomps or 0,1:nomps. "
+            "Required with --compute-backend gpu and rejected on the CPU path."
+        ),
+    )
+    parser.add_argument(
+        "--gpu-qualification",
+        default=None,
+        metavar="PATH",
+        help=(
+            "JSON qualification file reviewed for the target STAR build, platform and .sim. "
+            "Required for --compute-backend gpu with --execution-mode run."
+        ),
+    )
     # --- 行为控制 ---
     parser.add_argument(
         "--non-strict-boundaries",
@@ -174,6 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run and args.execution_mode not in {"run", "dry-run"}:
         parser.error("--dry-run cannot be combined with package-only or validate-only")
     execution_mode = "dry-run" if args.dry_run else args.execution_mode
+    # GPU/CPU 参数矛盾必须在 Slurm 解析和 STAR 启动之前报错。
+    gpu_config = _resolve_gpu_config(parser, args, execution_mode=execution_mode)
 
     output_dir = Path(args.out)
     allocated_nodes: tuple[str, ...] = ()
@@ -249,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
             save_result_sim=not args.no_save_result_sim,
             execution_mode=execution_mode,
             case_dir=standard_case_dir,
+            gpu=gpu_config,
         )
     )
     # --- 输出报告 ---
@@ -296,6 +332,50 @@ def main(argv: list[str] | None = None) -> int:
     if result.returncode is not None:
         print(f"returncode: {result.returncode}")
     return 0
+
+
+def _resolve_gpu_config(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    *,
+    execution_mode: str,
+) -> GPUExecutionConfig:
+    """校验计算后端参数组合并返回 GPU 配置。
+
+    所有矛盾都在 Slurm 解析和 STAR 启动之前以 ``parser.error`` 报错，
+    CPU 路径不接受任何 GPU 参数，GPU 路径必须显式给出进程数。
+    """
+
+    if args.compute_backend == "cpu":
+        if args.gpgpu:
+            parser.error("--gpgpu 需要 --compute-backend gpu；CPU 路径不注入 -gpgpu")
+        if args.gpu_qualification:
+            parser.error(
+                "--gpu-qualification 需要 --compute-backend gpu；CPU 路径不做 GPU 资格校验"
+            )
+        return GPUExecutionConfig()
+
+    if args.np is None:
+        parser.error("GPU模式必须显式指定 --np；该值是STAR进程数")
+    if args.np < 1:
+        parser.error(f"GPU模式 --np 必须 >= 1，收到 {args.np}")
+    if not args.gpgpu:
+        parser.error("--compute-backend gpu 必须提供 --gpgpu 选择器")
+    if execution_mode == "run" and not args.gpu_qualification:
+        parser.error(
+            "GPU run 必须提供 --gpu-qualification 资格文件；"
+            "dry-run/package-only/validate-only 可不提供"
+        )
+    config = GPUExecutionConfig(
+        backend="gpu",
+        selection=args.gpgpu,
+        qualification_path=Path(args.gpu_qualification) if args.gpu_qualification else None,
+    )
+    try:
+        gpu_command_tokens(config)
+    except GPUConfigurationError as exc:
+        parser.error(str(exc))
+    return config
 
 
 def _resolve_mpi_env(explicit_values: list[str], *, scheduler: str = "manual") -> tuple[str, ...]:
