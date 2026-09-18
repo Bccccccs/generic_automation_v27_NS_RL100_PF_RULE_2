@@ -1,0 +1,14 @@
+# J02 短时脉冲算例：总时长 1.0 s，每个动作窗口 0.2 s，求解器时间步 0.1 s。
+actuation:
+  mode: pulse_singlejet
+  n_jets: 24
+  total_windows: 5
+  window_duration: 0.2
+  time_step: 0.1
+  mass_flow_rate: 0.015
+  jet_ids: [2]
+  # pulse_windows 按 1-based 编号：第 5 个窗口对应 [0.8, 1.0] s。
+  pulse_windows: [5]
+
+output:
+  run_dir: runs/schedule_examples/j02_pulse_small_1s_dt0p1_window0p2

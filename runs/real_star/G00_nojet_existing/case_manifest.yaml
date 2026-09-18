@@ -1,0 +1,52 @@
+case_id: G00_nojet_existing
+case_type: no_jet
+description: existing no-jet STAR monitor exports
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: physical_time >= 0.5 s
+star:
+  version: 待浩坤确认
+  sim_file: 待浩坤确认
+  sim_file_hash_sha256: 待浩坤确认
+  geometry_version: 待浩坤确认
+  mesh_version: 待浩坤确认
+  region_names:
+  - 减运算
+source_product_dir: raw_star/out_put
+raw_star_dir: /Users/yanbochao/generic_automation_v27_NS_RL100_PF_RULE_2/runs/real_star/G00_nojet_existing/raw_star
+processed_timeseries: processed/timeseries.csv
+actuation_schedule: actuation_schedule.csv
+quality_report: quality_report.json
+figures_dir: figures
+git_commit: e4d178d24db1e59b5c820707c755b03ff1884990
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+sign_convention: positive values follow the STAR-CCM+ monitor export convention
+validation_mode: full_case
+status: complete
+raw_csv_count: 7
+timeseries_csv_count: 6
+notes:
+- raw_star is a read-only copy of existing STAR out_put products.
+- existing run figures and derived data are classified under figures/ and logs/ without
+  overwriting standard outputs.
+- processed/timeseries.csv is merged on physical_time, not row number.
+- actual_massflow columns are not synthesized from command values.
+source_run_products:
+  figures: figures/run_figures
+  input_figures: figures/input_figures
+  derived_data: logs/run_products
+  input_data: logs/input_data
+geometry_version: starccm-runtime
+mesh_version: unknown
+flow_velocity: 0.0
+gap: 0.0
+time_step: 0.0001
+jet_amplitude: 0.0
+window_duration: 0.0001
+random_seed: 0
+case_stage: starccm_output_ingest
+check_mode: ccm
+source_schedule: actuation_schedule.csv

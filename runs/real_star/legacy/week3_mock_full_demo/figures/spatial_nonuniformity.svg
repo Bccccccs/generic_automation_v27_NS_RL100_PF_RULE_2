@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="8" y="16" font-family="Arial, sans-serif" font-size="13" fill="#1f2328">Spatial nonuniformity</text>
+<rect x="54" y="28" width="842" height="280" fill="#fbfcfe" stroke="#d0d7de"/>
+<line x1="54" y1="28.00" x2="896" y2="28.00" stroke="#edf2f7"/>
+<line x1="54" y1="98.00" x2="896" y2="98.00" stroke="#edf2f7"/>
+<line x1="54" y1="168.00" x2="896" y2="168.00" stroke="#edf2f7"/>
+<line x1="54" y1="238.00" x2="896" y2="238.00" stroke="#edf2f7"/>
+<line x1="54" y1="308.00" x2="896" y2="308.00" stroke="#edf2f7"/>
+<text x="8" y="40" font-family="Arial, sans-serif" font-size="9" fill="#57606a">20.9</text>
+<text x="8" y="308" font-family="Arial, sans-serif" font-size="9" fill="#57606a">-0.65</text>
+<text x="54" y="338" font-family="Arial, sans-serif" font-size="9" fill="#57606a">0s</text>
+<text x="856" y="338" font-family="Arial, sans-serif" font-size="9" fill="#57606a">0.9s</text>
+<polyline fill="none" stroke="#0b7285" stroke-width="2.0" points="54.00,214.10 147.56,178.41 241.11,55.10 334.67,231.39 428.22,247.99 521.78,254.61 615.33,263.53 708.89,148.78 802.44,280.90 896.00,273.63"/>
+</svg>

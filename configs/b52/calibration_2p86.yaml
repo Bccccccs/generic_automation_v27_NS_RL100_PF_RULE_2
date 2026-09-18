@@ -1,0 +1,14 @@
+# B52 标定：JET_02，2.86 kg/s，3.0 s。
+actuation:
+  mode: pulse_singlejet
+  n_jets: 24
+  total_actuation_windows: 30
+  actuation_window_duration: 0.1
+  solver_time_step: 0.0001
+  mass_flow_rate: 2.86
+  jet_ids: [2]
+  # 第 6 个 0.1 s 窗口，即 0.5–0.6 s。
+  pulse_window_numbers: [6]
+
+output:
+  run_dir: runs/b52_calibration_2p86

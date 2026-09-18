@@ -1,0 +1,13 @@
+actuation:
+  mode: chirp_keyjets
+  n_jets: 24
+  total_windows: 80
+  window_duration: 0.05
+  time_step: 0.01
+  mass_flow_rate: 0.02
+  jet_ids: [3, 7, 14, 18]
+  chirp_start_frequency_hz: 1.0
+  chirp_end_frequency_hz: 8.0
+
+output:
+  run_dir: runs/schedule_examples/chirp_keyjets

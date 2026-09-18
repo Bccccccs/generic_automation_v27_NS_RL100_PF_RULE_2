@@ -1,0 +1,569 @@
+"""/run_starccm CLI：将激励计划在 STAR-CCM+ 中执行并打包结果。
+
+工作流程：
+  1. 通过 --schedule 传入已生成的 actuation_schedule.csv，
+     或通过 --actuation-config 实时生成
+  2. 连接 STAR-CCM+ 运行仿真
+  3. 提取结果打包为标准 case 目录
+  4. 执行质量检查
+
+数据流：
+  schedule CSV → FlowControlStarCCMRunner → STAR-CCM+ macro → timeseries
+    → package_ccm_run_case → 标准 case 目录 + quality_report
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import hashlib
+import os
+import re
+import shutil
+from pathlib import Path
+
+import yaml
+from flow_control.adapters.starccm_runner import (
+    DEFAULT_FLOW_CONTROL_REPORT_NAMES,
+    FlowControlStarCCMRunConfig,
+    FlowControlStarCCMRunner,
+)
+from flow_control.generator import generate_from_yaml
+from flow_control.sampling import resolve_schedule_time_step
+from flow_control.slurm import preflight_slurm_allocation, resolve_slurm_allocation
+from flow_control.star_ingest.output_organizer import organize_ccm_outputs
+from flow_control.star_ingest.case_data_loader import current_git_commit
+from starccm.runtime.gpu_config import (
+    GPUConfigurationError,
+    GPUExecutionConfig,
+    gpu_command_tokens,
+)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Generate a STAR-CCM+ macro from actuation_schedule.csv and launch the simulation.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+参数模板：
+  # 1. 启动 STAR-CCM+ 并自动整理
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --starccm-path '<starccm+>' --region <Region> \\
+    --time-step <dt> --np <cores> --machinefile <hosts.ma> --execution-mode run
+
+  # 2. 只生成宏和运行计划，不启动 STAR-CCM+
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --region <Region> --time-step <dt> --execution-mode dry-run
+
+  # 3. 打包 <case-dir>/raw_star/timeseries.csv 并执行质量检查
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --execution-mode package-only
+
+  # 4. 只校验已打包的 <case-dir>
+  python scripts/workflow.py ccm \\
+    --schedule <case-dir>/input/actuation_schedule.csv \\
+    --sim <template.sim> --out <case-dir>/raw_star \\
+    --execution-mode validate-only
+
+激励来源二选一：
+  --schedule <actuation_schedule.csv>
+  --actuation-config <actions.yaml>
+
+注意：
+  package-only 要求 <out>/timeseries.csv 已存在。
+  validate-only 要求标准 Case 已打包；当 --out 为 <case-dir>/raw_star 时，
+  被校验的目录是 <case-dir>。
+""",
+    )
+    # --- 激励来源：已有 CSV 或实时生成 ---
+    # 这两者互斥，用户必须指定其一
+    schedule_source = parser.add_mutually_exclusive_group(required=True)
+    schedule_source.add_argument("--schedule", help="Existing actuation_schedule.csv path.")
+    schedule_source.add_argument(
+        "--actuation-config",
+        help="Actuation YAML to generate into <out>/input before starting STAR-CCM+.",
+    )
+    # --- STAR-CCM+ 参数 ---
+    parser.add_argument("--sim", required=True, help="Input STAR-CCM+ .sim file.")
+    parser.add_argument("--out", required=True, help="Output directory for macro, logs, and results.")
+    parser.add_argument(
+        "--manifest-template",
+        default="configs/week4/case_manifest_template.yaml",
+        help="Manifest template to prefill before STAR; use an empty string to disable.",
+    )
+    parser.add_argument(
+        "--starccm-path",
+        default=os.environ.get("STARCCM_PATH", "starccm+"),
+        help="STAR-CCM+ executable path. Defaults to $STARCCM_PATH or starccm+.",
+    )
+    parser.add_argument("--np", type=int, default=None, help="Number of STAR-CCM+ processes; inferred in Slurm mode.")
+    parser.add_argument(
+        "--scheduler",
+        choices=("manual", "slurm"),
+        default="manual",
+        help="Resource selection backend. manual uses --np/--machinefile; slurm resolves a running allocation.",
+    )
+    parser.add_argument(
+        "--slurm-job-id",
+        default="",
+        help="Running Slurm job id. In slurm mode defaults to $SLURM_JOB_ID or the job containing this host.",
+    )
+    parser.add_argument(
+        "--machinefile",
+        default="",
+        help=(
+            "STAR-CCM+ host allocation file. Supports Gridview hostname:slots "
+            "and Open MPI hostname slots=N formats. Defaults to $STARCCM_MACHINEFILE."
+        ),
+    )
+    parser.add_argument("--podkey", default="", help="STAR-CCM+ pod key/license token.")
+    parser.add_argument(
+        "--mpi-env",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="Environment variable exported to every MPI rank; may be repeated.",
+    )
+    parser.add_argument(
+        "--mpi-driver",
+        choices=("", "openmpi", "openmpi40", "openmpi41", "intel", "hpe", "crayex", "fujitsu"),
+        default="",
+        help=(
+            "MPI driver passed to STAR-CCM+ as -mpi. Empty (default) leaves STAR-CCM+'s "
+            "own default selection unchanged. Real-machine finding on a Hygon DCU node: "
+            "the unpinned default picked an Intel-oriented MPI/math-library combination "
+            "that crashed at launch (SIGABRT); passing openmpi explicitly avoided it."
+        ),
+    )
+    parser.add_argument("--region", default="Region", help="Region containing STAR J01..J24 nozzle boundaries.")
+    parser.add_argument(
+        "--time-step",
+        type=float,
+        default=None,
+        help=(
+            "Solver time step inside each actuation window. Priority: this argument, "
+            "then schedule config_summary, then the template simulation setting."
+        ),
+    )
+    parser.add_argument(
+        "--report",
+        action="append",
+        default=[],
+        help=(
+            "Additional report name to sample after each solver time step. "
+            "Can be repeated; required reports are always included."
+        ),
+    )
+    # --- GPU 计算后端：必须显式启用，默认仍是 CPU ---
+    parser.add_argument(
+        "--compute-backend",
+        choices=("cpu", "gpu"),
+        default="cpu",
+        help=(
+            "Solver backend. Defaults to cpu and keeps the legacy command line. "
+            "gpu is opt-in only; there is no auto-detect mode and no CPU fallback."
+        ),
+    )
+    parser.add_argument(
+        "--gpgpu",
+        default=None,
+        metavar="SELECTION",
+        help=(
+            "GPU selection passed to STAR-CCM+ as -gpgpu, e.g. auto:2:nomps or 0,1:nomps. "
+            "Required with --compute-backend gpu and rejected on the CPU path."
+        ),
+    )
+    parser.add_argument(
+        "--gpu-qualification",
+        default=None,
+        metavar="PATH",
+        help=(
+            "JSON qualification file reviewed for the target STAR build, platform and .sim. "
+            "Required for --compute-backend gpu with --execution-mode run."
+        ),
+    )
+    # --- 行为控制 ---
+    parser.add_argument(
+        "--non-strict-boundaries",
+        action="store_true",
+        help="Warn and skip missing jet boundaries instead of failing the run.",
+    )
+    parser.add_argument(
+        "--no-save-result-sim",
+        action="store_true",
+        help="Do not save flow_control_result.sim at the end.",
+    )
+    parser.add_argument(
+        "--execution-mode",
+        choices=("run", "dry-run", "package-only", "validate-only"),
+        default="run",
+        help=(
+            "run launches STAR; dry-run only generates the macro; package-only "
+            "packages and validates an existing runtime CSV; validate-only keeps "
+            "compatibility for validating an already packaged case."
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Compatibility alias for --execution-mode dry-run.",
+    )
+    args = parser.parse_args(argv)
+    if args.dry_run and args.execution_mode not in {"run", "dry-run"}:
+        parser.error("--dry-run cannot be combined with package-only or validate-only")
+    execution_mode = "dry-run" if args.dry_run else args.execution_mode
+    # GPU/CPU 参数矛盾必须在 Slurm 解析和 STAR 启动之前报错。
+    gpu_config = _resolve_gpu_config(parser, args, execution_mode=execution_mode)
+
+    output_dir = Path(args.out)
+    allocated_nodes: tuple[str, ...] = ()
+    preflight_warnings: tuple[str, ...] = ()
+    if args.scheduler == "slurm":
+        if args.machinefile:
+            parser.error("--machinefile cannot be combined with --scheduler slurm")
+        allocation = resolve_slurm_allocation(
+            output_dir,
+            job_id=args.slurm_job_id or None,
+            num_tasks=args.np,
+        )
+        args.np = allocation.num_tasks
+        args.machinefile = str(allocation.machinefile_path)
+        args.slurm_job_id = allocation.job_id
+        allocated_nodes = allocation.nodes
+        print(
+            f"[flow_control] Slurm job={allocation.job_id} nodes={len(allocation.nodes)} "
+            f"processes={allocation.num_tasks} machinefile={allocation.machinefile_path}"
+        )
+        if execution_mode == "run":
+            print("[flow_control] Slurm 预检：检查节点 SSH 和已有 STAR 进程")
+            preflight = preflight_slurm_allocation(allocation)
+            print(f"[flow_control] Slurm 预检通过：{len(allocation.nodes)} 个节点均可访问")
+            preflight_warnings = preflight.warnings
+            for warning in preflight_warnings:
+                print(f"[flow_control] 预检警告：{warning}")
+    else:
+        if args.slurm_job_id:
+            parser.error("--slurm-job-id requires --scheduler slurm")
+        args.np = 1 if args.np is None else args.np
+        if not args.machinefile:
+            args.machinefile = os.environ.get("STARCCM_MACHINEFILE", "")
+
+    mpi_env = _resolve_mpi_env(args.mpi_env, scheduler=args.scheduler)
+    args.mpi_env = list(mpi_env)
+    standard_case_dir = _standard_case_dir_for_output(output_dir)
+    # 确定激励计划 CSV 的路径：来自已有文件或实时生成
+    schedule_path = (
+        Path(args.schedule)
+        if args.schedule
+        else generate_from_yaml(
+            args.actuation_config,
+            output_dir=output_dir,
+        ).output_dir
+        / "actuation_schedule.csv"
+    )
+    solver_time_step, solver_time_step_source = resolve_schedule_time_step(
+        schedule_path,
+        explicit_time_step=args.time_step,
+    )
+
+    # 运行 STAR-CCM+ 仿真，生成宏、运行计划和结果
+    result = FlowControlStarCCMRunner().run(
+        FlowControlStarCCMRunConfig(
+            schedule_path=schedule_path,
+            sim_path=Path(args.sim),
+            output_dir=output_dir,
+            starccm_path=args.starccm_path,
+            num_cores=args.np,
+            machinefile_path=Path(args.machinefile) if args.machinefile else None,
+            mpi_env=mpi_env,
+            mpi_driver=args.mpi_driver,
+            scheduler=args.scheduler,
+            scheduler_job_id=args.slurm_job_id,
+            allocated_nodes=allocated_nodes,
+            preflight_warnings=preflight_warnings,
+            pod_key=args.podkey,
+            region_name=args.region,
+            manifest_template_path=Path(args.manifest_template) if args.manifest_template else None,
+            time_step=solver_time_step,
+            report_names=_runtime_report_names(args.report),
+            strict_boundaries=not args.non_strict_boundaries,
+            save_result_sim=not args.no_save_result_sim,
+            execution_mode=execution_mode,
+            case_dir=standard_case_dir,
+            gpu=gpu_config,
+        )
+    )
+    # --- 输出报告 ---
+    print(f"macro: {result.macro_path}")
+    print(f"runtime_plan: {result.runtime_plan_path}")
+    print(f"log: {result.log_path}")
+    if standard_case_dir != output_dir:
+        print(f"standard_case_dir: {standard_case_dir}")
+    # 如果生成了 timeseries，进行 case 打包和质量检查
+    if execution_mode == "package-only":
+        print(f"standard_timeseries: {standard_case_dir / 'processed' / 'timeseries.csv'}")
+        print(f"quality_report: {standard_case_dir / 'quality_report.json'}")
+        print(f"figures: {standard_case_dir / 'figures'}")
+    elif execution_mode == "validate-only":
+        print(f"quality_report: {standard_case_dir / 'quality_report.json'}")
+    elif result.timeseries_path is not None:
+        print(f"timeseries: {result.timeseries_path}")
+        if result.timeseries_path.exists():
+            organize_product_dir = _prepare_organize_output(output_dir)
+            checked_case = organize_ccm_outputs(
+                input_dir=schedule_path.parent,
+                star_output_dir=organize_product_dir,
+                output_dir=standard_case_dir,
+                overwrite=True,
+                manifest=_build_runtime_manifest(
+                    args=args,
+                    result=result,
+                    schedule_path=schedule_path,
+                    raw_output_dir=output_dir,
+                    solver_time_step=solver_time_step,
+                    solver_time_step_source=solver_time_step_source,
+                ),
+                run_quality_check=True,
+            )
+            print(f"organize_output: {organize_product_dir}")
+            print(f"standard_timeseries: {checked_case['timeseries_path']}")
+            print(f"quality_report: {checked_case['quality_report_path']}")
+            print(f"figures: {standard_case_dir / 'figures'}")
+            print(f"run_success_flag: {checked_case['quality_report'].get('run_success_flag')}")
+    print("command:", " ".join(result.command))
+    if result.result_sim_path is not None:
+        print(f"result_sim: {result.result_sim_path}")
+    if result.manifest_path is not None:
+        print(f"manifest: {result.manifest_path}")
+    if result.returncode is not None:
+        print(f"returncode: {result.returncode}")
+    return 0
+
+
+def _resolve_gpu_config(
+    parser: argparse.ArgumentParser,
+    args: argparse.Namespace,
+    *,
+    execution_mode: str,
+) -> GPUExecutionConfig:
+    """校验计算后端参数组合并返回 GPU 配置。
+
+    所有矛盾都在 Slurm 解析和 STAR 启动之前以 ``parser.error`` 报错，
+    CPU 路径不接受任何 GPU 参数，GPU 路径必须显式给出进程数。
+    """
+
+    if args.compute_backend == "cpu":
+        if args.gpgpu:
+            parser.error("--gpgpu 需要 --compute-backend gpu；CPU 路径不注入 -gpgpu")
+        if args.gpu_qualification:
+            parser.error(
+                "--gpu-qualification 需要 --compute-backend gpu；CPU 路径不做 GPU 资格校验"
+            )
+        return GPUExecutionConfig()
+
+    if args.np is None:
+        parser.error("GPU模式必须显式指定 --np；该值是STAR进程数")
+    if args.np < 1:
+        parser.error(f"GPU模式 --np 必须 >= 1，收到 {args.np}")
+    if not args.gpgpu:
+        parser.error("--compute-backend gpu 必须提供 --gpgpu 选择器")
+    if execution_mode == "run" and not args.gpu_qualification:
+        parser.error(
+            "GPU run 必须提供 --gpu-qualification 资格文件；"
+            "dry-run/package-only/validate-only 可不提供"
+        )
+    config = GPUExecutionConfig(
+        backend="gpu",
+        selection=args.gpgpu,
+        qualification_path=Path(args.gpu_qualification) if args.gpu_qualification else None,
+    )
+    try:
+        gpu_command_tokens(config)
+    except GPUConfigurationError as exc:
+        parser.error(str(exc))
+    return config
+
+
+def _resolve_mpi_env(explicit_values: list[str], *, scheduler: str = "manual") -> tuple[str, ...]:
+    """Include explicit MPI variables and the cluster UCX workaround when exported."""
+
+    values = list(explicit_values)
+    has_ucx_dci = any(
+        value.partition("=")[0] == "UCX_DC_MLX5_NUM_DCI" for value in values
+    )
+    if not has_ucx_dci and os.environ.get("UCX_DC_MLX5_NUM_DCI"):
+        values.append(f"UCX_DC_MLX5_NUM_DCI={os.environ['UCX_DC_MLX5_NUM_DCI']}")
+    elif not has_ucx_dci and scheduler == "slurm":
+        values.append("UCX_DC_MLX5_NUM_DCI=8")
+    return tuple(values)
+
+
+def _standard_case_dir_for_output(output_dir: Path) -> Path:
+    """Use the parent directory as the standard case when --out ends in raw_star."""
+
+    if output_dir.name == "raw_star":
+        return output_dir.parent
+    return output_dir
+
+
+def _runtime_report_names(extra_report_names: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    """Always sample the standard CCM outputs; ``--report`` only adds extras."""
+
+    return tuple(dict.fromkeys((*DEFAULT_FLOW_CONTROL_REPORT_NAMES, *extra_report_names)))
+
+
+def _prepare_organize_output(raw_output_dir: Path) -> Path:
+    """Collect lightweight CCM CSV products for the shared organize pipeline."""
+
+    product_dir = Path(raw_output_dir) / "output"
+    product_dir.mkdir(parents=True, exist_ok=True)
+    for source in sorted(Path(raw_output_dir).glob("*.csv")):
+        target = product_dir / source.name
+        if source.resolve() != target.resolve():
+            shutil.copy2(source, target)
+    return product_dir
+
+
+def _build_runtime_manifest(
+    *,
+    args: argparse.Namespace,
+    result: object,
+    schedule_path: Path,
+    raw_output_dir: Path,
+    solver_time_step: float | None = None,
+    solver_time_step_source: str = "template_simulation",
+) -> dict[str, object]:
+    sim_path = Path(args.sim).expanduser().resolve()
+    starccm_path = str(args.starccm_path)
+    raw_dir = raw_output_dir.expanduser().resolve()
+    case_dir = _standard_case_dir_for_output(raw_output_dir).expanduser().resolve()
+    case_type = _infer_case_type(schedule_path)
+    snapshot_manifest_path = raw_dir / "case_manifest.yaml"
+    base: dict[str, object] = {}
+    if snapshot_manifest_path.is_file():
+        loaded = yaml.safe_load(snapshot_manifest_path.read_text(encoding="utf-8")) or {}
+        if isinstance(loaded, dict) and loaded.get("manifest_status") == "finalized_from_star_template_snapshot":
+            base = loaded
+    base_star = dict(base.get("star") or {})
+    sim_hash = _sha256_file(sim_path)
+    star_metadata: dict[str, object] = {
+        **base_star,
+        "starccm_path": starccm_path,
+        "sim_file": str(sim_path),
+        "sim_file_name": sim_path.name,
+        "sim_file_hash_sha256": sim_hash,
+        "region_names": [str(args.region)],
+    }
+    star_metadata.setdefault("version", _infer_starccm_version(starccm_path))
+    star_metadata.setdefault("version_source", "starccm_executable_path")
+    star_metadata.setdefault("geometry_version", "starccm-runtime-template")
+    star_metadata.setdefault("mesh_version", f"sim-{sim_hash[:12]}-topology-unavailable")
+    runtime_manifest: dict[str, object] = {
+        "case_id": case_dir.name,
+        "case_type": case_type,
+        "description": _case_description(case_dir.name, case_type),
+        "git_commit": current_git_commit(),
+        "source_product_dir": _manifest_path(case_dir, raw_dir),
+        "raw_star_dir": str(raw_dir),
+        "processed_timeseries": "processed/timeseries.csv",
+        "actuation_schedule": "actuation_schedule.csv",
+        "quality_report": "quality_report.json",
+        "figures_dir": "figures",
+        "source_schedule": "actuation_schedule.csv",
+        "raw_csv_count": _count_csv_files(raw_dir),
+        "timeseries_csv_count": 1 if result.timeseries_path is not None else 0,
+        "status": "complete" if case_type == "no_jet" else "runtime_output_pending_quality_check",
+        "starccm_version": star_metadata["version"],
+        "geometry_version": star_metadata["geometry_version"],
+        "mesh_version": star_metadata["mesh_version"],
+        "star": star_metadata,
+        "runtime": {
+            **dict(base.get("runtime") or {}),
+            "num_cores": int(args.np),
+            "scheduler": getattr(args, "scheduler", "manual"),
+            "slurm_job_id": getattr(args, "slurm_job_id", ""),
+            "mpi_env": list(getattr(args, "mpi_env", [])),
+            "machinefile": (
+                str(Path(args.machinefile).expanduser().resolve())
+                if getattr(args, "machinefile", "")
+                else ""
+            ),
+            "podkey_set": bool(args.podkey),
+            "region": str(args.region),
+            "time_step_override": args.time_step,
+            "solver_time_step": solver_time_step,
+            "solver_time_step_source": solver_time_step_source,
+            "strict_boundaries": not bool(args.non_strict_boundaries),
+            "save_result_sim": not bool(args.no_save_result_sim),
+            "raw_output_dir": str(raw_dir),
+            "macro_path": str(result.macro_path),
+            "runtime_plan_path": str(result.runtime_plan_path),
+            "log_path": str(result.log_path),
+            "result_sim_path": str(result.result_sim_path) if result.result_sim_path is not None else "",
+            "command": list(result.command),
+        },
+    }
+    # Preserve the preflight template and STAR-inspected surface/report data.
+    base.update(runtime_manifest)
+    return base
+
+
+def _case_description(case_id: str, case_type: str) -> str:
+    if case_type == "no_jet":
+        return f"{case_id} STAR-CCM+ no-jet runtime case"
+    return f"{case_id} STAR-CCM+ jet runtime case"
+
+
+def _infer_case_type(schedule_path: Path) -> str:
+    with Path(schedule_path).open("r", encoding="utf-8", newline="") as handle:
+        rows = csv.DictReader(handle)
+        for row in rows:
+            for idx in range(1, 25):
+                jet = _float_or_zero(row.get(f"JET_{idx:02d}"))
+                massflow = _float_or_zero(row.get(f"cmd_massflow_{idx:02d}"))
+                if abs(jet) > 0.5 or abs(massflow) > 1.0e-15:
+                    return "jet_on"
+    return "no_jet"
+
+
+def _float_or_zero(value: object) -> float:
+    try:
+        return float(value or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _infer_starccm_version(starccm_path: str) -> str:
+    match = re.search(r"(\d{2}\.\d{2}\.\d{3}(?:-[A-Za-z0-9]+)?)", starccm_path)
+    return match.group(1) if match else "unknown"
+
+
+def _manifest_path(case_dir: Path, path: Path) -> str:
+    try:
+        return path.resolve().relative_to(case_dir.resolve()).as_posix()
+    except ValueError:
+        return str(path.resolve())
+
+
+def _count_csv_files(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(1 for item in path.rglob("*.csv") if item.is_file())
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

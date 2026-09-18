@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="8" y="16" font-family="Arial, sans-serif" font-size="13" fill="#1f2328">6 regional Fz time series</text>
+<rect x="54" y="28" width="842" height="280" fill="#fbfcfe" stroke="#d0d7de"/>
+<line x1="54" y1="28.00" x2="896" y2="28.00" stroke="#edf2f7"/>
+<line x1="54" y1="98.00" x2="896" y2="98.00" stroke="#edf2f7"/>
+<line x1="54" y1="168.00" x2="896" y2="168.00" stroke="#edf2f7"/>
+<line x1="54" y1="238.00" x2="896" y2="238.00" stroke="#edf2f7"/>
+<line x1="54" y1="308.00" x2="896" y2="308.00" stroke="#edf2f7"/>
+<text x="8" y="40" font-family="Arial, sans-serif" font-size="9" fill="#57606a">0.17</text>
+<text x="8" y="308" font-family="Arial, sans-serif" font-size="9" fill="#57606a">-0.188</text>
+<text x="54" y="338" font-family="Arial, sans-serif" font-size="9" fill="#57606a">0s</text>
+<text x="856" y="338" font-family="Arial, sans-serif" font-size="9" fill="#57606a">0.9s</text>
+<polyline fill="none" stroke="#0b7285" stroke-width="1.8" points="54.00,177.36 147.56,129.01 241.11,126.57 334.67,181.95 428.22,151.46 521.78,163.59 615.33,185.97 708.89,160.71 802.44,134.71 896.00,167.02"/>
+<text x="62" y="348" font-family="Arial, sans-serif" font-size="10" fill="#0b7285">Fz_S1L</text>
+<polyline fill="none" stroke="#e67700" stroke-width="1.8" points="54.00,122.86 147.56,153.65 241.11,136.29 334.67,139.86 428.22,113.97 521.78,141.63 615.33,131.31 708.89,110.55 802.44,106.19 896.00,177.05"/>
+<text x="136" y="348" font-family="Arial, sans-serif" font-size="10" fill="#e67700">Fz_S1R</text>
+<polyline fill="none" stroke="#2b8a3e" stroke-width="1.8" points="54.00,140.83 147.56,169.96 241.11,187.71 334.67,157.16 428.22,205.98 521.78,147.67 615.33,126.15 708.89,143.27 802.44,154.28 896.00,133.63"/>
+<text x="210" y="348" font-family="Arial, sans-serif" font-size="10" fill="#2b8a3e">Fz_S2L</text>
+<polyline fill="none" stroke="#c92a2a" stroke-width="1.8" points="54.00,152.47 147.56,162.19 241.11,209.51 334.67,229.81 428.22,196.39 521.78,155.30 615.33,179.76 708.89,181.08 802.44,168.75 896.00,135.05"/>
+<text x="284" y="348" font-family="Arial, sans-serif" font-size="10" fill="#c92a2a">Fz_S2R</text>
+<polyline fill="none" stroke="#5f3dc4" stroke-width="1.8" points="54.00,227.64 147.56,172.60 241.11,154.91 334.67,141.23 428.22,162.18 521.78,122.46 615.33,136.97 708.89,189.10 802.44,176.61 896.00,147.21"/>
+<text x="358" y="348" font-family="Arial, sans-serif" font-size="10" fill="#5f3dc4">Fz_S3L</text>
+<polyline fill="none" stroke="#087f5b" stroke-width="1.8" points="54.00,173.69 147.56,188.93 241.11,139.89 334.67,150.44 428.22,180.83 521.78,195.10 615.33,153.80 708.89,166.25 802.44,110.75 896.00,156.52"/>
+<text x="432" y="348" font-family="Arial, sans-serif" font-size="10" fill="#087f5b">Fz_S3R</text>
+</svg>

@@ -1,0 +1,25 @@
+unified_jet_id,unified_switch_column,unified_cmd_massflow_column,star_boundary_fully_qualified,star_boundary_fully_qualified_candidate,star_boundary,jet_area_m2,jet_normal_vector_xyz,area_m2,normal_vector_xyz,status
+1,JET_01,cmd_massflow_01,减运算: Document.Document_Body.J01,减运算: Document.Document_Body.J01,Document.Document_Body.J01,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+2,JET_02,cmd_massflow_02,减运算: Document.Document_Body.J02,减运算: Document.Document_Body.J02,Document.Document_Body.J02,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+3,JET_03,cmd_massflow_03,减运算: Document.Document_Body.J03,减运算: Document.Document_Body.J03,Document.Document_Body.J03,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+4,JET_04,cmd_massflow_04,减运算: Document.Document_Body.J04,减运算: Document.Document_Body.J04,Document.Document_Body.J04,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+5,JET_05,cmd_massflow_05,减运算: Document.Document_Body.J05,减运算: Document.Document_Body.J05,Document.Document_Body.J05,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+6,JET_06,cmd_massflow_06,减运算: Document.Document_Body.J06,减运算: Document.Document_Body.J06,Document.Document_Body.J06,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+7,JET_07,cmd_massflow_07,减运算: Document.Document_Body.J07,减运算: Document.Document_Body.J07,Document.Document_Body.J07,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+8,JET_08,cmd_massflow_08,减运算: Document.Document_Body.J08,减运算: Document.Document_Body.J08,Document.Document_Body.J08,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+9,JET_09,cmd_massflow_09,减运算: Document.Document_Body.J09,减运算: Document.Document_Body.J09,Document.Document_Body.J09,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+10,JET_10,cmd_massflow_10,减运算: Document.Document_Body.J10,减运算: Document.Document_Body.J10,Document.Document_Body.J10,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+11,JET_11,cmd_massflow_11,减运算: Document.Document_Body.J11,减运算: Document.Document_Body.J11,Document.Document_Body.J11,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+12,JET_12,cmd_massflow_12,减运算: Document.Document_Body.J12,减运算: Document.Document_Body.J12,Document.Document_Body.J12,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+13,JET_13,cmd_massflow_13,减运算: Document.Document_Body.J13,减运算: Document.Document_Body.J13,Document.Document_Body.J13,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+14,JET_14,cmd_massflow_14,减运算: Document.Document_Body.J14,减运算: Document.Document_Body.J14,Document.Document_Body.J14,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+15,JET_15,cmd_massflow_15,减运算: Document.Document_Body.J15,减运算: Document.Document_Body.J15,Document.Document_Body.J15,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+16,JET_16,cmd_massflow_16,减运算: Document.Document_Body.J16,减运算: Document.Document_Body.J16,Document.Document_Body.J16,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+17,JET_17,cmd_massflow_17,减运算: Document.Document_Body.J17,减运算: Document.Document_Body.J17,Document.Document_Body.J17,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+18,JET_18,cmd_massflow_18,减运算: Document.Document_Body.J18,减运算: Document.Document_Body.J18,Document.Document_Body.J18,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+19,JET_19,cmd_massflow_19,减运算: Document.Document_Body.J19,减运算: Document.Document_Body.J19,Document.Document_Body.J19,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+20,JET_20,cmd_massflow_20,减运算: Document.Document_Body.J20,减运算: Document.Document_Body.J20,Document.Document_Body.J20,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+21,JET_21,cmd_massflow_21,减运算: Document.Document_Body.J21,减运算: Document.Document_Body.J21,Document.Document_Body.J21,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+22,JET_22,cmd_massflow_22,减运算: Document.Document_Body.J22,减运算: Document.Document_Body.J22,Document.Document_Body.J22,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+23,JET_23,cmd_massflow_23,减运算: Document.Document_Body.J23,减运算: Document.Document_Body.J23,Document.Document_Body.J23,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed
+24,JET_24,cmd_massflow_24,减运算: Document.Document_Body.J24,减运算: Document.Document_Body.J24,Document.Document_Body.J24,0.1,"[0.0, 0.0, 1.0]",0.1,"[0.0, 0.0, 1.0]",fixture_confirmed

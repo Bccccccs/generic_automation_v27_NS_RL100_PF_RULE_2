@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="412" viewBox="0 0 1200 412">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<text x="18" y="25" font-family="Arial,sans-serif" font-size="17" font-weight="bold" fill="#111827">B52 jet actuation timing</text>
+<text x="18" y="60" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#1f2937">calibration_1p43kgps</text>
+<text x="52" y="85" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_02</text>
+<line x1="115" y1="81" x2="1165" y2="81" stroke="#e5e7eb"/>
+<text x="52" y="106" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_03</text>
+<line x1="115" y1="102" x2="1165" y2="102" stroke="#e5e7eb"/>
+<text x="52" y="127" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_09</text>
+<line x1="115" y1="123" x2="1165" y2="123" stroke="#e5e7eb"/>
+<text x="52" y="148" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_11</text>
+<line x1="115" y1="144" x2="1165" y2="144" stroke="#e5e7eb"/>
+<text x="52" y="169" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_17</text>
+<line x1="115" y1="165" x2="1165" y2="165" stroke="#e5e7eb"/>
+<text x="52" y="190" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_19</text>
+<line x1="115" y1="186" x2="1165" y2="186" stroke="#e5e7eb"/>
+<rect x="290.00" y="75" width="35.00" height="12" rx="1" fill="#2563eb" opacity="0.55"/>
+<text x="115" y="211" font-family="Arial,sans-serif" font-size="10" fill="#6b7280">0 s</text>
+<text x="1110" y="211" font-family="Arial,sans-serif" font-size="10" fill="#6b7280">3.000 s</text>
+<text x="18" y="245" font-family="Arial,sans-serif" font-size="13" font-weight="bold" fill="#1f2937">calibration_2p86kgps</text>
+<text x="52" y="270" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_02</text>
+<line x1="115" y1="266" x2="1165" y2="266" stroke="#e5e7eb"/>
+<text x="52" y="291" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_03</text>
+<line x1="115" y1="287" x2="1165" y2="287" stroke="#e5e7eb"/>
+<text x="52" y="312" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_09</text>
+<line x1="115" y1="308" x2="1165" y2="308" stroke="#e5e7eb"/>
+<text x="52" y="333" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_11</text>
+<line x1="115" y1="329" x2="1165" y2="329" stroke="#e5e7eb"/>
+<text x="52" y="354" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_17</text>
+<line x1="115" y1="350" x2="1165" y2="350" stroke="#e5e7eb"/>
+<text x="52" y="375" font-family="Arial,sans-serif" font-size="11" fill="#374151">JET_19</text>
+<line x1="115" y1="371" x2="1165" y2="371" stroke="#e5e7eb"/>
+<rect x="290.00" y="260" width="35.00" height="12" rx="1" fill="#2563eb" opacity="1.0"/>
+<text x="115" y="396" font-family="Arial,sans-serif" font-size="10" fill="#6b7280">0 s</text>
+<text x="1110" y="396" font-family="Arial,sans-serif" font-size="10" fill="#6b7280">3.000 s</text>
+</svg>

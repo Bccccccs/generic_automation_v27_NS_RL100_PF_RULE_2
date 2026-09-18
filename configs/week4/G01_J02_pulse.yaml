@@ -1,0 +1,13 @@
+# B3 G01：0.4 s 基准 + 0.1 s J02 pulse + 0.5 s 恢复。
+actuation:
+  mode: pulse_singlejet
+  n_jets: 24
+  total_actuation_windows: 10
+  actuation_window_duration: 0.1
+  solver_time_step: 1.0e-4
+  mass_flow_rate: 1.0
+  jet_ids: [2]
+  pulse_window_numbers: [5]
+
+output:
+  run_dir: runs/real_star/G01_J02_pulse/input

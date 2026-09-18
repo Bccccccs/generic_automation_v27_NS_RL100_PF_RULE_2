@@ -1,0 +1,7 @@
+jet_id,representative_region,status,accepted_window_count,rejected_window_count,dominant_region,median_response_delay_s,median_peak_delta_N,median_recovery_time_s,median_snr_linear,median_snr_db,source_case_ids,notes,Fz_S1L_median_peak_delta_N,Fz_S1L_median_response_delay_s,Fz_S1L_median_recovery_time_s,Fz_S1L_median_snr_linear,Fz_S1L_median_snr_db,Fz_S1R_median_peak_delta_N,Fz_S1R_median_response_delay_s,Fz_S1R_median_recovery_time_s,Fz_S1R_median_snr_linear,Fz_S1R_median_snr_db,Fz_S2L_median_peak_delta_N,Fz_S2L_median_response_delay_s,Fz_S2L_median_recovery_time_s,Fz_S2L_median_snr_linear,Fz_S2L_median_snr_db,Fz_S2R_median_peak_delta_N,Fz_S2R_median_response_delay_s,Fz_S2R_median_recovery_time_s,Fz_S2R_median_snr_linear,Fz_S2R_median_snr_db,Fz_S3L_median_peak_delta_N,Fz_S3L_median_response_delay_s,Fz_S3L_median_recovery_time_s,Fz_S3L_median_snr_linear,Fz_S3L_median_snr_db,Fz_S3R_median_peak_delta_N,Fz_S3R_median_response_delay_s,Fz_S3R_median_recovery_time_s,Fz_S3R_median_snr_linear,Fz_S3R_median_snr_db
+J02,S1L,NO_DATA,0,0,,,,,,,,尚无通过质量门禁的正式 STAR 响应窗口,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+J03,S1R,NO_DATA,0,0,,,,,,,,尚无通过质量门禁的正式 STAR 响应窗口,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+J09,S2L,NO_DATA,0,0,,,,,,,,尚无通过质量门禁的正式 STAR 响应窗口,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+J11,S2R,NO_DATA,0,0,,,,,,,,尚无通过质量门禁的正式 STAR 响应窗口,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+J17,S3L,NO_DATA,0,0,,,,,,,,尚无通过质量门禁的正式 STAR 响应窗口,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+J19,S3R,NO_DATA,0,0,,,,,,,,尚无通过质量门禁的正式 STAR 响应窗口,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

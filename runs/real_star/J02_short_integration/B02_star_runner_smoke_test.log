@@ -1,0 +1,13 @@
+B02 STAR runner smoke test
+2026-08-07
+mode=dry-run (STAR-CCM+ was intentionally not launched)
+schedule=actuation_schedule.csv
+template=template.sim (placeholder; replace with 浩坤冻结的 .sim template for the real run)
+macro=raw_star/FlowControlRunMacro.java
+runtime_plan=raw_star/starccm_runtime_plan.json
+solver_dt_s=0.001
+action_windows_s=0.002,0.004,0.002
+sample_interval_s=window_end: 0.002,0.004,0.002
+J02 command: OFF [0.000,0.002], ON [0.002,0.006] at 0.015 kg/s, OFF [0.006,0.008]
+result=PASS: generated macro creates 24 MassFlowReport reports, explicitly writes all 24 nozzle mass flows each window, and writes required actual_massflow columns.
+limitation=No frozen .sim / STAR executable was supplied in this workspace; this log is not evidence of a physical STAR solve.

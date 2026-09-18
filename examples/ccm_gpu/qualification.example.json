@@ -1,0 +1,84 @@
+{
+  "schema_version": "ccm_gpu_qualification_v1",
+  "test_only": true,
+  "reviewed_at": "2026-09-07",
+  "reviewer": "UNVERIFIED 结构示例，非真实核验；test_only=true 时生产 GPU run 会拒绝本文件，所有 BLOCKED 占位必须用实际取证结果替换",
+  "star_release": "2502",
+  "star_build": "20.02.007",
+  "precision": "double",
+  "documentation": [
+    {
+      "title": "Simcenter STAR-CCM+ User Guide（占位：需填写实际文档标题）",
+      "build": "20.02.007",
+      "chapter": "Command-Line Reference / GPGPU Options（占位：需填写实际章节路径或页码）",
+      "source": "BLOCKED-需填写官方 URL 或安装文档绝对路径",
+      "sha256": null
+    },
+    {
+      "title": "Simcenter STAR-CCM+ User Guide（占位）",
+      "build": "20.02.007",
+      "chapter": "GPGPU Computation / Supported Models / Limitations（占位）",
+      "source": "BLOCKED-需填写官方 URL 或安装文档绝对路径",
+      "sha256": null
+    }
+  ],
+  "approved_platforms": [
+    {
+      "os": "Linux",
+      "os_id": "BLOCKED-填写实际 os-release ID",
+      "cpu_arch": "x86_64",
+      "gpu_vendor": "nvidia",
+      "gpu_model": "BLOCKED-填写 nvidia-smi 实际设备名",
+      "match_rule": "os 与 cpu_arch 精确相等；gpu_model 取实际设备名子串；本次使用的 GPU 必须同型号",
+      "driver_requirement": ">=550.54.15",
+      "evidence": "docs/gpu/20.02-evidence-register.md B-03（BLOCKED，尚未取得设备证据）；driver_requirement 与 gpu_model 同为占位，必须用目标节点 nvidia-smi 实测值替换，不得照抄"
+    }
+  ],
+  "approved_launch": {
+    "mode": "native",
+    "identity": "BLOCKED-填写实际 starccm+ 可执行文件绝对路径",
+    "identity_sha256": null,
+    "scheduler": "slurm",
+    "mpi": "BLOCKED-填写实际 MPI 实现",
+    "mpi_version": "BLOCKED-填写实际 MPI 版本",
+    "launch_method": "machinefile + rsh ssh（沿用既有 CPU 启动方式，machinefile 只指向当前节点）",
+    "approved_ranks_per_gpu": 1,
+    "approved_gpu_counts": [1, 2],
+    "mps_policy": "disabled",
+    "single_node_only": true,
+    "gpu_count_source": "scontrol show job -o 的 Gres/TRES 字段（IDX 优先）"
+  },
+  "sim_review": {
+    "sim_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "items": [
+      {
+        "name": "BLOCKED-填写真实 sim 的 solver 名称",
+        "kind": "solver",
+        "status": "compatible",
+        "source": "BLOCKED-填写同版本支持矩阵章节"
+      },
+      {
+        "name": "BLOCKED-填写真实 sim 的物理模型名称",
+        "kind": "model",
+        "status": "compatible",
+        "source": "BLOCKED-填写同版本支持矩阵章节"
+      },
+      {
+        "name": "BLOCKED-填写真实 sim 的 interface 名称",
+        "kind": "interface",
+        "status": "compatible",
+        "source": "BLOCKED-填写同版本支持矩阵章节"
+      },
+      {
+        "name": "Jet_Reaction_Z",
+        "kind": "report",
+        "status": "compatible",
+        "source": "BLOCKED-需确认 20.02 下 report/derived part 的 GPU 支持情况"
+      }
+    ]
+  },
+  "required_flags": {
+    "gpgpu_flag": "-gpgpu",
+    "strict_compatibility_flag": "-require-gpgpu-compatibility"
+  }
+}

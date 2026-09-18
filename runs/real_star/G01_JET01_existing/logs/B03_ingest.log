@@ -1,0 +1,6 @@
+case_id: G01_JET01_existing
+source_product_dir: raw_star/out_put
+status: incomplete_case_missing_required_data
+errors: 24
+warnings: 2
+stop_reason: Existing STAR exports do not contain all required data for a full jet case.

@@ -1,0 +1,23 @@
+system:
+  random_seed: 20260618
+mock_dynamic24x6:
+  primary_gain: 5.0
+  same_station_cross_side_gain: 0.9
+  adjacent_station_gain: 0.65
+  far_station_gain: 0.22
+  upstream_delay_per_station: 0.08
+  same_station_delay: 0.0
+  downstream_delay: 0.02
+  tau_s1: 0.1
+  tau_s2: 0.14
+  tau_s3: 0.18
+  time_step: 0.0
+  fz_noise_std: 0.035
+  drag_noise_std: 0.01
+  moment_noise_std: 0.015
+  drag_base: 0.0
+  drag_massflow_gain: 0.35
+  drag_lift_rms_gain: 0.08
+  jet_reaction_gain: 1.0
+  output_clip: 1000000.0
+  group_size: 4

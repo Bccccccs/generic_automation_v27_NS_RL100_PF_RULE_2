@@ -6,8 +6,8 @@ result_root: ../results
 
 case_name: case_train_c80_g
 #当前例子
-starccm_path: "/work/home/acn6k38urd/apprepo/starccmplus/17.06.007-none/app/17.06.007-R8/STAR-CCM+17.06.007-R8/star/bin/starccm_wrapper"
-template_sim: /work/home/acn6k38urd/CSU-ML/star5.sim
+starccm_path: "starccm+"
+template_sim: ""
 #sim文件路径
 num_cores: 128
 

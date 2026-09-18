@@ -26,7 +26,6 @@ def main():
     parser.add_argument("--config", default="configs/config.yaml")
     args = parser.parse_args()
 
-    project_dir = Path(__file__).resolve().parents[2]
     cases_path = Path(args.cases).resolve()
     config_path = Path(args.config).resolve()
 
@@ -60,7 +59,8 @@ def main():
             subprocess.run(
                 [
                     sys.executable,
-                    str(project_dir / "run_case.py"),
+                    "-m",
+                    "generic_automation.cli.run_case",
                     "--config",
                     str(cfg_path),
                 ],

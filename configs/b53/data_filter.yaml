@@ -1,0 +1,46 @@
+# B53 真实训练数据质量门禁。
+#
+# 当前没有正式 STAR 训练算例，因此 sources 必须保持空列表。不要把 runs/week4
+# 的 0816 算例填入这里；它们仅用于确认字段格式，且 B04 状态均为 FAIL。
+b53:
+  # 与 B52 动作表一致：六个承载区域各一个代表喷口。
+  representative_jets: [2, 3, 9, 11, 17, 19]
+
+  # 正式数据到位后逐 Case 显式登记。split 优先使用 training/validation；
+  # auto 仅作为后备，仍按整个 STAR Case 分组，绝不按时间行随机拆分。
+  sources: []
+  # 示例：
+  # sources:
+  #   - case_dir: runs/b53_real_star/training_run_001
+  #     split: training
+  #   - case_dir: runs/b53_real_star/validation_run_001
+  #     split: validation
+
+  # 喷气前稳定段与启动剔除。
+  baseline_duration_s: 0.10
+  minimum_initial_discard_s: 0.05
+  recovery_search_s: 0.20
+  minimum_baseline_samples: 20
+  minimum_response_samples: 5
+
+  # STAR monitor 是求解步末时间；动作按 (t_start, t_end] 对齐。
+  time_alignment_tolerance_s: 1.0e-8
+  max_massflow_lag_s: 0.005
+  massflow_on_threshold_kg_s: 1.0e-8
+
+  # 六区基准漂移门禁：漂移超过 max(4×去趋势噪声, 3%×基准尺度) 即拒绝。
+  baseline_drift_noise_multiplier: 4.0
+  baseline_drift_relative_limit: 0.03
+
+  # 响应与恢复。至少一个区域 SNR>=3 才能放行整个 6 输出事件。
+  response_sigma_threshold: 3.0
+  response_absolute_floor_n: 1.0e-9
+  response_hold_s: 0.0005
+  recovery_noise_multiplier: 3.0
+  recovery_peak_fraction: 0.10
+  recovery_hold_s: 0.01
+  minimum_snr_linear: 3.0
+
+  # 仅在 sources 的 split=auto 且 manifest/目录名也未指定角色时使用。
+  validation_fraction: 0.20
+  split_seed: 20260823
