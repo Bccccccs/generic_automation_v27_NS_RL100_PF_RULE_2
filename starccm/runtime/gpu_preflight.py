@@ -13,6 +13,7 @@ shell 片段。真机取证在 G0 解除前仍是 BLOCKED，见
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import socket
@@ -49,16 +50,45 @@ NVIDIA_DEVICE_KEYS = (
     "driver_version",
     "mig_mode_current",
 )
-SUPPORTED_GPU_VENDORS = ("nvidia",)
+SUPPORTED_GPU_VENDORS = ("nvidia", "hygon")
+
+# 海光 HyHAL（hy-smi）：厂商证据来自 docs/gpu/20.02-evidence-register.md 的真机
+# 诊断输出（型号 C-3000/BW，8 卡节点）。只用已实测过的 --show*/--json 组合，
+# 不假设未验证过的参数拼接（例如把多个 --show* 参数合并成一次调用）。
+HYGON_VISIBLE_DEVICES_ENV = "HIP_VISIBLE_DEVICES"
+_HYGON_UNIQUE_ID_RE = re.compile(r"^[A-Z][A-Z0-9]{5,19}$")
+_HYGON_BUS_LINE_RE = re.compile(
+    r"^(?P<pci_bus_id>\S+)\s*-->\s*SN:\s*(?P<serial>\S+)\s*-->\s*OAM ID:\s*(?P<oam_id>\d+)$"
+)
+_HYGON_DRIVER_VERSION_RE = re.compile(r"Driver Version:\s*(\S+)")
+_HYGON_MIG_TABLE_ROW_RE = re.compile(
+    r"^(?P<index>\d+)\s+.*\S\s+(?P<mode>\S+)\s*$"
+)
+_HYGON_PID_BLOCK_RE = re.compile(
+    r"PID:\s*(?P<pid>\d+)\s*\n"
+    r"(?:.*\n)*?"
+    r"\s*PCI BUS:\s*\[(?P<pci_bus>[^\]]*)\]\s*\n"
+    r"(?:.*\n)*?"
+    r"\s*VRAM USED\(MiB\):\s*(?P<vram_used>\d+)",
+)
 
 _EVIDENCE_TEXT_LIMIT = 4000
 _SLURM_KEY_VALUE_RE = re.compile(r"(?:^|\s)([A-Za-z][A-Za-z0-9_]*)=(\S*)")
-_TRES_GPU_RE = re.compile(r"(?:^|,)gres/gpu(?::[a-z0-9_]+)?=(\d+)")
+# Slurm 上加速卡的 Gres/TRES 资源名不统一：NVIDIA 站点通常叫 gpu，海光 DCU 站点
+# 常见叫 dcu（与本仓库既有 run_python.slurm 的 --gres=dcu:8 一致，见
+# docs/STARCCM_GPU.md 海光小节）。两个名字都只做资源计数解析，不代表已经确认
+# 卡的厂商——厂商判定仍然完全来自 hy-smi/nvidia-smi 的实时查询。
+_SLURM_GRES_ACCELERATOR_NAMES = ("gpu", "dcu")
+_TRES_GPU_RE = re.compile(
+    r"(?:^|,)gres/(?:" + "|".join(_SLURM_GRES_ACCELERATOR_NAMES) + r")(?::[a-z0-9_]+)?=(\d+)"
+)
 _GRES_GPU_RE = re.compile(
-    r"gpu(?::[A-Za-z0-9_.-]+)?:(?P<count>\d+)(?:\(IDX:(?P<indices>[0-9,]+)\))?"
+    r"(?:" + "|".join(_SLURM_GRES_ACCELERATOR_NAMES) + r")(?::[A-Za-z0-9_.-]+)?:(?P<count>\d+)"
+    r"(?:\(IDX:(?P<indices>[0-9,]+)\))?"
 )
 _OS_RELEASE_ID_RE = re.compile(r"^\s*ID\s*=\s*\"?([A-Za-z0-9._-]+)\"?\s*$")
 _CUDA_UUID_RE = re.compile(r"^GPU-[0-9A-Za-z-]+$")
+_DRIVER_VERSION_NUMERIC_PREFIX_RE = re.compile(r"^\d+(?:\.\d+)*")
 # machinefile 支持 Gridview hostname:slots、Open MPI hostname slots=N 和重复裸主机名。
 _MACHINEFILE_GRIDVIEW_RE = re.compile(r".+:(\d+)$")
 _MACHINEFILE_OPENMPI_RE = re.compile(r"(?:^|\s)slots\s*=\s*(\d+)(?:\s|$)")
@@ -216,7 +246,7 @@ def preflight_gpu(
 
     _verify_star_build(evidence, starccm_path, qualification["star_build"], _fail)
     platform_rows = _verify_platform_identity(evidence, qualification["approved_platforms"], _fail)
-    physical_devices = _query_physical_devices(evidence, _fail)
+    physical_devices = _query_physical_devices(evidence, platform_rows, _fail)
     if scheduler == "slurm":
         evidence["allocation"] = _verify_slurm_allocation(
             evidence,
@@ -303,7 +333,7 @@ def _verify_platform_identity(evidence, approved_platforms, _fail) -> list[dict[
     }
 
     reasons: list[str] = []
-    nvidia_rows: list[dict[str, Any]] = []
+    vendor_rows: list[dict[str, Any]] = []
     for row in approved_platforms:
         row_reasons: list[str] = []
         if str(row["os"]).lower() != live_os.lower():
@@ -322,24 +352,48 @@ def _verify_platform_identity(evidence, approved_platforms, _fail) -> list[dict[
             reasons.append(f"[{row['gpu_vendor']}/{row['gpu_model']}] " + "；".join(row_reasons))
             continue
         if str(row["gpu_vendor"]).lower() in SUPPORTED_GPU_VENDORS:
-            nvidia_rows.append(row)
+            vendor_rows.append(row)
         else:
             reasons.append(
                 f"[{row['gpu_vendor']}/{row['gpu_model']}] 平台身份匹配，但厂商 "
                 f"{row['gpu_vendor']!r} 尚无经核验的只读设备查询命令（见 B-03），该平台 BLOCKED"
             )
-    if not nvidia_rows:
+    if not vendor_rows:
         raise _fail(
             "当前节点平台不在资格文件批准范围内：" + ("；".join(reasons) or "无可用批准行"),
             "VENDOR_BLOCKED" if reasons and all("BLOCKED" in item for item in reasons) else "PLATFORM_NOT_APPROVED",
         )
-    evidence["approved_platform_candidates"] = [dict(row) for row in nvidia_rows]
-    return nvidia_rows
+    evidence["approved_platform_candidates"] = [dict(row) for row in vendor_rows]
+    return vendor_rows
 
 
-def _query_physical_devices(evidence, _fail) -> list[dict[str, Any]]:
-    """读取当前节点物理可见的 GPU；不做任何资格判断。"""
+def _query_physical_devices(evidence, platform_rows, _fail) -> list[dict[str, Any]]:
+    """读取当前节点物理可见的 GPU；不做任何资格判断。
 
+    按资格文件里实际批准的厂商分发到对应的只读查询命令；只查询在
+    ``platform_rows``（已通过厂商白名单过滤）中出现过的厂商，不会去探测未批准
+    的厂商工具。
+    """
+
+    approved_vendors = sorted({str(row["gpu_vendor"]).lower() for row in platform_rows})
+    devices: list[dict[str, Any]] = []
+    for vendor in approved_vendors:
+        if vendor == "nvidia":
+            devices.extend(_query_nvidia_devices(evidence, _fail))
+        elif vendor == "hygon":
+            devices.extend(_query_hygon_devices(evidence, _fail))
+        else:  # pragma: no cover - 上游已按 SUPPORTED_GPU_VENDORS 过滤
+            raise _fail(f"厂商 {vendor!r} 没有已注册的设备查询实现", "VENDOR_BLOCKED")
+    evidence["devices"] = devices
+    if not devices:
+        raise _fail(
+            "当前节点没有可见的 GPU 设备；容器内可见性不能由宿主机代替",
+            "GPU_DEVICE_UNAVAILABLE",
+        )
+    return devices
+
+
+def _query_nvidia_devices(evidence, _fail) -> list[dict[str, Any]]:
     result = _run(
         [
             "nvidia-smi",
@@ -360,14 +414,178 @@ def _query_physical_devices(evidence, _fail) -> list[dict[str, Any]]:
             f"{_tail(result.stderr) or _tail(result.stdout) or '无输出'}",
             "GPU_TOOL_FAILED",
         )
-    devices = _parse_nvidia_devices(result.stdout, _fail)
-    evidence["devices"] = devices
-    if not devices:
-        raise _fail(
-            "当前节点没有可见的 GPU 设备；容器内可见性不能由宿主机代替",
-            "GPU_DEVICE_UNAVAILABLE",
+    return _parse_nvidia_devices(result.stdout, _fail)
+
+
+def _query_hygon_devices(evidence, _fail) -> list[dict[str, Any]]:
+    """用 hy-smi 枚举海光 DCU/HCU 设备。
+
+    每个 ``--show*`` 查询单独调用并各自记录诊断证据；不假设未实测过的参数
+    组合方式。字段来源（均为真机实测，见 docs/gpu/20.02-evidence-register.md）：
+    ``--showuniqueid --json`` → uuid；``--showbus --json`` → pci_bus_id；
+    ``--showproductname --json`` → name；``--showmeminfo vram --json`` →
+    memory_total；``--showdriverversion``（不支持 --json）→ 全卡共用的驱动版本；
+    ``--mig``（不支持 --json）→ MIG 状态所在的汇总表格。
+    """
+
+    unique_ids = _hygon_json_query(evidence, ["hy-smi", "--showuniqueid", "--json"], _fail)
+    bus_info = _hygon_json_query(evidence, ["hy-smi", "--showbus", "--json"], _fail)
+    product_names = _hygon_json_query(evidence, ["hy-smi", "--showproductname", "--json"], _fail)
+    mem_info = _hygon_json_query(evidence, ["hy-smi", "--showmeminfo", "vram", "--json"], _fail)
+    driver_version = _hygon_driver_version(evidence, _fail)
+    mig_modes = _hygon_mig_modes(evidence, _fail)
+
+    card_keys = sorted(unique_ids)
+    if not card_keys:
+        return []
+    for other_name, other in (
+        ("--showbus", bus_info),
+        ("--showproductname", product_names),
+        ("--showmeminfo vram", mem_info),
+    ):
+        if sorted(other) != card_keys:
+            raise _fail(
+                f"hy-smi --showuniqueid 返回的设备集合 {card_keys} 与 {other_name} 返回的 "
+                f"{sorted(other)} 不一致；不猜测字段含义",
+                "GPU_TOOL_FAILED",
+            )
+
+    devices: list[dict[str, Any]] = []
+    for card_key in card_keys:
+        card_match = re.fullmatch(r"card(\d+)", card_key)
+        if card_match is None:
+            raise _fail(
+                f"hy-smi --json 输出的设备键无法解析: {card_key!r}；不猜测字段含义",
+                "GPU_TOOL_FAILED",
+            )
+        index = int(card_match.group(1))
+        uuid = str(unique_ids[card_key].get("Unique ID", "")).strip()
+        if not uuid:
+            raise _fail(f"hy-smi --showuniqueid 的 {card_key} 缺少 Unique ID", "GPU_TOOL_FAILED")
+
+        bus_match = _HYGON_BUS_LINE_RE.fullmatch(str(bus_info[card_key].get("PCI Bus", "")).strip())
+        if bus_match is None:
+            raise _fail(
+                f"hy-smi --showbus 的 {card_key} 输出无法解析: {bus_info[card_key]!r}",
+                "GPU_TOOL_FAILED",
+            )
+        pci_bus_id = bus_match.group("pci_bus_id")
+
+        product = product_names[card_key]
+        series = str(product.get("Card Series", "")).strip()
+        vendor_name = str(product.get("Card Vendor", "")).strip()
+        if not series or not vendor_name:
+            raise _fail(f"hy-smi --showproductname 的 {card_key} 缺少 Card Series/Card Vendor", "GPU_TOOL_FAILED")
+        name = f"{vendor_name} {series}"
+
+        mem = mem_info[card_key]
+        memory_total_raw = str(mem.get("vram Total Memory (MiB)", "")).strip()
+        if not memory_total_raw.isdigit():
+            raise _fail(
+                f"hy-smi --showmeminfo vram 的 {card_key} 总显存无法解析: {mem!r}",
+                "GPU_TOOL_FAILED",
+            )
+        memory_total = f"{memory_total_raw} MiB"
+
+        devices.append(
+            {
+                "index": index,
+                "uuid": uuid,
+                "name": name,
+                "pci_bus_id": pci_bus_id,
+                "memory_total": memory_total,
+                "driver_version": driver_version,
+                "mig_mode_current": mig_modes.get(index, "unknown"),
+                "gpu_vendor": "hygon",
+            }
         )
+    devices.sort(key=lambda device: device["index"])
     return devices
+
+
+def _hygon_json_query(evidence, command, _fail) -> dict[str, Any]:
+    result = _run(command)
+    evidence["diagnostics"].append(result.as_evidence())
+    if result.status == "timeout":
+        raise _fail(
+            f"{' '.join(command)} 在 {DIAGNOSTIC_TIMEOUT_SECONDS} 秒内未返回；超时不等于设备不存在，"
+            "需要人工在该节点复核驱动与工具状态",
+            "GPU_TOOL_TIMEOUT",
+        )
+    if result.status != "ok":
+        raise _fail(
+            f"{' '.join(command)} 执行失败（status={result.status}, returncode={result.returncode}）: "
+            f"{_tail(result.stderr) or _tail(result.stdout) or '无输出'}",
+            "GPU_TOOL_FAILED",
+        )
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        raise _fail(
+            f"{' '.join(command)} 的 JSON 输出无法解析: {_tail(result.stdout)!r}（{exc}）",
+            "GPU_TOOL_FAILED",
+        ) from exc
+    if not isinstance(payload, dict):
+        raise _fail(
+            f"{' '.join(command)} 的 JSON 输出顶层不是对象: {type(payload).__name__}",
+            "GPU_TOOL_FAILED",
+        )
+    return payload
+
+
+def _hygon_driver_version(evidence, _fail) -> str:
+    result = _run(["hy-smi", "--showdriverversion"])
+    evidence["diagnostics"].append(result.as_evidence())
+    if result.status == "timeout":
+        raise _fail(
+            f"hy-smi --showdriverversion 在 {DIAGNOSTIC_TIMEOUT_SECONDS} 秒内未返回",
+            "GPU_TOOL_TIMEOUT",
+        )
+    if result.status != "ok":
+        raise _fail(
+            f"hy-smi --showdriverversion 执行失败（status={result.status}）: "
+            f"{_tail(result.stderr) or _tail(result.stdout) or '无输出'}",
+            "GPU_TOOL_FAILED",
+        )
+    match = _HYGON_DRIVER_VERSION_RE.search(result.stdout)
+    if match is None:
+        raise _fail(
+            f"hy-smi --showdriverversion 输出无法解析: {_tail(result.stdout)!r}",
+            "GPU_TOOL_FAILED",
+        )
+    return match.group(1)
+
+
+def _hygon_mig_modes(evidence, _fail) -> dict[int, str]:
+    """解析 ``hy-smi --mig`` 汇总表格里每张卡的 Mode 列。
+
+    该表格与默认 ``hy-smi`` 输出同构，不支持 ``--json``。观测到的正常（未启用
+    MIG）取值为 ``Normal``；这里把它归一化成与 NVIDIA 分支相同的 'disabled'
+    词汇，其余取值原样保留，交给通用的 MIG 校验按“不在已知安全取值内”拒绝。
+    """
+
+    result = _run(["hy-smi", "--mig"])
+    evidence["diagnostics"].append(result.as_evidence())
+    if result.status == "timeout":
+        raise _fail(f"hy-smi --mig 在 {DIAGNOSTIC_TIMEOUT_SECONDS} 秒内未返回", "GPU_TOOL_TIMEOUT")
+    if result.status != "ok":
+        raise _fail(
+            f"hy-smi --mig 执行失败（status={result.status}）: "
+            f"{_tail(result.stderr) or _tail(result.stdout) or '无输出'}",
+            "GPU_TOOL_FAILED",
+        )
+    modes: dict[int, str] = {}
+    for raw_line in result.stdout.splitlines():
+        line = raw_line.strip()
+        if not line or not line[0].isdigit():
+            continue
+        match = _HYGON_MIG_TABLE_ROW_RE.match(line)
+        if match is None:
+            continue
+        index = int(match.group("index"))
+        mode = match.group("mode")
+        modes[index] = "disabled" if mode.strip().lower() == "normal" else mode
+    return modes
 
 
 def _resolve_visible_devices(
@@ -376,29 +594,36 @@ def _resolve_visible_devices(
     """解析本次作业实际可用的 GPU，并给出 STAR/CUDA 本地序号。
 
     宿主机物理编号、容器内局部编号和 Slurm 分配的编号可能不同。显式卡列表使用
-    的是 STAR/CUDA 本地序号，因此这里必须做重映射核验，且绝不修改
-    ``CUDA_VISIBLE_DEVICES``。
+    的是 STAR/CUDA（或海光对应）本地序号，因此这里必须做重映射核验，且绝不
+    修改可见性环境变量本身。
+
+    可见性环境变量随厂商而不同：NVIDIA 用 ``CUDA_VISIBLE_DEVICES``，海光
+    HyHAL 用 ``HIP_VISIBLE_DEVICES``（本次改造范围内不支持混合厂商，因此按
+    物理设备的唯一厂商选择对应变量）。
     """
 
-    cuda_raw = os.environ.get("CUDA_VISIBLE_DEVICES")
-    restricted, form = _restrict_by_cuda_visible(physical, cuda_raw, _fail)
+    vendor = str(physical[0]["gpu_vendor"]).lower() if physical else "nvidia"
+    env_name = HYGON_VISIBLE_DEVICES_ENV if vendor == "hygon" else "CUDA_VISIBLE_DEVICES"
+    uuid_re = _HYGON_UNIQUE_ID_RE if vendor == "hygon" else _CUDA_UUID_RE
+    env_raw = os.environ.get(env_name)
+    restricted, form = _restrict_by_visible_devices_env(physical, env_raw, env_name, uuid_re, _fail)
     allocated_indices = evidence["allocation"].get("gpu_indices")
     if allocated_indices is not None:
         allocated = _devices_by_host_index(physical, allocated_indices, _fail)
         if restricted is None:
             visible, source = allocated, "slurm_gres_idx"
         elif [device["uuid"] for device in allocated] == [device["uuid"] for device in restricted]:
-            visible, source = allocated, "slurm_gres_idx+cuda_visible_devices"
+            visible, source = allocated, f"slurm_gres_idx+{env_name}"
         else:
             raise _fail(
-                f"Slurm 分配的设备编号 {allocated_indices} 与 CUDA_VISIBLE_DEVICES={cuda_raw!r} "
+                f"Slurm 分配的设备编号 {allocated_indices} 与 {env_name}={env_raw!r} "
                 f"指向的设备不一致（分配 UUID {[d['uuid'] for d in allocated]}，"
                 f"环境可见 UUID {[d['uuid'] for d in restricted]}）；"
                 "无法确认各 rank 实际会使用哪些卡",
                 "ALLOCATION_MISMATCH",
             )
     elif restricted is not None:
-        visible, source = restricted, "CUDA_VISIBLE_DEVICES"
+        visible, source = restricted, env_name
     else:
         allocated_count = evidence["allocation"].get("gpu_count")
         if isinstance(allocated_count, int) and len(physical) > allocated_count:
@@ -423,7 +648,8 @@ def _resolve_visible_devices(
     evidence["visibility"] = {
         "source": source,
         "form": form,
-        "cuda_visible_devices": cuda_raw,
+        "visible_devices_env": env_name,
+        "visible_devices_env_value": env_raw,
         "physical_device_count": len(physical),
         "physical_uuids": [device["uuid"] for device in physical],
         "visible_device_count": len(visible),
@@ -433,7 +659,7 @@ def _resolve_visible_devices(
     if not visible:
         raise _fail(
             f"本次作业没有可用 GPU：物理设备 {len(physical)} 张，但可见集合为空"
-            f"（CUDA_VISIBLE_DEVICES={cuda_raw!r}）；不占用其他作业的设备",
+            f"（{env_name}={env_raw!r}）；不占用其他作业的设备",
             "GPU_DEVICE_UNAVAILABLE",
         )
     if len(visible) < requested_count:
@@ -473,6 +699,16 @@ def _verify_devices_not_in_use(evidence, target_devices, ignore_process_names, _
     仍会记录在证据里。
     """
 
+    if not target_devices:
+        return
+    vendor = str(target_devices[0]["gpu_vendor"]).lower()
+    if vendor == "hygon":
+        _verify_hygon_devices_not_in_use(evidence, target_devices, ignore_process_names, _fail)
+        return
+    _verify_nvidia_devices_not_in_use(evidence, target_devices, ignore_process_names, _fail)
+
+
+def _verify_nvidia_devices_not_in_use(evidence, target_devices, ignore_process_names, _fail) -> None:
     result = _run(
         [
             "nvidia-smi",
@@ -531,33 +767,101 @@ def _verify_devices_not_in_use(evidence, target_devices, ignore_process_names, _
         )
 
 
-def _restrict_by_cuda_visible(physical, cuda_raw, _fail):
-    """按 ``CUDA_VISIBLE_DEVICES`` 过滤物理设备；未设置时返回 (None, None)。
+def _verify_hygon_devices_not_in_use(evidence, target_devices, ignore_process_names, _fail) -> None:
+    """用 ``hy-smi --showpids`` 只读检查目标 HCU 上是否已有其他计算进程。
 
-    重复条目会让同一张物理卡被枚举成多个逻辑设备，等于用一张卡冒充多卡，
-    因此直接拒绝而不是去重后放行。
+    该命令不支持 ``--json``，也不上报进程名，因此按 PCI 总线号匹配目标设备
+    （--showbus 已核验过每卡的总线号唯一），并读本机 ``/proc/<pid>/comm``
+    解析进程名用于 ``ignore_process_names`` 白名单匹配；读不到就当作未知
+    进程名（不会被白名单命中，按“忙”处理，不放宽判定）。
     """
 
-    if cuda_raw is None:
+    result = _run(["hy-smi", "--showpids"])
+    evidence["diagnostics"].append(result.as_evidence())
+    if result.status == "timeout":
+        raise _fail(
+            f"hy-smi --showpids 在 {DIAGNOSTIC_TIMEOUT_SECONDS} 秒内未返回；"
+            "无法确认目标设备是否空闲",
+            "GPU_TOOL_TIMEOUT",
+        )
+    if result.status != "ok":
+        raise _fail(
+            f"hy-smi --showpids 执行失败（status={result.status}, "
+            f"returncode={result.returncode}）: "
+            f"{_tail(result.stderr) or _tail(result.stdout) or '无输出'}",
+            "GPU_TOOL_FAILED",
+        )
+
+    target_bus_ids = {device["pci_bus_id"] for device in target_devices}
+    ignored_names = [str(name).lower() for name in ignore_process_names if str(name).strip()]
+    busy: list[str] = []
+    ignored: list[str] = []
+    text = result.stdout if result.stdout.endswith("\n") else result.stdout + "\n"
+    for match in _HYGON_PID_BLOCK_RE.finditer(text):
+        pid = match.group("pid")
+        pci_bus_entries = [item.strip().strip("'\"") for item in match.group("pci_bus").split(",") if item.strip()]
+        hit_bus_ids = [bus_id for bus_id in pci_bus_entries if bus_id in target_bus_ids]
+        if not hit_bus_ids:
+            continue
+        process_name = _read_proc_comm(pid)
+        entry = f"{sorted(hit_bus_ids)}(pid={pid}, {process_name or 'unknown'}, {match.group('vram_used')}MiB)"
+        if process_name and any(name in process_name.lower() for name in ignored_names):
+            ignored.append(entry)
+            continue
+        busy.append(entry)
+    evidence["device_occupancy"] = {
+        "checked_pci_bus_ids": sorted(target_bus_ids),
+        "busy": busy,
+        "ignored": ignored,
+        "ignore_process_names": list(ignore_process_names),
+    }
+    if busy:
+        raise _fail(
+            f"本次要使用的 GPU 上已有其他计算进程: {'; '.join(busy)}；"
+            "不得占用其他作业的显卡，请在正确的作业上下文或独占服务器上重试",
+            "DEVICE_IN_USE",
+        )
+
+
+def _read_proc_comm(pid: str) -> str:
+    """只读取本机 ``/proc/<pid>/comm``；进程不存在或不可读时返回空字符串。"""
+
+    try:
+        return Path(f"/proc/{pid}/comm").read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return ""
+
+
+def _restrict_by_visible_devices_env(physical, env_raw, env_name, uuid_re, _fail):
+    """按厂商对应的可见性环境变量过滤物理设备；未设置时返回 (None, None)。
+
+    ``env_name``/``uuid_re`` 由调用方按物理设备的厂商选定（NVIDIA 用
+    ``CUDA_VISIBLE_DEVICES`` + ``GPU-<uuid>`` 形式，海光用
+    ``HIP_VISIBLE_DEVICES`` + hy-smi 的 Unique ID 形式）。重复条目会让同一张
+    物理卡被枚举成多个逻辑设备，等于用一张卡冒充多卡，因此直接拒绝而不是去重
+    后放行。
+    """
+
+    if env_raw is None:
         return None, None
-    entries = [entry.strip() for entry in cuda_raw.split(",") if entry.strip()]
+    entries = [entry.strip() for entry in env_raw.split(",") if entry.strip()]
     if not entries:
         return [], "empty"
     duplicates = sorted({entry for entry in entries if entries.count(entry) > 1})
     if duplicates:
         raise _fail(
-            f"CUDA_VISIBLE_DEVICES={cuda_raw!r} 含重复条目 {duplicates}；"
+            f"{env_name}={env_raw!r} 含重复条目 {duplicates}；"
             "同一张物理卡不能被算作多张可见卡",
             "GPU_DEVICE_UNAVAILABLE",
         )
-    if all(_CUDA_UUID_RE.fullmatch(entry) for entry in entries):
+    if all(uuid_re.fullmatch(entry) for entry in entries):
         by_uuid = {device["uuid"]: device for device in physical}
         selected: list[dict[str, Any]] = []
         for entry in entries:
             device = by_uuid.get(entry)
             if device is None:
                 raise _fail(
-                    f"CUDA_VISIBLE_DEVICES 指定的 UUID {entry!r} 不在当前节点物理设备 "
+                    f"{env_name} 指定的 UUID {entry!r} 不在当前节点物理设备 "
                     f"{sorted(by_uuid)} 内",
                     "GPU_DEVICE_UNAVAILABLE",
                 )
@@ -568,14 +872,14 @@ def _restrict_by_cuda_visible(physical, cuda_raw, _fail):
     for entry in entries:
         if not entry.isdigit():
             raise _fail(
-                f"CUDA_VISIBLE_DEVICES 含无法解析的条目 {entry!r}；"
-                "只接受设备编号或 GPU-<uuid> 形式",
+                f"{env_name} 含无法解析的条目 {entry!r}；"
+                "只接受设备编号或设备 UUID/Unique ID 形式",
                 "GPU_DEVICE_UNAVAILABLE",
             )
         device = by_index.get(int(entry))
         if device is None:
             raise _fail(
-                f"CUDA_VISIBLE_DEVICES 指定的设备编号 {entry} 不在当前节点物理设备 "
+                f"{env_name} 指定的设备编号 {entry} 不在当前节点物理设备 "
                 f"{sorted(by_index)} 内",
                 "GPU_DEVICE_UNAVAILABLE",
             )
@@ -638,14 +942,16 @@ def _device_platform_mismatches(visible_devices, platform_row) -> list[str]:
             )
             continue
         driver = str(device["driver_version"])
-        try:
-            actual = tuple(int(part) for part in driver.split("."))
-        except ValueError:
+        numeric_prefix = _DRIVER_VERSION_NUMERIC_PREFIX_RE.match(driver)
+        if numeric_prefix is None:
             mismatches.append(
                 f"设备 {device['index']} 的驱动版本 {driver!r} 无法解析，不能与 "
                 f"{platform_row['driver_requirement']!r} 比较"
             )
             continue
+        # 只取数值点分前缀参与比较（例如海光 "6.3.31-V1.5.0a" → "6.3.31"）；
+        # 完整原始字符串仍保留在证据里，不影响审计。
+        actual = tuple(int(part) for part in numeric_prefix.group().split("."))
         satisfied = actual >= required_driver if operator == ">=" else actual == required_driver
         if not satisfied:
             mismatches.append(
@@ -768,7 +1074,8 @@ def _verify_slurm_allocation(evidence, *, job_id, node, requested_count, _fail) 
     gpu_count, gpu_indices = _allocated_gpus(job)
     if gpu_count is None:
         raise _fail(
-            f"Slurm 作业 {job_id} 的分配中没有 GPU 资源（Gres/TRES 均无 gres/gpu）；"
+            f"Slurm 作业 {job_id} 的分配中没有加速卡资源（Gres/TRES 均无 "
+            f"gres/{{{'|'.join(_SLURM_GRES_ACCELERATOR_NAMES)}}}）；"
             "节点上有卡不等于本次作业已获授权",
             "ALLOCATION_MISMATCH",
         )
@@ -816,7 +1123,16 @@ def _verify_sim_hash(evidence, qualification, _fail) -> None:
 
 
 def _allocated_gpus(job: dict[str, str]) -> tuple[int | None, list[int] | None]:
-    """从 Slurm 作业记录解析分配的 GPU 数量和设备编号（IDX 可能缺省）。"""
+    """从 Slurm 作业记录解析分配的 GPU 数量和设备编号（IDX 可能缺省）。
+
+    不同 Slurm 版本/站点配置下 ``scontrol show job -o`` 的字段不一致：较老版本
+    给单独的 ``Gres=``/``TRES=`` 键；启用了按 TRES 精细记账的站点（真机实测：
+    本仓库目标集群）只给 ``AllocTRES=``/``ReqTRES=``，没有裸的 ``Gres=``/
+    ``TRES=`` 键。``Gres=`` 能给出 IDX（具体卡号），TRES 系列字段只能给数量，
+    因此按“先找 IDX 来源，再按优先级找计数来源”的顺序尝试，不假设任一键必然
+    存在。``AllocTRES`` 优先于 ``ReqTRES``：前者是实际授予的资源，后者只是
+    请求值，两者理论上可能不同。
+    """
 
     gres = job.get("Gres", "")
     if gres and gres != "(null)":
@@ -826,10 +1142,13 @@ def _allocated_gpus(job: dict[str, str]) -> tuple[int | None, list[int] | None]:
             return int(match.group("count")), (
                 [int(item) for item in indices.split(",") if item] if indices else None
             )
-    tres = job.get("TRES", "")
-    match = _TRES_GPU_RE.search(tres)
-    if match is not None:
-        return int(match.group(1)), None
+    for tres_field in ("TRES", "AllocTRES", "ReqTRES"):
+        tres = job.get(tres_field, "")
+        if not tres or tres == "(null)":
+            continue
+        match = _TRES_GPU_RE.search(tres)
+        if match is not None:
+            return int(match.group(1)), None
     return None, None
 
 
@@ -853,6 +1172,7 @@ def _parse_nvidia_devices(stdout: str, _fail) -> list[dict[str, Any]]:
                 "GPU_TOOL_FAILED",
             )
         values["index"] = int(values["index"])
+        values["gpu_vendor"] = "nvidia"
         devices.append(values)
     return devices
 

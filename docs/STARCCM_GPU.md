@@ -29,6 +29,65 @@ CPU 路径不会：检查 GPU、探测驱动、调用 `nvidia-smi`、要求 20.0
 
 守护测试：`tests/test_ccm_cpu_compatibility.py`、`tests/test_ccm_gpu_integration.py`。
 
+## 1.1 支持的加速卡厂商
+
+预检层（`starccm/runtime/gpu_preflight.py`）目前实现了两个厂商的只读设备查询：
+
+| 厂商 | 查询工具 | 可见性环境变量 | Slurm Gres 资源名 |
+|---|---|---|---|
+| NVIDIA | `nvidia-smi` | `CUDA_VISIBLE_DEVICES` | `gpu` |
+| 海光 HyHAL（DCU/HCU） | `hy-smi` | `HIP_VISIBLE_DEVICES` | `gpu` 或 `dcu`（与本仓库 `run_python.slurm` 的 `--gres=dcu:8` 一致） |
+
+海光分支的字段解析（uuid/PCI 总线/型号/显存/驱动版本/MIG）全部来自真机 `hy-smi`
+实测输出（8 卡 C-3000/BW 节点，驱动 `6.3.31-V1.5.0a`），测试见
+`tests/test_starccm_gpu_preflight_hygon.py`。海光资格文件模板见
+`examples/ccm_gpu/qualification.hygon.example.json`。
+
+**这只是预检层的代码与单元测试完成，不代表真机 GPU 求解已验收**——第 6/9/10 节
+描述的 G0 真机验收（STAR-CCM+ 在目标 build 上实际用 `-gpgpu` 跑通并被日志证据
+确认）对海光同样是 BLOCKED，因为还没有在真机上跑过一次完整的 GPU STAR-CCM+
+求解。`hy-smi` 只读诊断已经在真机采集过（本文档与证据登记表），但那只证明
+`hy-smi` 命令可用、字段格式如此，不证明 STAR-CCM+ 能在这批 DCU 上成功求解。
+
+### 真机首次尝试的发现：默认 MPI/数学库选型在海光节点崩溃
+
+真机 20.02.007-R8 + 海光 DCU（8 卡，型号 BW）首次真实 `-gpgpu` run：预检全部
+通过（厂商、平台、设备、占用、Slurm 分配全部核验通过，见
+`docs/gpu/20.02-evidence-register.md` 海光小节的完整 `gpu_execution.json`），
+STAR-CCM+ 被正常拉起，但在建立并行会话阶段（`MachineHost::start` /
+`ServerSession::launchServer`）以 SIGABRT（退出码 134）崩溃。日志末尾有一条
+关键线索：
+
+```
+Warning: Could not determine CPU architecture, please set -flexiblaslib <library>. Falling back to Intel MKL.
+```
+
+即不显式指定 MPI driver 时，STAR-CCM+ 在这台机器上自动选中了偏 Intel 生态的
+MPI/数学库组合，在非 Intel CPU 上启动阶段崩溃。该 build 的
+`starccm+ -help` 显示 `-mpi` 支持 `openmpi`/`openmpi40`/`openmpi41`/`intel`/
+`hpe`/`crayex`/`fujitsu`，安装目录 `mpi/` 下也确认打包了 `intel` 和
+`openmpi` 两套；显式传 `-mpi openmpi` 是已确认的规避方式。
+
+本仓库已加上对应的 CLI 参数（不限于 GPU 路径，CPU 路径同样可用）：
+
+```bash
+--mpi-driver openmpi
+```
+
+对应 `flow_control/adapters/starccm_runner.py` 的 `_build_starccm_command`
+新增 `mpi_driver` 参数，注入 `-np` 之后、`-mppflags` 之前；默认空字符串保持
+STAR-CCM+ 自身默认选择不变（CPU 既有命令逐字节不变）。测试见
+`tests/test_flow_control_starccm_runner.py` 里
+`test_starccm_command_injects_mpi_driver_before_env_flags` 等三个用例。
+
+**这不代表问题已经解决**：只是绕开了一个已确认的崩溃点；`-mpi openmpi` 之后
+是否真的能跑通、GPU 是否真的被使用（`gpu_execution.json` 的
+`actual_backend`/`GPU_CONFIRMED`）仍需要下一次真机验证。
+
+驱动版本比较只取数值点分前缀（例如 `6.3.31-V1.5.0a` → `6.3.31`），资格文件的
+`driver_requirement` 也只需写数值部分（`>=6.3.31`），不用（也无法）匹配构建
+后缀。
+
 ## 2. 新增的三个参数
 
 | 参数 | 默认 | 约束 |
@@ -121,25 +180,31 @@ PYTHONPATH=. .venv/bin/python scripts/workflow.py ccm \
 
 - STAR `-version` 是否包含资格文件的完整 build（不一致 → `STAR_BUILD_MISMATCH`）
 - `uname -srm` 与 `/etc/os-release` 是否落在批准平台内（→ `PLATFORM_NOT_APPROVED`）
-- GPU 厂商是否有经核验的只读查询命令；NVIDIA 之外当前 → `VENDOR_BLOCKED`
-- `nvidia-smi` 的设备、UUID、PCI 地址、显存、驱动（超时 → `GPU_TOOL_TIMEOUT`，
-  与“设备不存在”分开；失败 → `GPU_TOOL_FAILED`）
-- 本次作业**实际可见**的卡：Slurm `Gres` 的 `IDX` 与 `CUDA_VISIBLE_DEVICES`
-  交叉核验，给出 STAR/CUDA 本地序号与宿主机物理编号的映射。两者冲突 →
+- GPU 厂商是否有经核验的只读查询命令；当前只有 NVIDIA（`nvidia-smi`）和海光
+  HyHAL（`hy-smi`），且必须在资格文件的 `approved_platforms` 里显式声明该厂商，
+  其余厂商 → `VENDOR_BLOCKED`
+- 设备、UUID（NVIDIA `uuid` / 海光 `hy-smi --showuniqueid` 的 Unique ID）、
+  PCI 地址、显存、驱动（超时 → `GPU_TOOL_TIMEOUT`，与“设备不存在”分开；
+  失败 → `GPU_TOOL_FAILED`）
+- 本次作业**实际可见**的卡：Slurm `Gres`（资源名 `gpu` 或 `dcu`）的 `IDX` 与
+  可见性环境变量（NVIDIA `CUDA_VISIBLE_DEVICES` / 海光 `HIP_VISIBLE_DEVICES`）
+  交叉核验，给出 STAR 本地序号与宿主机物理编号的映射。两者冲突 →
   `ALLOCATION_MISMATCH`；可见数不足或含重复物理卡 → `GPU_DEVICE_UNAVAILABLE`
-- 分配了 N 张但节点物理卡更多、且既无 `IDX` 也无 `CUDA_VISIBLE_DEVICES` 指明具体
-  是哪几张 → `ALLOCATION_MISMATCH`（无法证明 rank 会落在已分配的卡上）
+- 分配了 N 张但节点物理卡更多、且既无 `IDX` 也无可见性环境变量指明具体是哪几张
+  → `ALLOCATION_MISMATCH`（无法证明 rank 会落在已分配的卡上）
 - MIG：设备查询包含 `mig.mode.current`，启用即 → `MIG_NOT_APPROVED`。MIG 下计算
   进程上报的是 `MIG-*` 子设备 UUID，占用检查无法映射到父卡，因此必须显式拒绝
   而不是静默失效
 - Slurm 作业是否 RUNNING、是否单节点、当前节点是否在分配内
   （→ `ALLOCATION_MISMATCH` / `NODE_MISMATCH`）
-- 可见集合里是否有重复的物理卡（`CUDA_VISIBLE_DEVICES=0,0` 或 Slurm `IDX:1,1`
-  这类写法会让一张卡被算作两张）→ `GPU_DEVICE_UNAVAILABLE`
-- 本次要用的每张卡上是否已有其他计算进程（`nvidia-smi --query-compute-apps`，
-  只读）→ `DEVICE_IN_USE`。显式卡列表只检查选中的卡，`auto:N` 检查前 N 张可见卡；
-  节点上其他卡的作业不会误伤本次运行。这只是冲突检查，不是原子调度器；manual
-  模式没有作业分配证据，本检查是唯一防线。
+- 可见集合里是否有重复的物理卡（`CUDA_VISIBLE_DEVICES=0,0`/`HIP_VISIBLE_DEVICES=0,0`
+  或 Slurm `IDX:1,1` 这类写法会让一张卡被算作两张）→ `GPU_DEVICE_UNAVAILABLE`
+- 本次要用的每张卡上是否已有其他计算进程（NVIDIA 用
+  `nvidia-smi --query-compute-apps`；海光用 `hy-smi --showpids` 按 PCI 总线号
+  匹配，进程名通过读本机 `/proc/<pid>/comm` 解析，均为只读）→ `DEVICE_IN_USE`。
+  显式卡列表只检查选中的卡，`auto:N` 检查前 N 张可见卡；节点上其他卡的作业
+  不会误伤本次运行。这只是冲突检查，不是原子调度器；manual 模式没有作业分配
+  证据，本检查是唯一防线。
   站点常驻代理（MPS server、DCGM 等）只有在资格文件的
   `approved_launch.occupancy_ignore_process_names` 里显式列出才会跳过，被跳过的
   进程仍记录在 `device_occupancy.ignored` 里；该名单不允许通配或空串
@@ -239,8 +304,9 @@ print(r['state'], r['failure_code']); print(r['failure_detail'])" \
 |---|---|---|
 | Linux + NVIDIA + 20.02，单卡 1 rank | BLOCKED | B-01/B-03/B-05/B-06/B-07 |
 | Linux + NVIDIA + 20.02，单节点 2 卡 2 rank | BLOCKED | 同上；这是正式验收目标 |
-| Linux + AMD + 20.02 | BLOCKED | 无 AMD 证据；不得用 NVIDIA mock 认证 |
-| 混合型号 / MIG / 启用 MPS | BLOCKED | 需独立资格证据 |
+| Linux + 海光 HyHAL（DCU）+ 20.02 | BLOCKED | 预检层代码与单元测试已完成（`hy-smi` 真机诊断输出已采集），但从未在真机跑过一次完整 STAR-CCM+ GPU 求解；仍需 B-01（`-gpgpu` 语法）/B-05/B-06/B-07 同等真机验收 |
+| Linux + AMD（ROCm，非海光 HyHAL）+ 20.02 | BLOCKED | 无证据；不得用海光/NVIDIA 的实现 mock 认证 |
+| 混合型号 / 混合厂商 / MIG / 启用 MPS | BLOCKED | 需独立资格证据 |
 | 跨节点 GPU | 不实现 | 本次范围固定单节点 |
 | CPU（含 17.06、Windows batch、Slurm、manual） | 保持不变 | 由既有测试守护 |
 

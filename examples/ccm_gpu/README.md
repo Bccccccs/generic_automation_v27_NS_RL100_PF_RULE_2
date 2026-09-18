@@ -21,15 +21,18 @@ bash examples/ccm_gpu/collect_environment_evidence.sh /absolute/path/to/starccm+
 - `starccm+ -version` / `-help` / `-phelp:gpgpu`（B-01 的命令语法核验）
 - `uname -srm`、`/etc/os-release`
 - 启动上下文是原生安装还是容器/wrapper（含可执行文件 hash）
-- NVIDIA 节点的 `nvidia-smi -L` / 设备明细 / `nvidia-smi topo -m`
-- `CUDA_VISIBLE_DEVICES`、`NVIDIA_VISIBLE_DEVICES`（只打印，不修改）
+- NVIDIA 节点的 `nvidia-smi -L` / 设备明细 / `nvidia-smi topo -m`；
+  海光 HyHAL 节点的 `hy-smi --showuniqueid/--showbus/--showproductname/
+  --showmeminfo vram/--showdriverversion/--mig/--showpids`
+- `CUDA_VISIBLE_DEVICES`、`NVIDIA_VISIBLE_DEVICES`、`HIP_VISIBLE_DEVICES`
+  （只打印，不修改）
 - Slurm 作业分配与节点清单（只记录资源字段，不打印完整环境和许可证）
 
 输出写到 `stdout`，由操作人员自行重定向保存并脱敏后归档。
 
-AMD 节点：脚本只会在检测到 `nvidia-smi` 时调用它。AMD 平台当前 **BLOCKED**
-（B-03），需要先由目标驱动自带工具的 `--help` 确认只读等效命令，再单独实现
-vendor 分支；不得用 NVIDIA 的 mock 结果认证 AMD。
+脚本按检测到的工具（`nvidia-smi` 优先，其次 `hy-smi`）选择查询分支。其他厂商
+当前 **BLOCKED**（B-03），需要先由目标驱动自带工具的 `--help` 确认只读等效
+命令，再单独实现 vendor 分支；不得用已有实现的 mock 结果认证其他厂商。
 
 ## 2. 资格文件
 
@@ -37,9 +40,11 @@ vendor 分支；不得用 NVIDIA 的 mock 结果认证 AMD。
 `ccm_gpu_qualification_v1`。字段要求见计划第 5.4 节，校验实现在
 `starccm/runtime/gpu_qualification.py`。
 
-`qualification.example.json` 是**结构示例**，`test_only=true`，生产 GPU run 会
-直接拒绝它。不要把它改成 `test_only=false` 当作真实资格使用：真实文件里的
-build、驱动、型号、文档章节和 sim hash 都必须来自实际取证。
+`qualification.example.json`（NVIDIA）和 `qualification.hygon.example.json`
+（海光 HyHAL）都是**结构示例**，`test_only=true`，生产 GPU run 会直接拒绝它们。
+不要把它们改成 `test_only=false` 当作真实资格使用：真实文件里的 build、驱动、
+型号、文档章节和 sim hash 都必须来自实际取证。海光的 `driver_requirement` 只
+比较数值点分前缀（例如实测 `6.3.31-V1.5.0a` 应写 `>=6.3.31`）。
 
 要点：
 
@@ -92,6 +97,8 @@ STAR 进程数，不是显卡数，也不能沿用 CPU 满核配置。
 #SBATCH --nodes=1                 # 本次固定单节点
 #SBATCH --ntasks=<等于 GPU 数>
 #SBATCH --gpus-per-node=<GPU 数>   # 或站点要求的 --gres=gpu:<型号>:<数量>
+                                    # 海光站点常见写法是 --gres=dcu:<数量>
+                                    # （预检的 Gres/TRES 解析同时认 gpu 和 dcu）
 #SBATCH --time=<站点上限，BLOCKED>
 #SBATCH --qos=<站点 QOS，BLOCKED>
 ```

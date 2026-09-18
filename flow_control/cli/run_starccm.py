@@ -130,6 +130,17 @@ def main(argv: list[str] | None = None) -> int:
         metavar="NAME=VALUE",
         help="Environment variable exported to every MPI rank; may be repeated.",
     )
+    parser.add_argument(
+        "--mpi-driver",
+        choices=("", "openmpi", "openmpi40", "openmpi41", "intel", "hpe", "crayex", "fujitsu"),
+        default="",
+        help=(
+            "MPI driver passed to STAR-CCM+ as -mpi. Empty (default) leaves STAR-CCM+'s "
+            "own default selection unchanged. Real-machine finding on a Hygon DCU node: "
+            "the unpinned default picked an Intel-oriented MPI/math-library combination "
+            "that crashed at launch (SIGABRT); passing openmpi explicitly avoided it."
+        ),
+    )
     parser.add_argument("--region", default="Region", help="Region containing STAR J01..J24 nozzle boundaries.")
     parser.add_argument(
         "--time-step",
@@ -271,6 +282,7 @@ def main(argv: list[str] | None = None) -> int:
             num_cores=args.np,
             machinefile_path=Path(args.machinefile) if args.machinefile else None,
             mpi_env=mpi_env,
+            mpi_driver=args.mpi_driver,
             scheduler=args.scheduler,
             scheduler_job_id=args.slurm_job_id,
             allocated_nodes=allocated_nodes,

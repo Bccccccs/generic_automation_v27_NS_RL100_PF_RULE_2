@@ -245,6 +245,61 @@ def test_starccm_command_exports_mpi_environment_to_remote_ranks(tmp_path):
     ]
 
 
+def test_starccm_command_injects_mpi_driver_before_env_flags(tmp_path):
+    # 真机实测（20.02.007-R8 + 海光 DCU）：不显式指定 -mpi 时 STAR-CCM+ 默认选中
+    # 的 MPI/数学库组合会在启动阶段崩溃（SIGABRT，见 docs/STARCCM_GPU.md 海光
+    # 小节）；显式 -mpi openmpi 是已确认的规避方式，argv 顺序需要放在 -np 之后、
+    # -mppflags 之前。
+    command = _build_starccm_command(
+        "starccm+",
+        tmp_path / "macro.java",
+        tmp_path / "case.sim",
+        num_cores=8,
+        machinefile_path=tmp_path / "hosts.ma",
+        mpi_env=("UCX_DC_MLX5_NUM_DCI=8",),
+        mpi_driver="openmpi",
+        pod_key="",
+    )
+
+    assert command[:11] == [
+        "starccm+",
+        "-machinefile",
+        str(tmp_path / "hosts.ma"),
+        "-rsh",
+        "ssh",
+        "-np",
+        "8",
+        "-mpi",
+        "openmpi",
+        "-mppflags",
+        "-x UCX_DC_MLX5_NUM_DCI=8",
+    ]
+
+
+def test_starccm_command_omits_mpi_flag_when_driver_not_set(tmp_path):
+    command = _build_starccm_command(
+        "starccm+",
+        tmp_path / "macro.java",
+        tmp_path / "case.sim",
+        num_cores=8,
+        pod_key="",
+    )
+
+    assert "-mpi" not in command
+
+
+def test_starccm_command_rejects_unknown_mpi_driver(tmp_path):
+    with pytest.raises(ValueError, match="mpi-driver"):
+        _build_starccm_command(
+            "starccm+",
+            tmp_path / "macro.java",
+            tmp_path / "case.sim",
+            num_cores=8,
+            mpi_driver="mvapich",
+            pod_key="",
+        )
+
+
 def test_flow_control_runner_rejects_machinefile_with_too_few_slots(tmp_path):
     config = ActuationConfig(
         mode="no_jet_reference",

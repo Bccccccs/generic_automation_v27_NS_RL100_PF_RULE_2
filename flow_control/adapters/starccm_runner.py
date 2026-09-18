@@ -74,6 +74,7 @@ class FlowControlStarCCMRunConfig:
     num_cores: int = 1
     machinefile_path: Path | None = None
     mpi_env: tuple[str, ...] = ()
+    mpi_driver: str = ""
     scheduler: str = "manual"
     scheduler_job_id: str = ""
     allocated_nodes: tuple[str, ...] = ()
@@ -219,6 +220,7 @@ class FlowControlStarCCMRunner:
             num_cores=config.num_cores,
             machinefile_path=machinefile_path,
             mpi_env=config.mpi_env,
+            mpi_driver=config.mpi_driver,
             pod_key=config.pod_key,
             gpu=gpu_context.config,
         )
@@ -1480,6 +1482,7 @@ def _build_starccm_command(
     num_cores: int,
     machinefile_path: Path | None = None,
     mpi_env: tuple[str, ...] = (),
+    mpi_driver: str = "",
     pod_key: str,
     gpu: GPUExecutionConfig | None = None,
 ) -> list[str]:
@@ -1488,6 +1491,8 @@ def _build_starccm_command(
         command += ["-machinefile", str(machinefile_path), "-rsh", "ssh"]
     if num_cores > 1:
         command += ["-np", str(num_cores)]
+    if mpi_driver:
+        command += ["-mpi", _validate_mpi_driver(mpi_driver)]
     normalized_mpi_env = _validate_mpi_env(mpi_env)
     if normalized_mpi_env:
         mppflags = " ".join(f"-x {item}" for item in normalized_mpi_env)
@@ -1532,6 +1537,7 @@ def _runtime_execution_manifest(
         "requested_processes": config.num_cores,
         "machinefile": str(machinefile_path) if machinefile_path is not None else "",
         "mpi_environment": dict(item.split("=", 1) for item in _validate_mpi_env(config.mpi_env)),
+        "mpi_driver": config.mpi_driver,
         "region": config.region_name,
         "time_step": config.time_step,
         "total_steps": total_steps,
@@ -1555,6 +1561,23 @@ def _csv_data_row_count(path: Path) -> int:
         return 0
     with path.open(encoding="utf-8", errors="replace") as handle:
         return max(sum(1 for _ in handle) - 1, 0)
+
+
+# STAR-CCM+ 20.02 `-mpi` 支持的 driver 名称，来自 `starccm+ -help` 实测输出
+# （真机 20.02.007-R8，见 docs/STARCCM_GPU.md 海光小节）。只接受这个白名单里
+# 的裸名称，不接受 `-help` 里提到的 `driver:"expert options"` 拼接形式——那部分
+# 专家选项如果需要，应该走已有的 `-mpiflags`（本仓库对应 `--mpi-env`），不在
+# 这里拼接任意字符串到 argv。
+_ALLOWED_MPI_DRIVERS = ("openmpi", "openmpi40", "openmpi41", "intel", "hpe", "crayex", "fujitsu")
+
+
+def _validate_mpi_driver(value: str) -> str:
+    driver = value.strip()
+    if driver not in _ALLOWED_MPI_DRIVERS:
+        raise ValueError(
+            f"--mpi-driver must be one of {_ALLOWED_MPI_DRIVERS}, got {value!r}"
+        )
+    return driver
 
 
 def _validate_mpi_env(values: tuple[str, ...]) -> tuple[str, ...]:

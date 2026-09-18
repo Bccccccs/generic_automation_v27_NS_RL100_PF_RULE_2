@@ -78,15 +78,25 @@ if command -v nvidia-smi >/dev/null 2>&1; then
         --format=csv,noheader
     run_readonly nvidia-smi topo -m
     printf '\n注意：nvidia-smi 显示的 CUDA 兼容版本不等于系统已安装 CUDA toolkit。\n'
+elif command -v hy-smi >/dev/null 2>&1; then
+    printf 'nvidia-smi 不可用，检测到海光 hy-smi（HyHAL）。\n'
+    run_readonly hy-smi --showuniqueid --json
+    run_readonly hy-smi --showbus --json
+    run_readonly hy-smi --showproductname --json
+    run_readonly hy-smi --showmeminfo vram --json
+    run_readonly hy-smi --showdriverversion
+    run_readonly hy-smi --mig
+    run_readonly hy-smi --showpids
 else
-    printf 'nvidia-smi 不可用。AMD 平台当前 BLOCKED（B-03）：\n'
-    printf '需要先用目标驱动自带工具的 --help 确认只读等效命令，再单独实现 vendor 分支。\n'
-    printf '不得无条件调用 NVIDIA 工具，也不得自动安装驱动。\n'
+    printf 'nvidia-smi 和 hy-smi 均不可用。当前实现只支持这两个厂商（B-03）：\n'
+    printf '其他厂商需要先用目标驱动自带工具的 --help 确认只读等效命令，再单独实现 vendor 分支。\n'
+    printf '不得无条件调用其他厂商的工具，也不得自动安装驱动。\n'
 fi
 
 section "GPU 可见性（只打印，不修改）"
 printf 'CUDA_VISIBLE_DEVICES=%s\n' "${CUDA_VISIBLE_DEVICES-unset}"
 printf 'NVIDIA_VISIBLE_DEVICES=%s\n' "${NVIDIA_VISIBLE_DEVICES-unset}"
+printf 'HIP_VISIBLE_DEVICES=%s\n' "${HIP_VISIBLE_DEVICES-unset}"
 printf 'SLURM_JOB_ID=%s\n' "${SLURM_JOB_ID-unset}"
 printf 'SLURM_JOB_NODELIST=%s\n' "${SLURM_JOB_NODELIST-unset}"
 printf 'SLURM_STEP_ID=%s\n' "${SLURM_STEP_ID-unset}"

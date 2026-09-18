@@ -1048,7 +1048,8 @@ def test_visible_index_remap_is_recorded(preflight_inputs, monkeypatch):
     assert [device["local_index"] for device in devices] == [0, 1]
     assert [device["index"] for device in devices] == [2, 3]
     assert [device["uuid"] for device in devices] == ["GPU-3333-cccc", "GPU-4444-dddd"]
-    assert result.evidence["visibility"]["cuda_visible_devices"] == "2,3"
+    assert result.evidence["visibility"]["visible_devices_env"] == "CUDA_VISIBLE_DEVICES"
+    assert result.evidence["visibility"]["visible_devices_env_value"] == "2,3"
     assert result.evidence["visibility"]["physical_device_count"] == 4
     assert result.evidence["visibility"]["source"] == "CUDA_VISIBLE_DEVICES"
 
