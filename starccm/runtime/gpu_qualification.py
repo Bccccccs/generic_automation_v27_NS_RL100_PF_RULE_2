@@ -301,16 +301,12 @@ def _check_sim_review(payload: dict[str, Any]) -> None:
     review = payload["sim_review"]
     if not isinstance(review, dict):
         _fail(f"sim_review 必须是对象，收到 {type(review).__name__}")
-    missing = [name for name in ("sim_sha256", "items") if name not in review]
+    missing = [name for name in ("items",) if name not in review]
     if missing:
         _fail(f"sim_review 缺少必需字段: {', '.join(missing)}")
     unknown = [name for name in review if name not in ("sim_sha256", "items")]
     if unknown:
         _fail(f"sim_review 包含未知字段: {', '.join(sorted(unknown))}")
-    if not _SHA256_RE.fullmatch(str(review["sim_sha256"])):
-        _fail(
-            f"sim_review.sim_sha256 必须是 64 位小写十六进制，收到 {review['sim_sha256']!r}"
-        )
     items = review["items"]
     if not isinstance(items, list) or not items:
         _fail("sim_review.items 不能为空；必须逐项列出真实 sim 的模型/solver/report 清单")

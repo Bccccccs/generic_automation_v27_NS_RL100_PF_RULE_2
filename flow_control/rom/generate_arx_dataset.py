@@ -197,14 +197,9 @@ def generate_arx_sparse24_dataset(
     return records
 
 
-# 准备输出目录：如果目录已存在且非空且 overwrite=False 则报错；
-# 否则若 overwrite=True 则先删除再重建
+# 准备输出目录：已存在则直接删除再重建（允许覆盖）；overwrite 参数仅为兼容保留
 def _prepare_output_dir(path: Path, *, overwrite: bool) -> None:
-    if path.exists() and any(path.iterdir()) and not overwrite:
-        raise FileExistsError(
-            f"{path} already exists and is not empty; pass --overwrite to regenerate it"
-        )
-    if path.exists() and overwrite:
+    if path.exists():
         shutil.rmtree(path)
     path.mkdir(parents=True, exist_ok=True)
 

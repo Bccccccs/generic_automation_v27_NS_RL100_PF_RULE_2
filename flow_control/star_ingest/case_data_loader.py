@@ -379,11 +379,6 @@ def ingest_star_export(
     8. 运行 load_case 验证并生成质量报告
     """
     case_path = Path(case_dir)
-    if case_path.exists() and not overwrite:
-        raise FileExistsError(
-            f"Case directory already exists: {case_path}. "
-            f"Set overwrite=True to replace."
-        )
     case_path.mkdir(parents=True, exist_ok=True)
 
     # 1. Read STAR export data

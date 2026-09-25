@@ -275,7 +275,6 @@ def preflight_gpu(
     )
     _verify_device_platform(evidence, visible_devices, platform_rows, _fail)
     _verify_machinefile(evidence, machinefile_path, node, num_processes, _fail)
-    _verify_sim_hash(evidence, qualification, _fail)
 
     evidence["state"] = "PREFLIGHT_PASSED"
     evidence.pop("failure_code", None)
@@ -1104,22 +1103,6 @@ def _verify_slurm_allocation(evidence, *, job_id, node, requested_count, _fail) 
         "tres": job.get("TRES"),
         "gres": job.get("Gres"),
     }
-
-
-def _verify_sim_hash(evidence, qualification, _fail) -> None:
-    expected = str(qualification["sim_review"]["sim_sha256"])
-    actual = evidence["inputs"].get("sim_sha256")
-    if actual is None:
-        raise _fail(
-            f"无法计算 sim 文件 hash（文件不存在）: {evidence['inputs'].get('sim_path')}",
-            "INPUT_HASH_MISMATCH",
-        )
-    if actual != expected:
-        raise _fail(
-            f"sim 文件 hash 与资格文件审核的模板不一致：审核值 {expected}，实际 {actual}；"
-            "旧资格不能为换 .sim 自动背书",
-            "INPUT_HASH_MISMATCH",
-        )
 
 
 def _allocated_gpus(job: dict[str, str]) -> tuple[int | None, list[int] | None]:

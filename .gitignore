@@ -21,6 +21,9 @@ offline_packages_linux_x86_64_py310_py311_py312.tar.gz
 runs/starccm_single/
 runs/starccm_no/
 
+# STAR-CCM+ 崩溃调试产物（含 694MB starccm_runtime_plan.json），不入库
+traceback/
+
 *.sim
 *.sim~
 *.log

@@ -53,8 +53,6 @@ def organize_ccm_outputs(
         raise NotADirectoryError(f"input directory not found: {source_path}")
     if not star_source_path.is_dir():
         raise NotADirectoryError(f"STAR output directory not found: {star_source_path}")
-    if target.exists() and any(target.iterdir()) and not overwrite:
-        raise FileExistsError(f"target case is not empty: {target}; use --force to overwrite generated files")
 
     schedule = _find_schedule(source_path)
     schedule_rows = _read_csv(schedule)

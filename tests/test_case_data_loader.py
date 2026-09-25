@@ -612,14 +612,3 @@ class TestStarExportReader:
         # No timeseries.csv, actuation_schedule.csv, or quality_report.json
         result = load_case(case_dir)
         assert any("Missing required files" in e for e in result["errors"])
-
-    def test_ingest_star_export_no_overwrite_raises(self, tmp_path):
-        """Overwrite=False raises FileExistsError for existing case."""
-        csv_content = '"时间","S1L Monitor: S1L Monitor (N)"\n0.0,1.0\n'
-        csv_path = tmp_path / "test.csv"
-        csv_path.write_text(csv_content)
-        case_dir = tmp_path / "exists"
-        case_dir.mkdir()
-
-        with pytest.raises(FileExistsError):
-            ingest_star_export([csv_path], case_dir=case_dir)

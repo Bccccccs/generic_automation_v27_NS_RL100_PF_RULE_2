@@ -48,8 +48,6 @@ def _choose_target_dir(runs_root: Path = Path("runs")) -> tuple[Path, bool]:
         if not name or Path(name).name != name or name in {".", ".."}:
             raise SystemExit("新目录名不能为空或包含路径分隔符。")
         target = parent / name
-        if target.exists():
-            raise SystemExit(f"目录已存在：{target}；请选择“已有目录”。")
         return target, False
     if choice == "2":
         return _choose_directory(runs_root, label="已有目标目录"), True

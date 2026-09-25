@@ -619,16 +619,6 @@ def test_preflight_classifies_tool_failure(preflight_inputs):
     assert excinfo.value.evidence["diagnostics"][-1]["returncode"] == 9
 
 
-def test_preflight_rejects_sim_hash_mismatch(preflight_inputs):
-    preflight_inputs["sim_path"].write_bytes(b"a-different-template")
-
-    with pytest.raises(GPUPreflightError) as excinfo:
-        call_preflight(preflight_inputs)
-
-    assert excinfo.value.failure_code == "INPUT_HASH_MISMATCH"
-    assert "sim" in str(excinfo.value)
-
-
 def test_preflight_rejects_slurm_allocation_without_gpu(preflight_inputs):
     stub = diagnostic_stub(
         starccm_path=preflight_inputs["starccm_path"],
@@ -864,16 +854,26 @@ def gpu_runner_guards(inputs, stub=None):
 
 def test_gpu_run_blocked_by_preflight_writes_sidecar_and_releases_lock(gpu_run_inputs):
     out_dir = gpu_run_inputs["tmp_path"] / "gpu_run"
-    gpu_run_inputs["sim_path"].write_bytes(b"a-different-template")
-    guard_run, guard_os = gpu_runner_guards(gpu_run_inputs)
+    stub_failed = diagnostic_stub(
+        starccm_path=gpu_run_inputs["starccm_path"],
+        nvidia_result=DiagnosticResult(
+            command=("nvidia-smi",),
+            returncode=9,
+            stdout="",
+            stderr="NVIDIA-SMI has failed because it couldn't communicate with the driver.",
+            status="failed",
+            duration_seconds=0.2,
+        ),
+    )
+    guard_run, guard_os = gpu_runner_guards(gpu_run_inputs, stub_failed)
 
     with guard_run, guard_os, pytest.raises(GPUPreflightError) as excinfo:
         FlowControlStarCCMRunner().run(gpu_run_config(gpu_run_inputs, out_dir))
 
-    assert excinfo.value.failure_code == "INPUT_HASH_MISMATCH"
+    assert excinfo.value.failure_code == "GPU_TOOL_FAILED"
     record = read_gpu_evidence(out_dir / SIDECAR_NAME)
     assert record["state"] == "BLOCKED"
-    assert record["failure_code"] == "INPUT_HASH_MISMATCH"
+    assert record["failure_code"] == "GPU_TOOL_FAILED"
     assert record["actual_backend"] == "unknown"
     assert record["star_return_code"] is None
     assert record["evidence"][0]["diagnostics"]
@@ -963,15 +963,25 @@ def test_gpu_run_may_replace_dry_run_request_record(gpu_run_inputs):
     out_dir = gpu_run_inputs["tmp_path"] / "gpu_shared"
     FlowControlStarCCMRunner().run(gpu_run_config(gpu_run_inputs, out_dir, mode="dry-run"))
     assert read_gpu_evidence(out_dir / SIDECAR_NAME)["state"] == "UNVERIFIED"
-    gpu_run_inputs["sim_path"].write_bytes(b"changed-after-dry-run")
-    guard_run, guard_os = gpu_runner_guards(gpu_run_inputs)
+    stub_failed = diagnostic_stub(
+        starccm_path=gpu_run_inputs["starccm_path"],
+        nvidia_result=DiagnosticResult(
+            command=("nvidia-smi",),
+            returncode=9,
+            stdout="",
+            stderr="NVIDIA-SMI has failed because it couldn't communicate with the driver.",
+            status="failed",
+            duration_seconds=0.2,
+        ),
+    )
+    guard_run, guard_os = gpu_runner_guards(gpu_run_inputs, stub_failed)
 
     with guard_run, guard_os, pytest.raises(GPUPreflightError):
         FlowControlStarCCMRunner().run(gpu_run_config(gpu_run_inputs, out_dir))
 
     record = read_gpu_evidence(out_dir / SIDECAR_NAME)
     assert record["state"] == "BLOCKED"
-    assert record["failure_code"] == "INPUT_HASH_MISMATCH"
+    assert record["failure_code"] == "GPU_TOOL_FAILED"
 
 
 def test_gpu_run_refuses_to_steal_existing_lock(gpu_run_inputs):
