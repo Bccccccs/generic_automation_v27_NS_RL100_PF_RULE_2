@@ -308,7 +308,7 @@ PYTHONPATH=. python scripts/workflow.py ccm \
 本地工作站有足够资源且已授权时可使用上述 manual 命令。
 
 也可参考 [`run_python.slurm`](run_python.slurm)，但提交前必须读完整文件：当前它固定
-生成 3 s 无喷气输入、使用 `--np 8` 和站点绝对路径，申请 128G 主机内存，
+按 `CCM_ACTION_CONFIG`（默认 B52 训练集）生成输入、使用 `--np 8` 和站点绝对路径，申请 128G 主机内存，
 **求解命令为 CPU**。新集群/新账号首次使用前，先运行 `bash scripts/setup_cluster_env.sh`
 创建 `py3.10` 环境，并核对脚本中的 `PROJECT_DIR`、`SIM_PATH`、`STARCCM_BIN`。只有这些设置符合本次任务才直接 `sbatch run_python.slurm`；
 它不是自动适配任意工况的通用提交器。批处理日志路径由脚本的 `#SBATCH` 指令决定。
