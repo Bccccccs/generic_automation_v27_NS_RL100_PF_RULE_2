@@ -1,0 +1,13 @@
+# cifutest 对照探针：dt 固定 1e-4（与 cifunewest 崩溃时完全相同的设置），
+# 物理时长 0.03 s = cifunewest 崩溃点(0.0062~0.0083 s)的 4~5 倍。
+# 目的是判断 dt=1e-4 下的发散是模板特有的，还是 20.02/GPU 环境导致的。
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_windows: 300
+  window_duration: 1.0e-4
+  time_step: 1.0e-4
+  mass_flow_rate: 0.0
+
+output:
+  run_dir: runs/schedule_examples/temp_no_jet_probe_dt1e-4
