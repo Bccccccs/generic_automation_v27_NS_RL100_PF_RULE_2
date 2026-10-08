@@ -32,3 +32,6 @@ traceback/
 *.pdf
 *.key
 ~$*
+
+# 本地打包的算例归档
+cifu0_nojet_*.tar.gz

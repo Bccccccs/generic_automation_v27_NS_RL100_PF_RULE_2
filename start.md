@@ -267,7 +267,8 @@ hy-smi --showpids
 它是否占用本次分配的卡。预检按目标卡检查，不要求节点上所有卡都空闲。
 目标卡被占用就换分配；只有确认是自己且不再需要的旧作业，才能释放，
 **不要**跳过这一步硬跑——两个真实 GPU 求解共享同一批卡会显存不够崩溃或者两边结果
-都不可信，预检代码会正确拦下（`DEVICE_IN_USE`），这是设计好的保护。
+都不可信。预检**不再拦截**目标卡上已有的进程（已改为只在证据 `device_occupancy` 里记录，
+`busy_overridden=true`），是否抢占由你自己负责确认。
 
 ## 5. 激活环境 + source GPU 运行环境（关键，容易漏）
 
@@ -307,8 +308,9 @@ PYTHONPATH=. python scripts/workflow.py ccm \
 本地工作站有足够资源且已授权时可使用上述 manual 命令。
 
 也可参考 [`run_python.slurm`](run_python.slurm)，但提交前必须读完整文件：当前它固定
-生成 3 s 无喷气输入、使用 `--np 8` 和站点绝对路径，申请 128G 主机内存及 8 张 DCU，
-**求解命令仍为 CPU**。只有这些设置符合本次任务才直接 `sbatch run_python.slurm`；
+生成 3 s 无喷气输入、使用 `--np 8` 和站点绝对路径，申请 128G 主机内存，
+**求解命令为 CPU**。新集群/新账号首次使用前，先运行 `bash scripts/setup_cluster_env.sh`
+创建 `py3.10` 环境，并核对脚本中的 `PROJECT_DIR`、`SIM_PATH`、`STARCCM_BIN`。只有这些设置符合本次任务才直接 `sbatch run_python.slurm`；
 它不是自动适配任意工况的通用提交器。批处理日志路径由脚本的 `#SBATCH` 指令决定。
 
 ## 6b. GPU：先 dry-run，再真实 run
@@ -441,7 +443,7 @@ sacct -j "$SLURM_JOB_ID" \
 | 输入验证错误 | 修正工况配置并在准备目录重新生成、校验 | 直接手改 CSV 掩盖配置错误 |
 | `OUTPUT_REUSE_FORBIDDEN` | 新建尝试目录，关联旧证据 | 删除旧日志或 sidecar 强行复用 |
 | `GPU_LOCK_HELD` | 查交接文档、作业和持锁进程 | 未确认进程退出就删除锁 |
-| `DEVICE_IN_USE` | 核对本次目标卡与进程所属作业 | 杀别人进程或禁用占用检查 |
+| （已取消拦截）占用只记录在 `device_occupancy` | 核对 `busy` 里的进程是否都是自己的 | 杀别人的进程 |
 | `ALLOCATION_MISMATCH` | 核对分配、可见设备和当前节点 | 编造卡序号/UUID 或盲改可见性变量 |
 | 资格/版本/平台错误 | 收集本机实测值及同版本支持依据 | 只删 `test_only` 或把 unknown 改 compatible |
 | LLVM gfx908 / 退出 134 | 检查本次 shell 是否加载正确海光环境脚本 | 将其他型号硬编码成 gfx936 |
