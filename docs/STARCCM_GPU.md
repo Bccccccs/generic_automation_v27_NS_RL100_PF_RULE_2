@@ -201,7 +201,8 @@ PYTHONPATH=. .venv/bin/python scripts/workflow.py ccm \
   或 Slurm `IDX:1,1` 这类写法会让一张卡被算作两张）→ `GPU_DEVICE_UNAVAILABLE`
 - 本次要用的每张卡上是否已有其他计算进程（NVIDIA 用
   `nvidia-smi --query-compute-apps`；海光用 `hy-smi --showpids` 按 PCI 总线号
-  匹配，进程名通过读本机 `/proc/<pid>/comm` 解析，均为只读）→ `DEVICE_IN_USE`。
+  匹配，进程名通过读本机 `/proc/<pid>/comm` 解析，均为只读）→ 仅记录到
+  `device_occupancy`（`busy_overridden`），**不再拦截**。
   显式卡列表只检查选中的卡，`auto:N` 检查前 N 张可见卡；节点上其他卡的作业
   不会误伤本次运行。这只是冲突检查，不是原子调度器；manual 模式没有作业分配
   证据，本检查是唯一防线。
@@ -252,7 +253,7 @@ completed manifest 之前，因此不会出现 sidecar 说 `GPU_CONFIRMED` 而�
 | 物理模型不支持 | `FAILED / GPU_MODEL_UNSUPPORTED`（保留原始日志行） |
 | STAR 非零退出 | `FAILED / STAR_NONZERO_EXIT`（保留真实退出码） |
 | 启动失败 | `FAILED / LAUNCH_FAILED` |
-| 目标卡上有其他计算进程 | 预检 `BLOCKED / DEVICE_IN_USE` |
+| 目标卡上有其他计算进程 | 不拦截，仅记录 `device_occupancy.busy_overridden` |
 | 设备启用 MIG | 预检 `BLOCKED / MIG_NOT_APPROVED` |
 | 分配卡数少于节点物理卡且无法定位 | 预检 `BLOCKED / ALLOCATION_MISMATCH` |
 | 可见集合含重复物理卡 | 预检 `BLOCKED / GPU_DEVICE_UNAVAILABLE` |

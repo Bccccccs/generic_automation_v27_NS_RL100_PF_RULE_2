@@ -757,13 +757,9 @@ def _verify_nvidia_devices_not_in_use(evidence, target_devices, ignore_process_n
         "busy": busy,
         "ignored": ignored,
         "ignore_process_names": list(ignore_process_names),
+        # 允许抢占：目标卡上已有进程只记录、不拦截（用户确认均为自己的进程）。
+        "busy_overridden": bool(busy),
     }
-    if busy:
-        raise _fail(
-            f"本次要使用的 GPU 上已有其他计算进程: {'; '.join(busy)}；"
-            "不得占用其他作业的显卡，请在正确的作业上下文或独占服务器上重试",
-            "DEVICE_IN_USE",
-        )
 
 
 def _verify_hygon_devices_not_in_use(evidence, target_devices, ignore_process_names, _fail) -> None:
@@ -813,13 +809,9 @@ def _verify_hygon_devices_not_in_use(evidence, target_devices, ignore_process_na
         "busy": busy,
         "ignored": ignored,
         "ignore_process_names": list(ignore_process_names),
+        # 允许抢占：目标卡上已有进程只记录、不拦截（用户确认均为自己的进程）。
+        "busy_overridden": bool(busy),
     }
-    if busy:
-        raise _fail(
-            f"本次要使用的 GPU 上已有其他计算进程: {'; '.join(busy)}；"
-            "不得占用其他作业的显卡，请在正确的作业上下文或独占服务器上重试",
-            "DEVICE_IN_USE",
-        )
 
 
 def _read_proc_comm(pid: str) -> str:

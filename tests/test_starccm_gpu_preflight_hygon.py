@@ -273,13 +273,13 @@ def test_hygon_mig_enabled_blocks_run(hygon_inputs):
     assert excinfo.value.failure_code == "MIG_NOT_APPROVED"
 
 
-def test_hygon_busy_target_device_blocks_run(hygon_inputs):
+def test_hygon_busy_target_device_does_not_block_run(hygon_inputs):
     stub = hygon_diagnostic_stub(showpids_stdout=_showpids_busy_text("0000:09:00.0"))
 
-    with pytest.raises(GPUPreflightError) as excinfo:
-        call_hygon_preflight(hygon_inputs, stub=stub)
+    result = call_hygon_preflight(hygon_inputs, stub=stub)
 
-    assert excinfo.value.failure_code == "DEVICE_IN_USE"
+    assert result.evidence["device_occupancy"]["busy_overridden"] is True
+    assert result.evidence["device_occupancy"]["busy"]
 
 
 def test_hygon_busy_process_on_other_device_does_not_block(hygon_inputs):

@@ -1353,8 +1353,8 @@ def test_duplicate_slurm_gres_idx_is_rejected(preflight_inputs):
     assert "重复" in str(excinfo.value)
 
 
-def test_busy_target_device_blocks_run(preflight_inputs):
-    """P1-4：目标卡上已有其他计算进程时不得启动。"""
+def test_busy_target_device_does_not_block_run(preflight_inputs):
+    """允许抢占：目标卡上已有其他计算进程时只记录证据，不拦截。"""
     stub = four_gpu_stub(
         preflight_inputs,
         nvidia_stdout=NVIDIA_TWO_GPU_CSV,
@@ -1365,11 +1365,11 @@ def test_busy_target_device_blocks_run(preflight_inputs):
         compute_apps_stdout="GPU-1111-aaaa, 424242, /usr/bin/python3, 20480 MiB\n",
     )
 
-    with pytest.raises(GPUPreflightError) as excinfo:
-        call_preflight(preflight_inputs, stub=busy_stub)
+    result = call_preflight(preflight_inputs, stub=busy_stub)
 
-    assert excinfo.value.failure_code == "DEVICE_IN_USE"
-    assert "424242" in str(excinfo.value)
+    occupancy = result.evidence["device_occupancy"]
+    assert occupancy["busy_overridden"] is True
+    assert any("424242" in entry for entry in occupancy["busy"])
     assert stub is not busy_stub
 
 
@@ -1390,8 +1390,8 @@ def test_process_on_other_device_does_not_block_run(preflight_inputs):
     ]
 
 
-def test_manual_mode_also_checks_device_occupancy(preflight_inputs):
-    """manual 没有作业分配证据，占用冲突检查是唯一防线。"""
+def test_manual_mode_records_device_occupancy(preflight_inputs):
+    """manual 模式同样只记录占用，不拦截。"""
     qualification = manual_qualification(
         hashlib.sha256(preflight_inputs["sim_path"].read_bytes()).hexdigest()
     )
@@ -1404,10 +1404,9 @@ def test_manual_mode_also_checks_device_occupancy(preflight_inputs):
         compute_apps_stdout="GPU-2222-bbbb, 31337, /opt/other/starccm+, 40000 MiB\n",
     )
 
-    with pytest.raises(GPUPreflightError) as excinfo:
-        call_preflight(preflight_inputs, scheduler="manual", job_id="", stub=stub)
+    result = call_preflight(preflight_inputs, scheduler="manual", job_id="", stub=stub)
 
-    assert excinfo.value.failure_code == "DEVICE_IN_USE"
+    assert result.evidence["device_occupancy"]["busy_overridden"] is True
 
 
 def test_unparseable_occupancy_output_is_rejected(preflight_inputs):
@@ -1526,17 +1525,16 @@ def test_explicit_selection_only_checks_target_cards(preflight_inputs):
     assert result.evidence["device_occupancy"]["busy"] == []
 
 
-def test_auto_selection_checks_all_requested_cards(preflight_inputs):
+def test_auto_selection_records_all_requested_cards(preflight_inputs):
     stub = diagnostic_stub(
         starccm_path=preflight_inputs["starccm_path"],
         nvidia_stdout=NVIDIA_TWO_GPU_CSV,
         compute_apps_stdout="GPU-2222-bbbb, 31337, /opt/other/starccm+, 40000 MiB\n",
     )
 
-    with pytest.raises(GPUPreflightError) as excinfo:
-        call_preflight(preflight_inputs, selection="auto:2:nomps", num_processes=2, stub=stub)
+    result = call_preflight(preflight_inputs, selection="auto:2:nomps", num_processes=2, stub=stub)
 
-    assert excinfo.value.failure_code == "DEVICE_IN_USE"
+    assert any("31337" in entry for entry in result.evidence["device_occupancy"]["busy"])
 
 
 def test_site_agent_can_be_ignored_by_qualification(preflight_inputs):
@@ -1548,9 +1546,8 @@ def test_site_agent_can_be_ignored_by_qualification(preflight_inputs):
         compute_apps_stdout=mps_line,
     )
 
-    with pytest.raises(GPUPreflightError) as excinfo:
-        call_preflight(preflight_inputs, stub=busy_stub)
-    assert excinfo.value.failure_code == "DEVICE_IN_USE"
+    first = call_preflight(preflight_inputs, stub=busy_stub)
+    assert first.evidence["device_occupancy"]["busy_overridden"] is True
 
     qualification = valid_qualification()
     qualification["sim_review"]["sim_sha256"] = hashlib.sha256(
