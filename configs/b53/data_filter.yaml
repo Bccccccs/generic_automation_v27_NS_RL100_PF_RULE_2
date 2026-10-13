@@ -1,24 +1,29 @@
 # B53 真实训练数据质量门禁。
 #
-# 当前没有正式 STAR 训练算例，因此 sources 必须保持空列表。不要把 runs/week4
-# 的 0816 算例填入这里；它们仅用于确认字段格式，且 B04 状态均为 FAIL。
+# 基准：runs/cifu0_nojet_11s 是与 B52 训练/验证同一模板、同一初始条件、
+# dt=1e-4 的 11 s 无喷气参考，逐时刻相减得到 delta_Fz。0816 旧算例仍不得登记。
 b53:
   # 与 B52 动作表一致：六个承载区域各一个代表喷口。
   representative_jets: [2, 3, 9, 11, 17, 19]
 
   # 正式数据到位后逐 Case 显式登记。split 优先使用 training/validation；
   # auto 仅作为后备，仍按整个 STAR Case 分组，绝不按时间行随机拆分。
-  sources: []
-  # 示例：
-  # sources:
-  #   - case_dir: runs/b53_real_star/training_run_001
-  #     split: training
-  #   - case_dir: runs/b53_real_star/validation_run_001
-  #     split: validation
+  sources:
+    - case_dir: runs/b52_v2/training
+      split: training
+    - case_dir: runs/b52_v2/validation
+      split: validation
+
+  # 时间对齐的无喷气参考；必须覆盖所有 source 的时长且采样步长一致。
+  reference_case: runs/cifu0_nojet_11s
+  # 基准窗口可早于 0.5 s 启动剔除点（同时刻相减已抵消瞬态，0.4–0.5 s 差值约 10 N），
+  # 使 0.5 s 的首个喷气也能放行；数据集样本仍从 0.5 s 开始。
+  allow_baseline_before_crop: true
 
   # 喷气前稳定段与启动剔除。
   baseline_duration_s: 0.10
-  minimum_initial_discard_s: 0.05
+  # 与 case_manifest 的 initial_transient_crop 一致；两者取较大值。
+  minimum_initial_discard_s: 0.5
   recovery_search_s: 0.20
   minimum_baseline_samples: 20
   minimum_response_samples: 5

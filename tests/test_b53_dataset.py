@@ -456,3 +456,87 @@ def test_schedule_row_without_window_id_is_not_fabricated_from_index() -> None:
 
     assert intervals == []
     assert any("window_id" in error for error in errors)
+
+
+def _write_reference(root: Path, *, drift_rate: float, rows: int = 40, jet_flow: float = 0.0) -> Path:
+    """无喷气参考：与喷气 Case 共享启动瞬态、噪声和漂移，但没有响应。"""
+
+    reference_dir = root / "nojet_reference"
+    series = _timeseries(
+        response_amplitude=0.0, baseline_drift_rate=drift_rate, include_actual_jet_02=True
+    )[:rows]
+    for row in series:
+        row["actual_massflow_02"] = jet_flow
+    _write_csv(reference_dir / "processed" / "timeseries.csv", series)
+    return reference_dir
+
+
+def test_reference_baseline_cancels_shared_unsteadiness_that_local_baseline_rejects(
+    tmp_path: Path,
+) -> None:
+    case_dir = _write_case(tmp_path, "train_shared_drift", defect="baseline_drift")
+    reference_dir = _write_reference(tmp_path, drift_rate=4.0)
+
+    local = build_b53_outputs(
+        _config(), tmp_path / "local", sources=[CaseSource(case_dir, "training")]
+    )
+    assert _report_value(local, "accepted_window_count") == 0
+    assert "BASELINE_DRIFT" in _case_reason_codes(
+        tmp_path / "local" / "B03_anomalous_windows.csv", "train_shared_drift"
+    )
+
+    output_dir = tmp_path / "reference"
+    report = build_b53_outputs(
+        _config(reference_case=str(reference_dir)),
+        output_dir,
+        sources=[CaseSource(case_dir, "training")],
+    )
+    assert _report_value(report, "accepted_window_count") == 1
+    rows = _read_csv(output_dir / "training_dataset.csv")
+    assert {row["baseline_mode"] for row in rows} == {"reference_time_aligned"}
+    assert len({row["segment_id"] for row in rows}) == 1
+    reference_rows = {
+        round(float(row["physical_time"]), 6): row
+        for row in _read_csv(reference_dir / "processed" / "timeseries.csv")
+    }
+    for row in rows:
+        time_value = float(row["physical_time"])
+        reference = reference_rows[round(time_value, 6)]
+        for region in REGIONS:
+            assert float(row[f"baseline_mean_{region}"]) == pytest.approx(float(reference[region]))
+        expected = 2.0 if 1.1 <= time_value <= 1.4 else 0.0
+        if time_value <= 1.0 or 1.1 <= time_value <= 1.4:
+            assert float(row["delta_Fz_S1L"]) == pytest.approx(expected, abs=1e-9)
+    quality = _read_csv(output_dir / "B03_data_quality_summary.csv")[0]
+    assert quality["baseline_mode"] == "reference_time_aligned"
+
+
+def test_reference_case_must_cover_case_duration(tmp_path: Path) -> None:
+    case_dir = _write_case(tmp_path, "train_short_reference")
+    reference_dir = _write_reference(tmp_path, drift_rate=0.0, rows=30)
+
+    output_dir = tmp_path / "delivery"
+    build_b53_outputs(
+        _config(reference_case=str(reference_dir)),
+        output_dir,
+        sources=[CaseSource(case_dir, "training")],
+    )
+
+    assert _read_csv(output_dir / "training_dataset.csv") == []
+    assert "REFERENCE_TIME_MISMATCH" in _case_reason_codes(
+        output_dir / "B03_data_quality_summary.csv", "train_short_reference"
+    )
+
+
+def test_reference_case_with_jet_flow_is_refused(tmp_path: Path) -> None:
+    from flow_control.b53_dataset.builder import ReferenceCaseError
+
+    case_dir = _write_case(tmp_path, "train_bad_reference")
+    reference_dir = _write_reference(tmp_path, drift_rate=0.0, jet_flow=0.5)
+
+    with pytest.raises(ReferenceCaseError):
+        build_b53_outputs(
+            _config(reference_case=str(reference_dir)),
+            tmp_path / "delivery",
+            sources=[CaseSource(case_dir, "training")],
+        )

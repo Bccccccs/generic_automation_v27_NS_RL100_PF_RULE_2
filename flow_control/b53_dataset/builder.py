@@ -11,6 +11,16 @@
 
 整个动作事件是最小放行单元。时间错位、实际质量流量缺失、喷气前基准漂移或
 六区响应均低于基准噪声时，该事件的所有样本都会被原子剔除。
+
+基准有两种口径：
+
+* 配置了 ``reference_case`` 时（推荐），以同一初始条件、同一时间步的无喷气
+  参考算例为逐时刻基准，``delta = Fz(t) - Fz_ref(t)``。底部流场本身强非定常，
+  常数或局部均值基准会把自然脉动当成喷气响应；
+* 未配置时退回历史口径：每个事件以喷气前局部稳定段的中位数为常数基准。
+
+放行事件的样本在同一 Case 内首尾相接，按时间连续的片段编号 ``segment_id``，
+供 ARX 在片段内构造滞后项，不跨越被剔除的事件。
 """
 
 from __future__ import annotations
@@ -78,6 +88,8 @@ TRACE_FIELDS = (
     "actual_massflow_off_s",
     "initial_transient_cutoff_s",
     "quality_status",
+    "baseline_mode",
+    "segment_id",
 )
 FORCE_FIELDS = tuple(
     name
@@ -89,7 +101,14 @@ FORCE_FIELDS = tuple(
         f"delta_{region}",
     )
 )
-DATASET_FIELDS = (*TRACE_FIELDS, *JET_COLUMNS, *COMMAND_COLUMNS, *ACTUAL_COLUMNS, *FORCE_FIELDS)
+# 随六区升力一并整理的整车量；不参与质量门禁，参考模式下同样做同时刻相减。
+AUX_COLUMNS = ("fz", "Fz_Total", "Drag_Total", "Pitch_Moment", "Roll_Moment", "Jet_Reaction_Z")
+AUX_FIELDS = tuple(
+    name for column in AUX_COLUMNS for name in (column, f"baseline_mean_{column}", f"delta_{column}")
+)
+DATASET_FIELDS = (
+    *TRACE_FIELDS, *JET_COLUMNS, *COMMAND_COLUMNS, *ACTUAL_COLUMNS, *FORCE_FIELDS, *AUX_FIELDS
+)
 
 QUALITY_FIELDS = (
     "source_case_id",
@@ -100,6 +119,8 @@ QUALITY_FIELDS = (
     "training_ready",
     "reason_codes",
     "reason_detail",
+    "baseline_mode",
+    "reference_case_dir",
     "timeseries_rows",
     "schedule_rows",
     "aligned_rows",
@@ -195,6 +216,11 @@ class B53Config:
 
     representative_jets: tuple[int, ...] = (2, 3, 9, 11, 17, 19)
     sources: tuple[CaseSource, ...] = ()
+    # 同初始条件、同时间步的无喷气参考 Case；为空时使用局部喷气前基准。
+    reference_case: str | None = None
+    # 仅参考基准模式生效：事件基准窗口可以早于启动剔除点（瞬态已被同时刻相减抵消），
+    # 但写入数据集的样本仍从剔除点开始，数据集本身不含初始化瞬态。
+    allow_baseline_before_crop: bool = False
     baseline_duration_s: float = 0.10
     minimum_initial_discard_s: float = 0.05
     recovery_search_s: float = 0.20
@@ -231,6 +257,10 @@ class B53Config:
         )
         if "representative_jets" in data:
             data["representative_jets"] = tuple(int(value) for value in data["representative_jets"])
+        if data.get("reference_case") in ("", None):
+            data["reference_case"] = None
+        else:
+            data["reference_case"] = str(data["reference_case"])
         config = cls(sources=sources, **data)
         config.require_valid()
         return config
@@ -442,6 +472,80 @@ def _manifest_star_value(manifest: Mapping[str, Any], name: str) -> str:
         if manifest.get(key) is not None:
             return str(manifest[key])
     return ""
+
+
+def _manifest_initial_crop_s(manifest: Mapping[str, Any]) -> float | None:
+    crop = manifest.get("initial_transient_crop")
+    if isinstance(crop, Mapping):
+        return _number(crop.get("end_time_s"))
+    return None
+
+
+BASELINE_MODE_REFERENCE = "reference_time_aligned"
+BASELINE_MODE_LOCAL = "local_pre_jet_median"
+
+
+@dataclass
+class _Reference:
+    """无喷气参考 Case：按量化物理时间索引的六区力。"""
+
+    case_dir: Path
+    forces: dict[int, tuple[float, ...]]
+    quantum_s: float
+    dt: float
+    aux: dict[int, tuple[float | None, ...]] = field(default_factory=dict)
+
+    def key(self, time_value: float) -> int:
+        return round(time_value / self.quantum_s)
+
+    def lookup(self, time_value: float) -> tuple[float, ...] | None:
+        return self.forces.get(self.key(time_value))
+
+    def lookup_aux(self, time_value: float) -> tuple[float | None, ...] | None:
+        return self.aux.get(self.key(time_value))
+
+
+class ReferenceCaseError(ValueError):
+    """参考 Case 不满足作为无喷气基准的前提。"""
+
+
+def load_reference_case(case_dir: str | Path, config: B53Config) -> _Reference:
+    """读取并校验无喷气参考 Case；任何喷口有实际流量即拒绝。"""
+
+    path = Path(case_dir)
+    timeseries = _timeseries_path(path)
+    if timeseries is None:
+        raise ReferenceCaseError(f"参考 Case 缺少 processed/timeseries.csv: {path}")
+    headers, rows = _read_csv(timeseries)
+    mapping = _resolve_regions(headers)
+    missing = [region for region, name in mapping.items() if not name]
+    if missing:
+        raise ReferenceCaseError(f"参考 Case 缺少六区力列: {', '.join(missing)}")
+    actual = [column for column in ACTUAL_COLUMNS if column in headers]
+    quantum = max(config.time_alignment_tolerance_s, 1.0e-9)
+    forces: dict[int, tuple[float, ...]] = {}
+    aux: dict[int, tuple[float | None, ...]] = {}
+    times: list[float] = []
+    for index, row in enumerate(rows):
+        time_value = _number(row.get("physical_time"))
+        values = tuple(_number(row.get(mapping[region])) for region in REGION_COLUMNS)
+        if time_value is None or any(value is None for value in values):
+            raise ReferenceCaseError(f"参考 Case 第 {index + 2} 行时间或六区力缺失")
+        for column in actual:
+            flow = _number(row.get(column))
+            if flow is not None and abs(flow) > config.massflow_on_threshold_kg_s:
+                raise ReferenceCaseError(
+                    f"参考 Case 第 {index + 2} 行 {column}={flow:g}，不是无喷气算例"
+                )
+        if times and time_value <= times[-1]:
+            raise ReferenceCaseError(f"参考 Case 第 {index + 2} 行 physical_time 非严格递增")
+        times.append(time_value)
+        forces[round(time_value / quantum)] = values  # type: ignore[assignment]
+        aux[round(time_value / quantum)] = tuple(_number(row.get(column)) for column in AUX_COLUMNS)
+    if len(times) < 2:
+        raise ReferenceCaseError("参考 Case 样本不足")
+    dt = median(times[index] - times[index - 1] for index in range(1, len(times)))
+    return _Reference(case_dir=path, forces=forces, quantum_s=quantum, dt=dt, aux=aux)
 
 
 def _case_id(case_dir: Path, manifest: Mapping[str, Any]) -> str:
@@ -676,7 +780,15 @@ def _first_recovery(values: Sequence[float], start: int, band: float, count: int
     return None
 
 
-def _baseline_drift(values: Sequence[float], config: B53Config) -> tuple[float, float, float, float]:
+def _baseline_drift(
+    values: Sequence[float], config: B53Config, scale: float | None = None
+) -> tuple[float, float, float, float]:
+    """返回 (基准中位数, 去趋势噪声, 首尾漂移, 漂移阈值)。
+
+    ``scale`` 是相对漂移限值所乘的力量级；参考基准模式下 ``values`` 是差值，
+    其中位数接近 0，因此量级取参考力本身，保持“3% 基准力”的含义不变。
+    """
+
     count = max(1, len(values) // 4)
     drift = fmean(values[-count:]) - fmean(values[:count])
     mean_value = median(values)
@@ -701,7 +813,7 @@ def _baseline_drift(values: Sequence[float], config: B53Config) -> tuple[float, 
         noise = 0.0
     threshold = max(
         config.baseline_drift_noise_multiplier * noise,
-        config.baseline_drift_relative_limit * max(abs(mean_value), 1.0),
+        config.baseline_drift_relative_limit * max(abs(mean_value if scale is None else scale), 1.0),
         config.response_absolute_floor_n,
     )
     return mean_value, noise, drift, threshold
@@ -716,8 +828,9 @@ def _region_metric(
     dt: float,
     event: _Event,
     config: B53Config,
+    scale: float | None = None,
 ) -> _RegionMetric:
-    mean_value, noise, drift, drift_threshold = _baseline_drift(baseline_values, config)
+    mean_value, noise, drift, drift_threshold = _baseline_drift(baseline_values, config, scale)
     delta = [value - mean_value for value in response_values]
     peak_position = max(range(len(delta)), key=lambda index: abs(delta[index]))
     peak_delta = delta[peak_position]
@@ -880,7 +993,9 @@ def _fatal_case_result(
     return _CaseResult(quality=quality, anomalies=[anomaly])
 
 
-def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
+def _process_case(
+    source: CaseSource, config: B53Config, reference: _Reference | None = None
+) -> _CaseResult:
     source = source.normalized()
     case_dir = Path(source.case_dir)
     manifest = _manifest(case_dir)
@@ -1025,9 +1140,62 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
             candidate_windows=len(events),
         )
 
-    result = _CaseResult(quality={})
     first_time = aligned[0].time
     initial_floor = first_time + config.minimum_initial_discard_s
+    manifest_crop = _manifest_initial_crop_s(manifest)
+    if manifest_crop is not None:
+        initial_floor = max(initial_floor, manifest_crop)
+
+    # 参考基准：每个样本取无喷气参考 Case 同一物理时刻的六区力。
+    reference_values: dict[int, tuple[float, ...]] = {}
+    reference_aux: dict[int, tuple[float | None, ...]] = {}
+    if reference is not None:
+        reference_error = ""
+        if not math.isclose(reference.dt, dt, rel_tol=1.0e-6):
+            reference_error = f"参考 Case 采样步长 {reference.dt:.6g}s 与本 Case {dt:.6g}s 不一致"
+        else:
+            unmatched = []
+            for item in aligned:
+                values = reference.lookup(item.time)
+                if values is not None:
+                    reference_values[item.source_index] = values
+                    reference_aux[item.source_index] = reference.lookup_aux(item.time) or ()
+                elif item.time >= initial_floor - config.time_alignment_tolerance_s:
+                    unmatched.append(item.time)
+            if unmatched:
+                reference_error = (
+                    f"{len(unmatched)} 个启动剔除后的样本在参考 Case 中没有同一时刻样本，"
+                    f"首个 t={unmatched[0]:.9g}s；参考 Case 必须覆盖本 Case 全部时长"
+                )
+        if reference_error:
+            return _fatal_case_result(
+                case_id=case_id,
+                case_dir=case_dir,
+                source=source,
+                split=split,
+                reason="REFERENCE_TIME_MISMATCH",
+                detail=reference_error,
+                timeseries_path=timeseries_path,
+                schedule_path=schedule_path,
+                timeseries_rows=len(timeseries_rows),
+                schedule_rows=len(schedule_rows),
+                aligned_rows=len(aligned),
+                max_error=max_error,
+                actual_present=actual_present,
+                force_present=force_present,
+                candidate_windows=len(events),
+            )
+
+    def region_signal(item: _AlignedRow, position: int) -> float | None:
+        """局部基准模式返回原始力；参考模式返回相对参考的差值。"""
+
+        raw = _number(item.row.get(region_mapping[REGION_COLUMNS[position]]))
+        if raw is None or reference is None:
+            return raw
+        values = reference_values.get(item.source_index)
+        return None if values is None else raw - values[position]
+
+    result = _CaseResult(quality={})
     accepted_cutoffs: list[float] = []
     all_reason_codes: list[str] = []
     for event_index, event in enumerate(events):
@@ -1041,7 +1209,12 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
             details.append("该喷口不在 B52/B53 六代表喷口配置中")
 
         previous_end = events[event_index - 1].end if event_index else first_time
-        baseline_start_target = max(event.start - config.baseline_duration_s, previous_end, initial_floor)
+        baseline_floor = (
+            first_time
+            if reference is not None and config.allow_baseline_before_crop
+            else initial_floor
+        )
+        baseline_start_target = max(event.start - config.baseline_duration_s, previous_end, baseline_floor)
         baseline = [
             item
             for item in aligned
@@ -1075,9 +1248,9 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
             _number(item.row.get(column)) is None for item in context for column in ACTUAL_COLUMNS
         )
         missing_force = sum(
-            _number(item.row.get(source_name)) is None
+            region_signal(item, position) is None
             for item in context
-            for source_name in region_mapping.values()
+            for position in range(len(REGION_COLUMNS))
         )
         if missing_actual:
             reasons.append("ACTUAL_MASSFLOW_MISSING")
@@ -1123,13 +1296,24 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
 
         if not reasons:
             baseline_values_by_region = {
-                region: [_number(item.row[region_mapping[region]]) for item in baseline]
-                for region in REGION_COLUMNS
+                region: [region_signal(item, position) for item in baseline]
+                for position, region in enumerate(REGION_COLUMNS)
+            }
+            # 参考模式下漂移的相对限值以参考力量级为尺度。
+            drift_scale_by_region: dict[str, float | None] = {
+                region: (
+                    median(reference_values[item.source_index][position] for item in baseline)
+                    if reference is not None
+                    else None
+                )
+                for position, region in enumerate(REGION_COLUMNS)
             }
             drift_ratios: list[float] = []
             for region, optional_values in baseline_values_by_region.items():
                 values = [value for value in optional_values if value is not None]
-                mean_value, noise, drift, threshold = _baseline_drift(values, config)
+                mean_value, noise, drift, threshold = _baseline_drift(
+                    values, config, drift_scale_by_region[region]
+                )
                 del mean_value, noise
                 drift_ratios.append(abs(drift) / threshold if threshold else math.inf)
                 if abs(drift) > threshold:
@@ -1137,13 +1321,13 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
                     details.append(f"{region} 基准漂移 {drift:.6g}N 超过 {threshold:.6g}N")
             if not reasons:
                 response_times = [item.time for item in response]
-                for region in REGION_COLUMNS:
+                for position, region in enumerate(REGION_COLUMNS):
                     baseline_values = [
                         float(value)
                         for value in baseline_values_by_region[region]
                         if value is not None
                     ]
-                    response_values = [float(_number(item.row[region_mapping[region]])) for item in response]
+                    response_values = [float(region_signal(item, position)) for item in response]
                     metrics_by_region[region] = _region_metric(
                         baseline_values,
                         response_values,
@@ -1153,6 +1337,7 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
                         dt,
                         event,
                         config,
+                        drift_scale_by_region[region],
                     )
                 max_snr = max(metric.snr_linear for metric in metrics_by_region.values())
                 if max_snr < config.minimum_snr_linear:
@@ -1201,7 +1386,9 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
             continue
 
         baseline_start = baseline[0].time
-        accepted_cutoffs.append(baseline_start)
+        # 数据集样本不早于启动剔除点；基准窗口可能更早（allow_baseline_before_crop）。
+        row_floor = max(baseline_start, initial_floor - config.time_alignment_tolerance_s)
+        accepted_cutoffs.append(row_floor)
         dataset_rows = _dataset_rows(
             case_id=case_id,
             case_dir=case_dir,
@@ -1215,9 +1402,11 @@ def _process_case(source: CaseSource, config: B53Config) -> _CaseResult:
             response=response,
             actual_onset_s=actual_onset_s,
             actual_off_s=actual_off_s,
-            baseline_start=baseline_start,
+            baseline_start=row_floor,
             metrics=metrics_by_region,
             region_mapping=region_mapping,
+            reference_values=reference_values if reference is not None else None,
+            reference_aux=reference_aux if reference is not None else None,
         )
         accepted = _AcceptedWindow(event, split, dataset_rows, metrics_by_region)
         result.accepted.append(accepted)
@@ -1308,10 +1497,14 @@ def _dataset_rows(
     baseline_start: float,
     metrics: Mapping[str, _RegionMetric],
     region_mapping: Mapping[str, str],
+    reference_values: Mapping[int, tuple[float, ...]] | None = None,
+    reference_aux: Mapping[int, tuple[float | None, ...]] | None = None,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     raw_star = case_dir / "raw_star"
     for item in [*baseline, *response]:
+        if item.time < baseline_start:
+            continue
         schedule = intervals[item.schedule_index]
         phase = "baseline" if item.time <= event.start else "actuation" if item.time <= event.end else "recovery"
         row: dict[str, Any] = {
@@ -1339,6 +1532,7 @@ def _dataset_rows(
             "actual_massflow_off_s": actual_off_s,
             "initial_transient_cutoff_s": baseline_start,
             "quality_status": "PASS",
+            "baseline_mode": BASELINE_MODE_LOCAL if reference_values is None else BASELINE_MODE_REFERENCE,
         }
         for column in JET_COLUMNS:
             row[column] = int((_number(schedule.row.get(column)) or 0.0) > 0.5)
@@ -1346,13 +1540,31 @@ def _dataset_rows(
             row[column] = _number(schedule.row.get(column)) or 0.0
         for column in ACTUAL_COLUMNS:
             row[column] = _number(item.row.get(column))
-        for region in REGION_COLUMNS:
+        for position, region in enumerate(REGION_COLUMNS):
             raw_force = _number(item.row.get(region_mapping[region]))
             metric = metrics[region]
+            # 参考模式：baseline_mean 为同一时刻无喷气参考力，delta 是 ROM 的输出目标；
+            # 事件局部偏置只用于峰值/SNR 等诊断，不写入 delta，保证片段内时序连续。
+            baseline_value = (
+                metric.baseline_mean
+                if reference_values is None
+                else reference_values[item.source_index][position]
+            )
             row[region] = raw_force
-            row[f"baseline_mean_{region}"] = metric.baseline_mean
+            row[f"baseline_mean_{region}"] = baseline_value
             row[f"baseline_noise_{region}"] = metric.baseline_noise
-            row[f"delta_{region}"] = None if raw_force is None else raw_force - metric.baseline_mean
+            row[f"delta_{region}"] = None if raw_force is None else raw_force - baseline_value
+        aux_reference = (reference_aux or {}).get(item.source_index, ())
+        for position, column in enumerate(AUX_COLUMNS):
+            raw_value = _number(item.row.get(column))
+            reference_value = aux_reference[position] if position < len(aux_reference) else None
+            row[column] = raw_value
+            row[f"baseline_mean_{column}"] = reference_value
+            row[f"delta_{column}"] = (
+                raw_value - reference_value
+                if raw_value is not None and reference_value is not None
+                else None
+            )
         rows.append(row)
     return rows
 
@@ -1420,6 +1632,39 @@ def _response_summary(
     return rows
 
 
+def _continuous_rows(rows: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """按 Case 和时间排序、去掉相邻事件共享的边界样本，并编号连续片段。
+
+    相邻放行事件首尾相接时会共享一个边界采样点，保留先出现的那条。
+    同一 Case 内相邻样本间隔超过 1.5 倍中位步长即开启新片段，ARX 只在片段内
+    构造滞后项，因此被剔除事件留下的空洞不会被拼接。
+    """
+
+    ordered: list[dict[str, Any]] = []
+    seen: set[tuple[str, int]] = set()
+    for row in sorted(rows, key=lambda item: (item["source_case_id"], item["physical_time"])):
+        key = (row["source_case_id"], int(row["source_timeseries_row"]))
+        if key in seen:
+            continue
+        seen.add(key)
+        ordered.append(row)
+    by_case: dict[str, list[dict[str, Any]]] = {}
+    for row in ordered:
+        by_case.setdefault(row["source_case_id"], []).append(row)
+    for case_id, case_rows in by_case.items():
+        steps = [
+            case_rows[index]["physical_time"] - case_rows[index - 1]["physical_time"]
+            for index in range(1, len(case_rows))
+        ]
+        dt = median(steps) if steps else 0.0
+        segment = 0
+        for index, row in enumerate(case_rows):
+            if index and row["physical_time"] - case_rows[index - 1]["physical_time"] > 1.5 * dt:
+                segment += 1
+            row["segment_id"] = f"{case_id}__seg{segment:03d}"
+    return ordered
+
+
 def build_b53_outputs(
     config: B53Config,
     output_dir: str | Path,
@@ -1444,11 +1689,36 @@ def build_b53_outputs(
         seen[resolved] = source.split
         unique_sources.append(source)
 
-    results = [_process_case(source, config) for source in unique_sources]
+    reference: _Reference | None = None
+    if config.reference_case and unique_sources:
+        reference = load_reference_case(config.reference_case, config)
+        reference_dir = Path(config.reference_case).resolve()
+        if reference_dir in seen:
+            raise ValueError(f"无喷气参考 Case 不能同时作为训练/验证数据: {reference_dir}")
+    baseline_mode = BASELINE_MODE_REFERENCE if config.reference_case else BASELINE_MODE_LOCAL
+
+    results = [_process_case(source, config, reference) for source in unique_sources]
+    for result in results:
+        result.quality["baseline_mode"] = baseline_mode
+        result.quality["reference_case_dir"] = (
+            _path_text(Path(config.reference_case)) if config.reference_case else ""
+        )
     accepted = [window for result in results for window in result.accepted]
     anomalies = [row for result in results for row in result.anomalies]
-    training_rows = [row for window in accepted if window.split == "training" for row in window.dataset_rows]
-    validation_rows = [row for window in accepted if window.split == "validation" for row in window.dataset_rows]
+    training_rows = _continuous_rows(
+        [row for window in accepted if window.split == "training" for row in window.dataset_rows]
+    )
+    validation_rows = _continuous_rows(
+        [row for window in accepted if window.split == "validation" for row in window.dataset_rows]
+    )
+    for result in results:
+        case_id = result.quality.get("source_case_id")
+        if result.quality.get("assigned_split") == "training":
+            result.quality["training_samples"] = sum(row["source_case_id"] == case_id for row in training_rows)
+        elif result.quality.get("assigned_split") == "validation":
+            result.quality["validation_samples"] = sum(
+                row["source_case_id"] == case_id for row in validation_rows
+            )
     quality_rows = [result.quality for result in results] or [_empty_quality()]
     response_rows = _response_summary(config, accepted, anomalies)
 

@@ -232,7 +232,8 @@ def _merge_rows_by_physical_time(
     for rows in (runtime_rows, monitor_rows):
         for row in rows:
             sample_time = float(row.get("physical_time", 0.0))
-            key = round(sample_time, 12)
+            # 求解器累加的时间在 10 s 量级会漂移约 1e-11，12 位会把同一步拆成两行。
+            key = round(sample_time, 9)
             merged.setdefault(key, {"physical_time": sample_time}).update(row)
     if not merged:
         raise ValueError("CCM output contains no runtime or monitor rows")
