@@ -35,3 +35,8 @@ traceback/
 
 # 本地打包的算例归档
 cifu0_nojet_*.tar.gz
+
+# 数据产物不入库（体积大，可由脚本重新生成）
+artifacts/B53_training_data/*_dataset.csv
+artifacts/*_predictions.csv
+runs/real_star/**/.DS_Store
