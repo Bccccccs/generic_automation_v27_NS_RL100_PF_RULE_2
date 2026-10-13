@@ -12,12 +12,12 @@ reference_cases:
   j06_pulse: runs/week4/j06_pluse_0816
   no_jet: runs/week4/no_0816
 star:
-  version: "待浩坤确认"
-  sim_file: "待浩坤确认"
-  sim_file_hash_sha256: "待浩坤确认"
-  geometry_version: "待浩坤确认"
-  mesh_version: "待浩坤确认"
-  region_names: [减运算]
+  version: "20.02.007-R8"
+  sim_file: "cifu0.sim"
+  sim_file_hash_sha256: "435a91557dccbbb5ab93129ada3056367d0d9a7e9d3bf5717919b96fb8abbf04"
+  geometry_version: "geom-ece80e5835f9"
+  mesh_version: "sim-435a91557dcc-c29172886-f87251653-v31171999"
+  region_names: [区域]
   coordinate_system: Laboratory
 field_contract:
   action_schedule_columns:
