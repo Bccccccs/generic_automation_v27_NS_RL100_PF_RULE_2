@@ -1,5 +1,24 @@
 # B54 第一版真实 ROM
 
+> **当前入口已改为读取 B53 数据集**：`scripts/analysis/run_b54_rom_from_b53.py`
+> + `configs/b54/real_rom_b53.yaml`（模块 `flow_control/rom/b54_from_b53.py`）。
+> 下文描述的 `b54_real_rom.py` 旧入口以无喷气尾段均值为常数基准，在本流场中会把
+> 1–2.5 kN 的自然脉动混入输出；且依赖上游尚未产出的 `source_run_evidence` /
+> `rom_compatibility` / B04 PASS 证据，必然 BLOCKED。旧入口保留仅供参考。
+>
+> 新入口要点：
+>
+> - 输入 6 路代表喷口实际质量流量，输出 B53 的 `delta_Fz_*`（相对同一时刻无喷气参考）；
+> - 只在 B53 `segment_id` 片段内构造滞后项；训练/验证按整个 STAR Case 划分；
+> - 输入历史、输出滞后、岭系数只在训练集内部用分块交叉验证（连续滚动预测 RMSE）选取；
+> - 输出一步/滚动预测的逐区 RMSE、NRMSE、相关系数，以及逐喷口主响应区、方向、延迟对比；
+> - 验证集为空时状态为 `TRAINING_ONLY`，结果说明不给出泛化结论。
+>
+> ```bash
+> .venv/bin/python scripts/build_b53_dataset.py --config configs/b53/data_filter.yaml --output-dir artifacts/B53_training_data
+> .venv/bin/python scripts/analysis/run_b54_rom_from_b53.py --config configs/b54/real_rom_b53.yaml
+> ```
+
 ## 当前状态
 
 本项目已准备 B54 的独立运行入口和参数配置，但当前仓库中还没有以下三类真实 STAR-CCM+ 标准 Case 输出：

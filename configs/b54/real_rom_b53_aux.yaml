@@ -1,0 +1,39 @@
+# B54 辅助 ROM：与主模型相同的数据、预处理和选参方法，输出换成整车量。相对路径均相对 project_root。
+project_root: .
+
+# 按 S1L、S1R、S2L、S2R、S3L、S3R 顺序各选一个代表喷口。
+representative_jets: [2, 3, 9, 11, 17, 19]
+
+data:
+  # B53 输出；delta_Fz_* 已是相对同一时刻无喷气参考（runs/cifu0_nojet_11s）的变化量。
+  training_dataset: artifacts/B53_training_data/training_dataset.csv
+  validation_dataset: artifacts/B53_training_data/validation_dataset.csv
+
+preprocessing:
+  # B52 v2 的 STAR 时间步为 1e-4 s；步长 10 对应 1 ms 有效采样。
+  sample_stride: 10
+
+model:
+  include_current_input: false
+  # 候选超参数，只在训练集内部用分块交叉验证（连续滚动预测 RMSE）选取。
+  # 喷气关闭后的振荡持续 0.1–0.3 s，输入历史需覆盖到这个量级。
+  input_history_s: [0.1, 0.2]
+  output_lags: [2, 5, 10]
+  ridge_alpha: [1.0, 10.0, 100.0]
+  cv_folds: 4
+
+diagnostics:
+  massflow_active_threshold_kg_s: 1.0e-8
+  # 喷气开启后用于判定主响应区/方向/延迟的窗口。
+  response_horizon_s: 0.15
+  # 分窗口判定主响应区：0–5 ms 本区局部响应，5–20 ms 同段两侧，20–100 ms 喷气持续段。
+  response_windows_s: [[0.0, 0.005], [0.005, 0.02], [0.02, 0.1]]
+  onset_sigma_multiplier: 3.0
+  onset_peak_fraction: 0.2
+  onset_consecutive_samples: 3
+
+output_dir: artifacts
+
+# 辅助模型：6 路流量 → 整车量（fz、Fz_Total、Drag_Total、Pitch_Moment、Roll_Moment、Jet_Reaction_Z）。
+output_set: auxiliary
+artifact_prefix: B04_aux_ROM
