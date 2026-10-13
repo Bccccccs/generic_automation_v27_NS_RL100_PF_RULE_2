@@ -1,0 +1,13 @@
+actuation:
+  mode: step_singlejet
+  n_jets: 24
+  total_windows: 10000
+  window_duration: 1.0e-4
+  time_step: 1.0e-4
+  mass_flow_rate: 2.57
+  jet_ids: [1]
+  step_start_window: 0
+  step_end_window: 10000
+
+output:
+  run_dir: runs/temp_j01_1s_mass2p57_dt1e-4

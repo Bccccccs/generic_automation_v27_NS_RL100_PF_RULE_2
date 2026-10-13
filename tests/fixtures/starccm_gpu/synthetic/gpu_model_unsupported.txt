@@ -1,0 +1,4 @@
+[SYNTHETIC] STAR-CCM+ 20.02.007 starting on node gpu01
+[SYNTHETIC] initialized device 0 (uuid GPU-1111-aaaa)
+[SYNTHETIC] model unsupported on device: eulerian-multiphase
+[SYNTHETIC] solving on device 0: segregated fluid solver

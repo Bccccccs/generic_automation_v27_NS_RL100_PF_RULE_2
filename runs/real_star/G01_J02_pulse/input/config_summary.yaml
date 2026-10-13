@@ -1,0 +1,63 @@
+mode: pulse_singlejet
+git_commit: 42e344dff68f3a1262aaa49bd70076c478284467
+random_seed: 20260618
+n_jets: 24
+total_windows: 10
+window_duration_seconds: 0.1
+time_step_seconds: 0.0001
+total_actuation_windows: 10
+actuation_window_duration_seconds: 0.1
+solver_time_step_seconds: 0.0001
+solver_steps_per_actuation_window: 1000
+schedule_row_count: 10000
+mass_flow_rate: 1.0
+max_active_jets_observed: 1
+max_total_mass_flow_observed: 1.0
+activation_counts:
+  JET_01: 0
+  JET_02: 1
+  JET_03: 0
+  JET_04: 0
+  JET_05: 0
+  JET_06: 0
+  JET_07: 0
+  JET_08: 0
+  JET_09: 0
+  JET_10: 0
+  JET_11: 0
+  JET_12: 0
+  JET_13: 0
+  JET_14: 0
+  JET_15: 0
+  JET_16: 0
+  JET_17: 0
+  JET_18: 0
+  JET_19: 0
+  JET_20: 0
+  JET_21: 0
+  JET_22: 0
+  JET_23: 0
+  JET_24: 0
+outputs:
+  schedule: actuation_schedule.csv
+  heatmap: actuation_heatmap.svg
+  total_mass_flow: total_mass_flow.csv
+  total_mass_flow_curve: total_mass_flow_curve.svg
+  validation_report: validation_report.json
+validation:
+  passed: true
+  errors: []
+notes:
+  time_columns: physical_time, t_start, and t_end are seconds, not solver iterations
+  time_model: Each CSV row is one actuation window; the solver advances inside it
+    using solver_time_step_seconds.
+  pulse_numbering: pulse_window_numbers are 1-based; CSV window_id is 0-based.
+  switch_columns: JET_01..JET_24 are algorithm-side 0/1 nozzle switch columns
+  massflow_columns: cmd_massflow_01..cmd_massflow_24 target STAR J01..J24 nozzle mass
+    flow values
+extra:
+  jet_id: 2
+  pulse_window_numbers:
+  - 5
+  pulse_window_id_zero_based:
+  - 4

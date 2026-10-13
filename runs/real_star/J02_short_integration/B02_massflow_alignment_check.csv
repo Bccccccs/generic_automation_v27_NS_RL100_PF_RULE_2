@@ -1,0 +1,4 @@
+window_id,t_start_s,t_end_s,J02_cmd_massflow_kg_s,J02_actual_massflow_kg_s,actual_source,status,acceptance
+0,0.000,0.002,0.000,NOT_RUN,MassFlowReport(actual_massflow_02),dry_run_not_a_physical_result,pending_real_STAR
+1,0.002,0.006,0.015,NOT_RUN,MassFlowReport(actual_massflow_02),dry_run_not_a_physical_result,pending_real_STAR
+2,0.006,0.008,0.000,NOT_RUN,MassFlowReport(actual_massflow_02),dry_run_not_a_physical_result,pending_real_STAR

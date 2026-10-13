@@ -1,0 +1,6 @@
+quantity_group,star_original_report_name,star_export_header_pattern,unified_column_name,expected_unit,star_export_unit,coordinate_system,direction_vector_xyz,integrated_surfaces,status,confirmation_owner,notes
+fixture_report,Fz_Total Monitor,Fz_Total,Fz_Total,N,N,Laboratory,待浩坤确认,fixture_surface,fixture,test,fixture mapping
+fixture_report,Drag_Total Monitor,Drag_Total,Drag_Total,N,N,Laboratory,"[1.0, 0.0, 0.0]",fixture_surface,fixture,test,fixture mapping
+fixture_report,Pitch_Moment Monitor,Pitch_Moment,Pitch_Moment,N,N,Laboratory,"[0.0, 1.0, 0.0]",fixture_surface,fixture,test,fixture mapping
+fixture_report,Roll_Moment Monitor,Roll_Moment,Roll_Moment,N,N,Laboratory,"[1.0, 0.0, 0.0]",fixture_surface,fixture,test,fixture mapping
+fixture_report,Jet_Reaction_Z Monitor,Jet_Reaction_Z,Jet_Reaction_Z,N,N,Laboratory,"[0.0, 0.0, 1.0]",fixture_surface,fixture,test,fixture mapping

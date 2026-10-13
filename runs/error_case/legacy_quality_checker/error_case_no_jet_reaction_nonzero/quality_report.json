@@ -1,0 +1,15 @@
+{
+  "case_id": "error_case_no_jet_reaction_nonzero",
+  "num_errors": 0,
+  "num_warnings": 1,
+  "errors": [],
+  "warnings": [
+    "No-jet case but Jet_Reaction_Z has non-zero values (max |val| = 4.200000e-01) — verify this is correct"
+  ],
+  "has_jet_data": false,
+  "check_mode": "star_ingest",
+  "validation_mode": "full_case",
+  "num_timeseries_rows": 5,
+  "num_timeseries_columns": 15,
+  "run_success_flag": false
+}

@@ -1,0 +1,10 @@
+﻿priority,case_type,jet_id,expected_zone,decision,prerequisite,purpose
+0,no_jet_repeat,,all,RUN_FIRST,冻结 STAR 模板与力定义,复跑 G00；只有 B04 PASS 才放行任何喷气算例
+1,single_jet_repeat,J02,S1L,HOLD,新 G00 PASS,验证同模板配对差分、重复性与已观察 S1R 主响应
+2,single_jet_repeat,J06,S1L,HOLD,J02 repeat PASS,验证 J06 重复性及与 J02 的同区差异
+3,single_jet_new,J03,S1R,NEXT_BATCH,三算例全部 PASS,覆盖 S1R，并检查左右/编号映射
+4,single_jet_new,J09,S2L,NEXT_BATCH,三算例全部 PASS,覆盖尚未激励的 S2L
+5,single_jet_new,J11,S2R,NEXT_BATCH,三算例全部 PASS,覆盖尚未激励的 S2R
+6,single_jet_new,J17,S3L,NEXT_BATCH,三算例全部 PASS,覆盖尚未激励的 S3L
+7,single_jet_new,J19,S3R,NEXT_BATCH,三算例全部 PASS,覆盖尚未激励的 S3R
+8,single_jet_new,J01,S1L,OPTIONAL_REPLICATE,优先覆盖五个未测区域后,同区第三喷口，估计喷口内空间差异

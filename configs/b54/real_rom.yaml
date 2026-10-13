@@ -1,0 +1,40 @@
+# B54 第一版真实 ROM。所有相对路径均相对 project_root 解析。
+project_root: .
+
+# 按 S1L、S1R、S2L、S2R、S3L、S3R 顺序各选一个代表喷口。
+representative_jets: [2, 3, 9, 11, 17, 19]
+
+data:
+  # baseline 仅用于打通流水线；其物理争议（Jet_Reaction_Z 定义、漂移/跳变）不在本轮处理。
+  baseline_case: runs/b52/b52_no
+  training_cases:
+    - runs/b52/training
+  validation_cases:
+    - runs/b52/validation
+
+preprocessing:
+  # B52 training/validation 的实际 STAR 采样间隔为 0.0002 s；步长 5 对应 0.001 s 有效采样间隔。
+  sample_stride: 5
+
+baseline:
+  # 使用独立无喷气基准序列末尾选定段；稳定性由 B04/B54 门禁和验收复核。
+  tail_fraction: 0.2
+
+model:
+  # 在 0.001 s 有效采样间隔下，输入历史覆盖约 50 ms。
+  input_lags: 50
+  output_lags: 20
+  ridge_alpha: 1.0
+  include_current_input: false
+
+diagnostics:
+  massflow_active_threshold_kg_s: 1.0e-8
+  response_threshold_sigma: 3.0
+  response_threshold_peak_fraction: 0.05
+  sustained_steps: 5
+
+quality:
+  # 正式 B04 产物禁止绕过真实数据质量门禁；false 会在配置预检阶段被拒绝。
+  require_b04_pass: true
+
+output_dir: artifacts

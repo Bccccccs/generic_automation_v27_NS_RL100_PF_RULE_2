@@ -1,0 +1,88 @@
+schema_version: B02_real_data_contract_v1
+case_id: "<case_id>"
+case_type: "<no_jet|jet|reference|other>"
+created_time: "<ISO-8601 UTC time>"
+initial_transient_crop:
+  end_time_s: 0.5
+  keep_rule: "physical_time >= 0.5 s"
+
+star:
+  version: "待浩坤确认"
+  sim_file: "待浩坤确认；只记录文件名或项目内相对标识，不提交个人绝对路径"
+  sim_file_hash_sha256: "待浩坤确认"
+  geometry_version: "待浩坤确认"
+  mesh_version: "待浩坤确认"
+  region_names: ["待浩坤确认"]
+  boundary_mapping_file: "docs/week3/B02_boundary_mapping.csv"
+  report_mapping_file: "docs/week3/B02_report_mapping.csv"
+  current_reference_cases:
+    jet_on_j01: "runs/temp_j01_3s_mass2p57_dt1e-4"
+    no_jet: "runs/temp_no_jet_3s_dt1e-4"
+    star_output_dir_name: "out_put"
+
+solver_time:
+  physical_time_unit: s
+  time_step: 0.0001
+  inner_iterations_per_time_step: "待浩坤确认"
+  sampling_interval: 0.0001
+  sampling_times_definition: "current temp STAR exports contain 30000 monitor samples from 0.0001 s to approximately 3.0 s; each sample is the response at the end of the corresponding action window; do not use solver iteration number as time"
+  output_time_column: physical_time
+
+actuation:
+  action_schedule_file: "actuation_schedule.csv"
+  action_schedule_hash_sha256: "待运行时计算"
+  window_duration: 0.0001
+  window_count: 30000
+  window_rule: "row i defines t_start=i*0.0001 and t_end=(i+1)*0.0001 in physical seconds; current CLI macro writes row i massflow before advancing this window and samples reports at t_end, so STAR sample t_end belongs to the same row/window_id"
+  sample_ownership_rule: "t_start < t_sample <= t_end for current CLI macro outputs; re-confirm if using STAR GUI table(time) profile or another macro"
+  columns:
+    time: [time, window_id, t_start, t_end]
+    switches: JET_01..JET_24
+    commanded_massflow: cmd_massflow_01..cmd_massflow_24
+    actual_massflow: actual_massflow_01..actual_massflow_24
+  jet_on_windows:
+    definition: "continuous intervals merged from consecutive action windows where JET_XX == 1 and cmd_massflow_XX != 0"
+    current_reference_j01:
+      jet: JET_01
+      t_start: 0.0
+      t_end: 3.0
+      source_case: G01_JET01_existing
+      note: "one continuous jet-on window represented by 30000 action windows; not 30000 separate jet events"
+
+coordinates:
+  star_report_coordinate_system: Laboratory
+  algorithm_coordinate_system: "待浩坤确认"
+  x_direction: "待浩坤确认"
+  y_direction: "待浩坤确认"
+  z_direction: "待浩坤确认"
+  z_force_report_direction_vector: [0.0, 0.0, 1.0]
+  z_force_report_direction_applies_to: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R, Fz_Total, Jet_Reaction_Z]
+  lift_semantics: "待浩坤确认；Fz_Total 是 Laboratory +Z report，但是否作为项目升力使用仍需确认"
+  drag_direction_vector: [1.0, 0.0, 0.0]
+  pitch_moment_axis: [0.0, 1.0, 0.0]
+  roll_moment_axis: [1.0, 0.0, 0.0]
+  moment_center: [29.0, 0.0, 1.52]
+  moment_center_unit: m
+
+units:
+  force: N
+  moment: N-m
+  massflow: kg/s
+  time: s
+  area: m^2
+
+standard_columns:
+  regional_forces: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R]
+  vehicle_outputs: [Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z]
+  candidate_vehicle_outputs:
+    fz_no_tail_candidate: "STAR 中 fz 不含 tail；完整 report/header/积分面确认前不得替代 Fz_Total"
+  jet_switches: JET_01..JET_24
+  commanded_massflow: cmd_massflow_01..cmd_massflow_24
+  actual_massflow: actual_massflow_01..actual_massflow_24
+
+provenance:
+  git_commit: "待运行时写入"
+  code_branch: "week3_real_data"
+  generator_config: "待记录"
+  source_product_dir: "待记录"
+  notes: "未知信息必须保留为待浩坤确认，不允许默默填 0 或按列名猜方向。"

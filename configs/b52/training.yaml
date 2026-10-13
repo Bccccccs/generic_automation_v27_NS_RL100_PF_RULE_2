@@ -1,0 +1,15 @@
+# B52 训练动作：6 个代表喷口，每喷口 4 次。
+actuation:
+  mode: balanced_singlejet_pulses
+  n_jets: 24
+  jet_ids: [2, 3, 9, 11, 17, 19]
+  mass_flow_levels: [1.43, 2.86]
+  checkpoint_duration: 0.5
+  actuation_window_duration: 0.1
+  recovery_duration: 0.3
+  solver_time_step: 0.0002
+  repetitions_per_jet: 4
+  random_seed: 20260822
+
+output:
+  run_dir: runs/b52/training

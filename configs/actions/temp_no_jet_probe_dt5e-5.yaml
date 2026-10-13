@@ -1,0 +1,13 @@
+# 探针算例：验证 dt=5e-5 下求解是否稳定，不产数据。
+# 物理时长 0.03 s = 上次崩溃点(8.3 ms)的 3.6 倍；300 窗口 × 2 求解步 = 600 步。
+# 模板停止准则必须先放开：最大物理时间 >= 0.03 s，最大步数 >= 600。
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_windows: 300
+  window_duration: 1.0e-4
+  time_step: 5.0e-5
+  mass_flow_rate: 0.0
+
+output:
+  run_dir: runs/schedule_examples/temp_no_jet_probe_dt5e-5

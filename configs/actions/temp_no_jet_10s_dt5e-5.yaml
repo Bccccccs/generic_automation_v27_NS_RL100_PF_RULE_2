@@ -1,0 +1,13 @@
+# 正式算例：10 s，动作窗口仍为 1e-4 s，求解时间步取模板值 5e-5（每窗口 2 个求解步）。
+# 总求解步 200000，按实测 ~2.3 s/步 估算约 128 小时。
+# 模板停止准则必须先放开：最大物理时间 >= 10 s，最大步数 >= 200000 或禁用。
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_windows: 100000
+  window_duration: 1.0e-4
+  time_step: 5.0e-5
+  mass_flow_rate: 0.0
+
+output:
+  run_dir: runs/schedule_examples/temp_no_jet_10s_dt5e-5

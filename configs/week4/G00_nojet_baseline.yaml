@@ -1,0 +1,11 @@
+# B3 G00：1 s 无喷气基准，与两个 pulse case 使用相同时间模型。
+actuation:
+  mode: no_jet_reference
+  n_jets: 24
+  total_actuation_windows: 10
+  actuation_window_duration: 0.1
+  solver_time_step: 1.0e-4
+  mass_flow_rate: 0.0
+
+output:
+  run_dir: runs/real_star/G00_nojet_baseline/input

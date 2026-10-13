@@ -1,0 +1,6 @@
+case_id: G00_nojet_existing
+source_product_dir: raw_star/out_put
+status: complete
+errors: 0
+warnings: 2
+stop_reason: No blocking missing data detected for the declared case type.

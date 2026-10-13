@@ -1,0 +1,5 @@
+[SYNTHETIC] STAR-CCM+ 20.02.007 starting on node gpu01
+[SYNTHETIC] initialized device 0 (uuid GPU-1111-aaaa)
+[SYNTHETIC] falling back to host for segregated-fluid-solver
+[SYNTHETIC] device out of memory: requested 41.2 GiB, available 39.8 GiB
+[SYNTHETIC] FATAL: solver aborted
