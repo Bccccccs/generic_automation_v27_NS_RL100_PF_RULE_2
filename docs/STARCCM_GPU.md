@@ -3,7 +3,12 @@
 对应计划：`docs/superpowers/plans/2026-09-07-starccm-20.02-gpu-qorder-plan.md`
 证据登记：`docs/gpu/20.02-evidence-register.md`
 
-**当前状态：代码已实现，真机验收 BLOCKED。** 关卡 G0 未通过（没有目标 Linux
+> **2026-10-13 更新**：海光 DCU 已于 2026-09-18 真机跑通首次 GPU 求解，可执行的
+> 操作步骤（含 manifest 模板与资格文件的填写）以
+> [`RUN_GPU_CCM.md`](RUN_GPU_CCM.md) 为准；此后 `.sim` 哈希门禁与设备占用拦截已取消
+> （见第 5 节）。下文“BLOCKED”描述的是最初 G0 关卡时的状态，保留作参考。
+
+**当前状态（初版记录）：代码已实现，真机验收 BLOCKED。** 关卡 G0 未通过（没有目标 Linux
 节点、没有 20.02 可执行文件、没有 GPU），因此：
 
 - `-gpgpu` / `-require-gpgpu-compatibility` 是**候选语法，UNVERIFIED**；
