@@ -352,3 +352,55 @@ def test_b52_experiments_use_standard_actions_flow_without_changing_schedule(
         max_total_mass_flow=2.86,
     ) == []
     assert hashlib.sha256(schedule_path.read_bytes()).hexdigest() == expected_sha256
+
+
+def _group_config(**overrides) -> ActuationConfig:
+    values = {
+        "mode": "balanced_singlejet_pulses",
+        "n_jets": 24,
+        "jet_ids": (2, 9, 17),
+        "jet_groups": ((2,), (2, 9), (2, 9, 17)),
+        "mass_flow_levels": (1.43,),
+        "window_duration": 0.1,
+        "time_step": 1e-4,
+        "checkpoint_duration": 0.5,
+        "recovery_duration": 0.7,
+    }
+    values.update(overrides)
+    return ActuationConfig(**values)
+
+
+def test_balanced_pulses_jet_groups_open_jets_together_in_given_order():
+    table, extra, errors = generate_pattern_table(_group_config())
+
+    assert errors == []
+    assert extra["jet_groups"] == [[2], [2, 9], [2, 9, 17]]
+    assert table.window_durations == [0.5, 0.1, 0.7, 0.1, 0.7, 0.1, 0.7]
+    active = [
+        [jet + 1 for jet, value in enumerate(row) if value] for row in table.switches
+    ]
+    assert active == [[], [2], [], [2, 9], [], [2, 9, 17], []]
+    assert [round(sum(row), 6) for row in table.massflows] == [0, 1.43, 0, 2.86, 0, 4.29, 0]
+
+
+def test_balanced_pulses_jet_groups_cycle_levels_per_repetition():
+    table, _, errors = generate_pattern_table(
+        _group_config(jet_groups=((2, 9),), mass_flow_levels=(1.43, 2.86), repetitions_per_jet=2)
+    )
+
+    assert errors == []
+    assert [max(row) for row in table.massflows[1::2]] == [1.43, 2.86]
+
+
+@pytest.mark.parametrize(
+    ("groups", "message"),
+    [
+        (((2,), ()), "jet_groups[1] must not be empty"),
+        (((2, 2),), "jet_groups[0] must not contain duplicate jets"),
+        (((2, 11),), "jet_groups[0] jet 11 is not listed in jet_ids"),
+    ],
+)
+def test_balanced_pulses_jet_groups_reject_invalid_groups(groups, message):
+    _, _, errors = generate_pattern_table(_group_config(jet_groups=groups))
+
+    assert message in errors

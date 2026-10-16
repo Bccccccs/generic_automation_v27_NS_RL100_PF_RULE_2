@@ -1,0 +1,32 @@
+# B06 小测试：组合叠加。cifu0.sim；区域：区域；独立测试，禁止并入训练集。
+# 同一算例内先跑单喷基准 J02、J09、J17，再跑 J02+J09、J09+J17、J02+J17、J02+J09+J17，
+# 用于比较 ΔF(A+B) 与 ΔF(A)+ΔF(B)。jet_groups 按给定顺序执行，不随机打乱。
+# 每口 1.43 kg/s、脉宽 0.1 s（与训练集一致），之后全关 0.7 s；前 0.5 s 全关不用于评估；总时长 6.1 s。
+# 流量单位 kg/s，为每个喷口的指令值；同时开启时总流量最大 3 × 1.43 = 4.29 kg/s。求解 dt=1e-4 s。
+actuation:
+  mode: balanced_singlejet_pulses
+  n_jets: 24
+  jet_ids:
+  - 2
+  - 9
+  - 17
+  jet_groups:
+  - [2]
+  - [9]
+  - [17]
+  - [2, 9]
+  - [9, 17]
+  - [2, 17]
+  - [2, 9, 17]
+  mass_flow_levels:
+  - 1.43
+  checkpoint_duration: 0.5
+  actuation_window_duration: 0.1
+  recovery_duration: 0.7
+  solver_time_step: 0.0001
+  repetitions_per_jet: 1
+  random_seed: 20261016
+  max_active_jets: 3
+  max_total_mass_flow: 4.29
+output:
+  run_dir: runs/b06_validation/pilot_combo_s123_q1p43_w100

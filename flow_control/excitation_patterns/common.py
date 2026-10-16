@@ -116,6 +116,7 @@ class ActuationConfig:
 
     # --- balanced_singlejet_pulses 专用参数 ---
     mass_flow_levels: tuple[float, ...] = ()
+    jet_groups: tuple[tuple[int, ...], ...] = ()  # 非空时每个事件按组同时开启，按给定顺序
     repetitions_per_jet: int = 1
     checkpoint_duration: float = 0.0
     recovery_duration: float = 0.0
@@ -300,6 +301,10 @@ class ActuationConfig:
             prbs_switch_probability=float(actuation.get("prbs_switch_probability", 0.35)),
             mass_flow_levels=tuple(
                 float(value) for value in actuation.get("mass_flow_levels", [])
+            ),
+            jet_groups=tuple(
+                tuple(int(value) for value in group)
+                for group in actuation.get("jet_groups", [])
             ),
             repetitions_per_jet=int(actuation.get("repetitions_per_jet", 1)),
             checkpoint_duration=float(actuation.get("checkpoint_duration", 0.0)),
