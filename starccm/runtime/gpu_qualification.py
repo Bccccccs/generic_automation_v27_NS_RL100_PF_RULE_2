@@ -72,6 +72,7 @@ _DRIVER_RULE_RE = re.compile(r"^(?P<operator>>=|==)(?P<version>\d+(?:\.\d+)*)$")
 _LAUNCH_MODES = ("native", "container", "wrapper")
 _SCHEDULERS = ("manual", "slurm")
 _MPS_POLICIES = ("disabled", "not_applicable")
+_RANKS_PER_GPU = (1, 2)
 _SIM_ITEM_KINDS = ("solver", "model", "interface", "motion", "report", "derived_part", "mesh")
 _WILDCARD_VALUES = {"*", "any", "all", "unknown", "n/a", "na", "-", ""}
 
@@ -264,10 +265,14 @@ def _check_launch(payload: dict[str, Any]) -> None:
             "本次改造固定单节点，不实现跨节点 GPU"
         )
     ranks_per_gpu = launch["approved_ranks_per_gpu"]
-    if not isinstance(ranks_per_gpu, int) or isinstance(ranks_per_gpu, bool) or ranks_per_gpu != 1:
+    if (
+        not isinstance(ranks_per_gpu, int)
+        or isinstance(ranks_per_gpu, bool)
+        or ranks_per_gpu not in _RANKS_PER_GPU
+    ):
         _fail(
-            f"approved_launch.approved_ranks_per_gpu 首批只批准 1（每 GPU 一个 MPI rank），"
-            f"收到 {ranks_per_gpu!r}"
+            f"approved_launch.approved_ranks_per_gpu 只批准 {_RANKS_PER_GPU}（每 GPU 的 MPI rank 数；"
+            f"官方仅给出 1 和部分耦合问题用的 2），收到 {ranks_per_gpu!r}"
         )
     counts = launch["approved_gpu_counts"]
     if not isinstance(counts, list) or not counts:

@@ -288,6 +288,45 @@ def test_starccm_command_omits_mpi_flag_when_driver_not_set(tmp_path):
     assert "-mpi" not in command
 
 
+def test_starccm_command_adds_threads_per_process_after_mpi_driver(tmp_path):
+    command = _build_starccm_command(
+        "starccm+",
+        tmp_path / "macro.java",
+        tmp_path / "case.sim",
+        num_cores=4,
+        mpi_driver="openmpi",
+        threads_per_process=8,
+        pod_key="",
+    )
+
+    assert command[:7] == ["starccm+", "-np", "4", "-mpi", "openmpi", "-tpp", "8"]
+
+
+def test_starccm_command_omits_tpp_by_default(tmp_path):
+    command = _build_starccm_command(
+        "starccm+",
+        tmp_path / "macro.java",
+        tmp_path / "case.sim",
+        num_cores=4,
+        pod_key="",
+    )
+
+    assert "-tpp" not in command
+
+
+@pytest.mark.parametrize("threads", [-1, True])
+def test_starccm_command_rejects_invalid_threads_per_process(tmp_path, threads):
+    with pytest.raises(ValueError, match="threads-per-process"):
+        _build_starccm_command(
+            "starccm+",
+            tmp_path / "macro.java",
+            tmp_path / "case.sim",
+            num_cores=4,
+            threads_per_process=threads,
+            pod_key="",
+        )
+
+
 def test_starccm_command_rejects_unknown_mpi_driver(tmp_path):
     with pytest.raises(ValueError, match="mpi-driver"):
         _build_starccm_command(

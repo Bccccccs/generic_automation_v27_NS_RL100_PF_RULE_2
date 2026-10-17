@@ -359,12 +359,28 @@ def test_multi_node_launch_approval_is_rejected(tmp_path):
         load_gpu_qualification(write_qualification(tmp_path, qualification))
 
 
-def test_non_unit_rank_per_gpu_is_rejected(tmp_path):
+@pytest.mark.parametrize("ranks", [0, 3, 4, True, "2"])
+def test_unapproved_rank_per_gpu_is_rejected(tmp_path, ranks):
     qualification = valid_qualification()
-    qualification["approved_launch"]["approved_ranks_per_gpu"] = 4
+    qualification["approved_launch"]["approved_ranks_per_gpu"] = ranks
 
     with pytest.raises(GPUQualificationError, match="approved_ranks_per_gpu"):
         load_gpu_qualification(write_qualification(tmp_path, qualification))
+
+
+def test_two_ranks_per_gpu_require_double_process_count(preflight_inputs):
+    path = preflight_inputs["qualification_path"]
+    qualification = json.loads(path.read_text(encoding="utf-8"))
+    qualification["approved_launch"]["approved_ranks_per_gpu"] = 2
+    path.write_text(json.dumps(qualification), encoding="utf-8")
+
+    with pytest.raises(GPUPreflightError) as excinfo:
+        call_preflight(preflight_inputs, selection="auto:2:nomps", num_processes=2)
+    assert excinfo.value.failure_code == "RANK_GPU_MISMATCH"
+
+    result = call_preflight(preflight_inputs, selection="auto:2:nomps", num_processes=4)
+    assert result.evidence["state"] == "PREFLIGHT_PASSED"
+    assert result.evidence["request"]["mpi_processes"] == 4
 
 
 def test_enabled_mps_policy_is_rejected(tmp_path):

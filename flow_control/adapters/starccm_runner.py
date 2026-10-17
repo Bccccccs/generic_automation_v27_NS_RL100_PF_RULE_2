@@ -75,6 +75,7 @@ class FlowControlStarCCMRunConfig:
     machinefile_path: Path | None = None
     mpi_env: tuple[str, ...] = ()
     mpi_driver: str = ""
+    threads_per_process: int = 0
     scheduler: str = "manual"
     scheduler_job_id: str = ""
     allocated_nodes: tuple[str, ...] = ()
@@ -221,6 +222,7 @@ class FlowControlStarCCMRunner:
             machinefile_path=machinefile_path,
             mpi_env=config.mpi_env,
             mpi_driver=config.mpi_driver,
+            threads_per_process=config.threads_per_process,
             pod_key=config.pod_key,
             gpu=gpu_context.config,
         )
@@ -1483,6 +1485,7 @@ def _build_starccm_command(
     machinefile_path: Path | None = None,
     mpi_env: tuple[str, ...] = (),
     mpi_driver: str = "",
+    threads_per_process: int = 0,
     pod_key: str,
     gpu: GPUExecutionConfig | None = None,
 ) -> list[str]:
@@ -1493,6 +1496,8 @@ def _build_starccm_command(
         command += ["-np", str(num_cores)]
     if mpi_driver:
         command += ["-mpi", _validate_mpi_driver(mpi_driver)]
+    if threads_per_process:
+        command += ["-tpp", str(_validate_threads_per_process(threads_per_process))]
     normalized_mpi_env = _validate_mpi_env(mpi_env)
     if normalized_mpi_env:
         mppflags = " ".join(f"-x {item}" for item in normalized_mpi_env)
@@ -1538,6 +1543,7 @@ def _runtime_execution_manifest(
         "machinefile": str(machinefile_path) if machinefile_path is not None else "",
         "mpi_environment": dict(item.split("=", 1) for item in _validate_mpi_env(config.mpi_env)),
         "mpi_driver": config.mpi_driver,
+        "threads_per_process": config.threads_per_process or None,
         "region": config.region_name,
         "time_step": config.time_step,
         "total_steps": total_steps,
@@ -1578,6 +1584,12 @@ def _validate_mpi_driver(value: str) -> str:
             f"--mpi-driver must be one of {_ALLOWED_MPI_DRIVERS}, got {value!r}"
         )
     return driver
+
+
+def _validate_threads_per_process(value: int) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ValueError(f"--threads-per-process must be a positive integer, got {value!r}")
+    return value
 
 
 def _validate_mpi_env(values: tuple[str, ...]) -> tuple[str, ...]:
