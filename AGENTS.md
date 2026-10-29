@@ -20,7 +20,7 @@
 2. 查本地状态：`git status --short`、`git log --oneline -5`、`ls runs artifacts`。
 3. 有正在跑的作业时，先看对应 `<case_dir>/AGENT_HANDOFF.md`，再让用户执行 `squeue -u $USER` 或
    `python scripts/workflow.py ccm-status --out <case_dir>/raw_star` 确认，避免重复提交。
-4. 跑一遍测试确认环境：`.venv/bin/python -m pytest -q`（2026-10-29 为 631 passed）。
+4. 跑一遍测试确认环境：`.venv/bin/python -m pytest -q`（2026-10-29：装了 torch 为 631 passed；没装 torch 为 590 passed、14 skipped）。
 
 ## 2. 工作规则
 
@@ -98,6 +98,21 @@
 3. `.sim` 模板放在哪？是不是 `cifu0.sim`（sha256 `435a9155…bf04`）？
 4. 用几张卡？是 root 运行的容器吗？
 5. 第一个算例跑什么、跑多长？（建议先跑短的无喷气算例做冒烟测试）
+
+仓库里**没有**、新机器必须从别处拿的东西：
+
+| 依赖 | 从哪来 | 验收 |
+|---|---|---|
+| STAR-CCM+ 安装与许可证 | **由用户提供并完成**，agent 不处理许可证文件。Pro6000 的做法：`~/.config/starccm/env.sh` 设置 `STARCCM_HOME` 和 `CDLMD_LICENSE_FILE`，安装记录在 `~/apps/Siemens/STAR-CCM-安装说明.md` | 在仓库外运行 `starccm+ -version` 能输出版本号 |
+| 英伟达驱动 | 机器自带即可；STAR 自带 GPU 运行库，Pro6000 上没有 `nvcc` 也能跑 | `nvidia-smi` 正常，驱动版本写进资格文件 |
+| `cifu0.sim`（约 4.0 GB，sha256 `435a9155…bf04`） | Pro6000 仓库根目录、海光集群仓库根目录各有一份；用 `rsync -P` 拷贝 | `sha256sum` 对上 |
+| Python ≥ 3.10 | 系统 Python、venv 或 conda 都可以（Pro6000 用 conda 环境 `ccm`，3.10；没装 torch，只有 B56 训练需要） | `pip install -r requirements.txt` 后测试全部通过 |
+| 资格文件 | 每台机器自己写（5.3） | 离线校验通过，运行时预检 `PREFLIGHT_PASSED` |
+| 算例数据 `runs/`、ROM 产物 `artifacts/` | 不入库：完整副本在用户本地 Mac 仓库，原始求解结果在各求解机器的 `runs/` | 只有做 B53～B56 才需要；只跑求解时不需要 |
+
+2026-10-29 已从 GitHub 全新克隆走过一遍 5.2～5.4：克隆、新建 venv、装依赖、跑测试（590 passed、14 skipped，跳过的是需要 torch 的测试）、
+写资格文件并离线校验、生成动作表、GPU dry-run，都按本节命令跑通；用占位的 starccm+ 做真实运行时，预检按预期拦截为 `STAR_VERSION_UNAVAILABLE`。
+真实 STAR 求解这一步没在新机器上重新验证。
 
 ### 5.2 代码、Python、STAR
 

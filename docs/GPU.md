@@ -364,6 +364,7 @@ python3 -c "import json,sys;r=json.load(open(sys.argv[1]));print('预检:',(r.ge
 | `QUALIFICATION_INVALID: driver_requirement 必须写成 '>=版本'` | 写了 `latest`、`590+` 之类 |
 | `QUALIFICATION_INVALID: ...属于无限通配` | 平台字段写了 `*`、`any`、`unknown` |
 | `QUALIFICATION_INVALID: sim_review 存在未确认或不兼容项` | 有一项不是 `compatible` |
+| `STAR_VERSION_UNAVAILABLE` | 预检执行 `starccm+ -version` 失败：路径错了、没加载 STAR 环境或许可证（如没 `. ~/.config/starccm/env.sh`），或者在仓库根目录启动导致 2606 报 `No module named starccm.__main__`（2026-10-20 在 Pro6000 上真实出现过，改为在 Case 目录启动后解决） |
 | `STAR_BUILD_MISMATCH` | `star_build` 不在 `-version` 输出里，检查 `--starccm-path` 是否指错版本 |
 | `PLATFORM_NOT_APPROVED` | `os` / `cpu_arch` / `os_id` 不符，或 `gpu_model` 不是设备名子串，或驱动低于下限 |
 | `LAUNCH_NOT_APPROVED` | 文件里写的 `scheduler` 与命令行的 `--scheduler` 不一致 |
