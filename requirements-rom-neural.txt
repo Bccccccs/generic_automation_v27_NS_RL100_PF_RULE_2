@@ -1,0 +1,2 @@
+# Optional CPU neural ROM dependency; base workflow does not require torch.
+torch>=2.2,<3

@@ -1,0 +1,20 @@
+# B06 小测试：单次喷气看效果。cifu0.sim；区域：区域；独立测试，禁止并入训练集。
+# J02 在 1.0 s 开启、1.1 s 关闭，之后全关 0.9 s 观察响应与恢复；总时长 2.0 s。
+# 流量单位 kg/s，为每个喷口的指令值；求解 dt=1e-4 s。
+actuation:
+  mode: balanced_singlejet_pulses
+  n_jets: 24
+  jet_ids:
+  - 2
+  mass_flow_levels:
+  - 1.43
+  checkpoint_duration: 1.0
+  actuation_window_duration: 0.1
+  recovery_duration: 0.9
+  solver_time_step: 0.0001
+  repetitions_per_jet: 1
+  random_seed: 20261016
+  max_active_jets: 1
+  max_total_mass_flow: 1.43
+output:
+  run_dir: runs/b06_validation/pilot_single_j02_q1p43_w100

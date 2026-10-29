@@ -1,0 +1,40 @@
+# Predeclared study: select solely within the original training Case, refit once.
+project_root: ../..
+training_dataset: artifacts/B53_training_data/training_dataset.csv
+validation_dataset: artifacts/B53_training_data/validation_dataset.csv
+sample_stride: 10
+expected_dt_s: 0.001
+network:
+  input_lags: 200
+  output_lags: 10
+  hidden_sizes: [300, 300, 300]
+  member_seeds: [42, 43, 44, 45, 46]
+optimizer:
+  batch_size: 64
+  learning_rate: 0.00028
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+evaluation:
+  particles: 200
+  mixture_samples: 2000
+  seed: 42
+linear_model: artifacts/B04_real_ROM_model.json
+residual_model: artifacts/B55_residual_20261018_trial01/model.json
+evaluation_datasets:
+  - name: B06_event_segments
+    path: artifacts/B53_b06_validation_20261018/validation_dataset.csv
+    role: known_evaluation
+study:
+  epochs: 80
+  interval: 10
+  member_seeds: [42, 43, 44]
+  development_fraction: 0.25
+  window_horizon: 20
+  reference_code_commit: 97a42189b032d5845b1b8f9790e2dc9c7885b3d1
+  candidates:
+    - {name: absolute_h1_300, prediction_mode: absolute, hidden_sizes: [300, 300, 300], horizon: 1, warmup_epochs: 0}
+    - {name: absolute_h20_300, prediction_mode: absolute, hidden_sizes: [300, 300, 300], horizon: 20, warmup_epochs: 20}
+    - {name: increment_h1_300, prediction_mode: state_increment, hidden_sizes: [300, 300, 300], horizon: 1, warmup_epochs: 0}
+    - {name: increment_h20_300, prediction_mode: state_increment, hidden_sizes: [300, 300, 300], horizon: 20, warmup_epochs: 20}
+    - {name: increment_h1_128, prediction_mode: state_increment, hidden_sizes: [128, 128, 128], horizon: 1, warmup_epochs: 0}
+    - {name: increment_h1_600, prediction_mode: state_increment, hidden_sizes: [600, 600, 600], horizon: 1, warmup_epochs: 0}

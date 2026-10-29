@@ -15,7 +15,7 @@ set -e
 set -o pipefail
 trap 'echo "作业失败：第 ${LINENO} 行，请检查作业日志。" >&2' ERR
 
-# 集群通过 module 提供 conda；py3.10 环境需事先创建（见 SETUP.md）。
+# 集群通过 module 提供 conda；py3.10 环境需事先创建（见 AGENTS.md 5.1：bash scripts/setup_cluster_env.sh）。
 module load anaconda3/2023.09
 source "$(conda info --base)/etc/profile.d/conda.sh"
 conda activate py3.10

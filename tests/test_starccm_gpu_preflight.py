@@ -1,7 +1,7 @@
 """GPU 资格文件校验、单节点预检与已分配资源核验测试（任务 3、任务 4）。
 
 对应计划第 5.3/5.4 节与任务 4。所有外部诊断都用 stub 替换，不在测试机上启动真实
-命令；真机证据仍属 BLOCKED（docs/gpu/20.02-evidence-register.md 的 B-01/B-03/B-04）。
+命令；真机证据仍属 BLOCKED（docs/GPU.md 的 B-01/B-03/B-04）。
 """
 
 from __future__ import annotations
@@ -76,7 +76,7 @@ def valid_qualification() -> dict:
                 "gpu_model": "A100-SXM4-40GB",
                 "match_rule": "os 与 cpu_arch 精确相等，gpu_model 取设备名子串",
                 "driver_requirement": ">=550.54.15",
-                "evidence": "docs/gpu/20.02-evidence-register.md B-03",
+                "evidence": "docs/GPU.md B-03",
             }
         ],
         "approved_launch": {
@@ -1473,7 +1473,7 @@ def test_second_approved_platform_row_can_match_devices(preflight_inputs):
             "gpu_model": "L40S",
             "match_rule": "os 与 cpu_arch 精确相等，gpu_model 取设备名子串",
             "driver_requirement": ">=550.54.15",
-            "evidence": "docs/gpu/20.02-evidence-register.md B-03",
+            "evidence": "docs/GPU.md B-03",
         }
     )
     preflight_inputs["qualification_path"] = write_qualification(

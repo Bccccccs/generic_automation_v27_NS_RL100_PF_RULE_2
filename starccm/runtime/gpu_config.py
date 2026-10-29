@@ -6,7 +6,7 @@
 
 命令行 token（``-gpgpu`` / ``-require-gpgpu-compatibility``）在目标 20.02 build
 上仍属 UNVERIFIED，正式 GPU run 前必须完成
-``docs/gpu/20.02-evidence-register.md`` 中 B-01 的同版本核验。
+``docs/GPU.md`` 中 B-01 的同版本核验。
 """
 
 from __future__ import annotations

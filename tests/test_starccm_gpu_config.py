@@ -2,7 +2,7 @@
 
 对应计划第 5.1/5.2 节。这里只测纯配置与 token 生成，不探测硬件；
 `-gpgpu` / `-require-gpgpu-compatibility` 的语法本身仍属 UNVERIFIED
-（见 docs/gpu/20.02-evidence-register.md 的 B-01）。
+（见 docs/GPU.md 的 B-01）。
 """
 
 from __future__ import annotations

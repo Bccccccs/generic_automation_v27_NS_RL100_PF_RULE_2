@@ -373,7 +373,7 @@ def test_cpu_and_gpu_generate_byte_identical_macro_and_plan(tmp_path):
     assert "-gpgpu" in gpu_result.command
 
 
-def test_workflow_dispatch_table_is_unchanged():
+def test_workflow_dispatch_table_includes_residual_training():
     spec = importlib.util.spec_from_file_location(
         "_workflow_dispatch_probe", Path("scripts/workflow.py")
     )
@@ -385,9 +385,13 @@ def test_workflow_dispatch_table_is_unchanged():
         "mock",
         "ccm",
         "ccm-status",
+        "ccm-monitor",
         "organize",
         "check",
         "figures",
+        "train-residual-rom",
+        "train-probabilistic-rom",
+        "evaluate-probabilistic-rom",
     }
 
 

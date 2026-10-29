@@ -1564,7 +1564,7 @@ def _csv_data_row_count(path: Path) -> int:
 
 
 # STAR-CCM+ 20.02 `-mpi` 支持的 driver 名称，来自 `starccm+ -help` 实测输出
-# （真机 20.02.007-R8，见 docs/STARCCM_GPU.md 海光小节）。只接受这个白名单里
+# （真机 20.02.007-R8，见 docs/GPU.md 海光小节）。只接受这个白名单里
 # 的裸名称，不接受 `-help` 里提到的 `driver:"expert options"` 拼接形式——那部分
 # 专家选项如果需要，应该走已有的 `-mpiflags`（本仓库对应 `--mpi-env`），不在
 # 这里拼接任意字符串到 argv。

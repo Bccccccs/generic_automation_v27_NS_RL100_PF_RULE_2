@@ -1,8 +1,8 @@
 """海光 HyHAL（hy-smi）GPU 预检测试。
 
 字段格式全部来自真机 ``hy-smi`` 实测输出（8 卡 C-3000/BW 节点，驱动
-6.3.31-V1.5.0a），见 docs/gpu/20.02-evidence-register.md 与
-docs/STARCCM_GPU.md 的海光小节。所有外部诊断仍用 stub 替换，不在测试机上
+6.3.31-V1.5.0a），见 docs/GPU.md 与
+docs/GPU.md 的海光小节。所有外部诊断仍用 stub 替换，不在测试机上
 启动真实命令；真机 STAR-CCM+ GPU 执行仍属 BLOCKED，本文件只验证预检这一层
 的设备枚举/占用检测/MIG 判定逻辑。
 """
@@ -115,7 +115,7 @@ def hygon_qualification() -> dict:
                 "gpu_model": "BW",
                 "match_rule": "os 与 cpu_arch 精确相等，gpu_model 取 Card Series 子串",
                 "driver_requirement": ">=6.3.31",
-                "evidence": "docs/gpu/20.02-evidence-register.md 海光小节",
+                "evidence": "docs/GPU.md 海光小节",
             }
         ],
         "approved_launch": {

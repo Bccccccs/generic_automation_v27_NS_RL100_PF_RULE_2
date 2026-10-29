@@ -31,7 +31,7 @@
       "gpu_model": "BLOCKED-填写 hy-smi --showproductname 实际 Card Series（例如 BW）",
       "match_rule": "os 与 cpu_arch 精确相等；gpu_model 取 hy-smi Card Series 子串；本次使用的卡必须同型号",
       "driver_requirement": "BLOCKED-填写目标节点 hy-smi --showdriverversion 的数值前缀下限（例如 >=6.3.31；只比较数值点分前缀，忽略 -V1.5.0a 这类构建后缀）",
-      "evidence": "docs/gpu/20.02-evidence-register.md 海光小节（BLOCKED，尚未取得真机 STAR-CCM+ GPU 执行证据，只有 hy-smi 诊断输出）；driver_requirement 与 gpu_model 必须用目标节点实测值替换，不得照抄"
+      "evidence": "docs/GPU.md 海光小节（BLOCKED，尚未取得真机 STAR-CCM+ GPU 执行证据，只有 hy-smi 诊断输出）；driver_requirement 与 gpu_model 必须用目标节点实测值替换，不得照抄"
     }
   ],
   "approved_launch": {

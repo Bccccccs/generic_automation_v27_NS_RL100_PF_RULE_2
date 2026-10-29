@@ -1,0 +1,25 @@
+# B06 小测试：不同流量。cifu0.sim；区域：区域；独立测试，禁止并入训练集。
+# S1/S2/S3 各一个喷口（J02、J09、J17），每个喷口喷两次，流量 2.145（训练两档之间，插值）和 0.715（低于训练最低档，外推）各一次。
+# 脉宽 0.1 s（与训练集一致），之后全关 0.7 s；前 0.5 s 全关不用于评估；总时长 5.3 s。
+# random_seed 20261043 给出顺序：J02@2.145, J09@0.715, J17@0.715, J02@0.715, J09@2.145, J17@2.145。
+# 流量单位 kg/s，为每个喷口的指令值；求解 dt=1e-4 s。
+actuation:
+  mode: balanced_singlejet_pulses
+  n_jets: 24
+  jet_ids:
+  - 2
+  - 9
+  - 17
+  mass_flow_levels:
+  - 2.145
+  - 0.715
+  checkpoint_duration: 0.5
+  actuation_window_duration: 0.1
+  recovery_duration: 0.7
+  solver_time_step: 0.0001
+  repetitions_per_jet: 2
+  random_seed: 20261043
+  max_active_jets: 1
+  max_total_mass_flow: 2.145
+output:
+  run_dir: runs/b06_validation/pilot_s123_2level_w100

@@ -17,7 +17,7 @@ ERROR_EXAMPLES = {
 
 
 def test_real_star_error_examples_trigger_target_categories():
-    root = Path("runs/error_case/ccm_physics")
+    root = Path("tests/fixtures/error_case/ccm_physics")
 
     for case_id, category in ERROR_EXAMPLES.items():
         case_dir = root / case_id

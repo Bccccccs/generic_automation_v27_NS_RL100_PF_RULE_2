@@ -40,7 +40,7 @@ from flow_control.sampling import (
 
 N_JETS = 24
 REGION_COLUMNS = ("Fz_S1L", "Fz_S1R", "Fz_S2L", "Fz_S2R", "Fz_S3L", "Fz_S3R")
-# 与 docs/week4/B01_final_data_contract.md 同源；包内自有定义，避免 B53 重构波及训练表。
+# 与 configs/week4/case_manifest_template.yaml 同源；包内自有定义，避免 B53 重构波及训练表。
 REGION_FORCE_ALIASES = {
     "Fz_S1L": ("Fz_S1L", "underbody_lift_s1l"),
     "Fz_S1R": ("Fz_S1R", "underbody_lift_s1r"),

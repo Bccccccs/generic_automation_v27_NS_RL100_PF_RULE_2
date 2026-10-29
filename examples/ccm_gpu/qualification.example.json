@@ -31,7 +31,7 @@
       "gpu_model": "BLOCKED-填写 nvidia-smi 实际设备名",
       "match_rule": "os 与 cpu_arch 精确相等；gpu_model 取实际设备名子串；本次使用的 GPU 必须同型号",
       "driver_requirement": ">=550.54.15",
-      "evidence": "docs/gpu/20.02-evidence-register.md B-03（BLOCKED，尚未取得设备证据）；driver_requirement 与 gpu_model 同为占位，必须用目标节点 nvidia-smi 实测值替换，不得照抄"
+      "evidence": "docs/GPU.md B-03（BLOCKED，尚未取得设备证据）；driver_requirement 与 gpu_model 同为占位，必须用目标节点 nvidia-smi 实测值替换，不得照抄"
     }
   ],
   "approved_launch": {

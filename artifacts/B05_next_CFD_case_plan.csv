@@ -1,6 +1,0 @@
-case_id,priority,split,purpose,jets,simultaneous_jets,mass_flow_levels_kg_s,pulse_widths_s,recovery_s,first_pulse_s,events,duration_s,time_step_s,template,reference_case,generator_mode,generator_change_needed,decision_it_supports
-B6_T1_multilevel,1,training,加密流量档并增加重复，检验幅值线性、减小峰值偏差,"J02,J03,J09,J11,J17,J19",1,"0.72,1.43,2.15,2.86",0.1,0.3,0.6,24,10.2,1e-4,cifu0.sim,runs/cifu0_nojet_11s,balanced_singlejet_pulses,否（mass_flow_levels 已支持多档）,线性模型在流量范围内是否足够
-B6_T2_multiwidth,1,training,覆盖短脉冲和长持续喷气，补足 20 ms 以上时间尺度,"J02,J03,J09,J11,J17,J19",1,"1.43,2.86","0.05,0.2,0.5",0.3,0.6,18,10.5,1e-4,cifu0.sim,runs/cifu0_nojet_11s,balanced_singlejet_pulses（扩展）,是：每个事件需可指定不同脉宽,ROM 对不同脉宽的外推能力
-B6_T3_pairs,1,training,双喷口同时喷：同段左右（J02+J03、J09+J11、J17+J19）与跨段（J02+J09、J09+J17、J02+J17），检验线性叠加,"J02,J03,J09,J11,J17,J19",2,"1.43,2.86",0.1,0.3,0.6,24,10.2,1e-4,cifu0.sim,runs/cifu0_nojet_11s,新增 paired_pulses 模式,是：新增双喷口同步脉冲模式,是否需要交互项或非线性模型
-B6_V1_mixed,1,validation,独立验证：单喷口、双喷口、不同脉宽和流量混合，随机种子与训练不同,"J02,J03,J09,J11,J17,J19",1-2,"1.0,1.43,2.15,2.86","0.05,0.1,0.2",0.3,0.6,20,10.0,1e-4,cifu0.sim,runs/cifu0_nojet_11s,依赖 T2/T3 的扩展模式,是（同上）,B6 ROM 的独立验收
-B6_P1_outer_probe,2,probe,外侧/其他列喷口单脉冲探测，判断是否提供新的独立控制方向（左右差异、S3 持续响应）,"J01,J04,J18,J20,J10,J12",1,2.86,0.1,0.3,0.6,12,5.4,1e-4,cifu0.sim,runs/cifu0_nojet_11s,balanced_singlejet_pulses,否,是否扩展到 12/24 喷口

@@ -1,0 +1,13 @@
+# project_root 相对本 YAML 所在目录。沿用线性快照的 dt、stride 和通道顺序。
+project_root: ../..
+linear_model: artifacts/B04_real_ROM_model.json
+training_dataset: artifacts/B53_training_data/training_dataset.csv
+validation_dataset: artifacts/B53_training_data/validation_dataset.csv
+network:
+  hidden: 32
+  seed: 42
+optimizer:
+  epochs: 200
+  batch_size: 256
+  learning_rate: 0.001
+  weight_decay: 0.0001

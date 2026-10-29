@@ -62,7 +62,7 @@ def normalize_sample_ownership(value: Any) -> str | None:
     """把 CLI/manifest 里的声明归一化为 ownership 模式，无法识别时返回 ``None``。
 
     仓库既有模板用不等式散文描述区间（见
-    ``docs/week3/B02_case_manifest_template.yaml``），这里一并解析，避免把已
+    旧版 week3 manifest 模板），这里一并解析，避免把已
     声明的语义当成未声明。
     """
     if value in (None, ""):

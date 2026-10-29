@@ -42,6 +42,12 @@ def _ccm_status(argv: list[str]) -> int:
     return main(argv)
 
 
+def _ccm_monitor(argv: list[str]) -> int:
+    from flow_control.cli.ccm_monitor import main
+
+    return main(argv)
+
+
 def _organize(argv: list[str]) -> int:
     from flow_control.cli.organize_outputs import main
 
@@ -60,11 +66,31 @@ def _figures(argv: list[str]) -> int:
     return main(argv)
 
 
+def _train_residual_rom(argv: list[str]) -> int:
+    from flow_control.rom.train_residual_rom import main
+
+    return main(argv)
+
+
+def _train_probabilistic_rom(argv: list[str]) -> int:
+    from flow_control.rom.train_probabilistic_rom import main
+    return main(argv)
+
+
+def _evaluate_probabilistic_rom(argv: list[str]) -> int:
+    from flow_control.rom.evaluate_probabilistic_rom import main
+    return main(argv)
+
+
 COMMANDS: dict[str, tuple[str, Callable[[list[str]], int]]] = {
+    "train-probabilistic-rom": ("本地训练 B56 概率集成模型", _train_probabilistic_rom),
+    "evaluate-probabilistic-rom": ("离线评估 B56 并比较基线", _evaluate_probabilistic_rom),
+    "train-residual-rom": ("训练 B54 ARX 的非线性残差网络并独立验证", _train_residual_rom),
     "actions": ("根据 YAML 生成动作表", _actions),
     "mock": ("对动作输入运行 MockDynamic24x6", _mock),
     "ccm": ("生成宏、运行 STAR-CCM+ 或打包/校验已有结果", _ccm),
     "ccm-status": ("查看 STAR-CCM+ 的 Slurm、MPI、Step 和错误状态", _ccm_status),
+    "ccm-monitor": ("每秒只读刷新 STAR 求解速度、进度和本机进程", _ccm_monitor),
     "organize": ("将 CCM 输出整理为标准 Case", _organize),
     "check": ("执行质量检查并生成诊断 PNG", _check),
     "figures": ("根据标准 Case 生成 5 张 SVG 汇总图", _figures),

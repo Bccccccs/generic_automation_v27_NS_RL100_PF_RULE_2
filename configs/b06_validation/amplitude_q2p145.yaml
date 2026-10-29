@@ -1,0 +1,24 @@
+# cifu0.sim；区域：区域；固定模型独立测试，禁止并入训练集。
+# 流量单位 kg/s，为每个喷口的指令值；求解 dt=1e-4 s。
+actuation:
+  mode: balanced_singlejet_pulses
+  n_jets: 24
+  jet_ids:
+  - 2
+  - 3
+  - 9
+  - 11
+  - 17
+  - 19
+  mass_flow_levels:
+  - 2.145
+  checkpoint_duration: 1.0
+  actuation_window_duration: 0.1
+  recovery_duration: 0.7
+  solver_time_step: 0.0001
+  repetitions_per_jet: 1
+  random_seed: 20261016
+  max_active_jets: 1
+  max_total_mass_flow: 2.145
+output:
+  run_dir: runs/b06_validation/amplitude_q2p145

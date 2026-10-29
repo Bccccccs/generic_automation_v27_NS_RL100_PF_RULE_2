@@ -1,0 +1,27 @@
+# Local training only. No STAR step changes; no controller connection.
+project_root: ../..
+training_dataset: artifacts/B53_training_data/training_dataset.csv
+validation_dataset: artifacts/B53_training_data/validation_dataset.csv
+sample_stride: 10
+expected_dt_s: 0.001
+network:
+  input_lags: 200
+  output_lags: 10
+  hidden_sizes: [300, 300, 300]
+  member_seeds: [42, 43, 44, 45, 46]
+optimizer:
+  epochs: 200
+  warmup_epochs: 20
+  horizon: 20
+  batch_size: 64
+  learning_rate: 0.00028
+  weight_decay: 0.0001
+  gradient_clip: 1.0
+evaluation:
+  particles: 200  # TS1 trajectory diagnostics; explicitly set 0 to leave quantiles blank
+  mixture_samples: 2000
+  seed: 42
+# Optional trusted baselines; omitted paths are reported BASELINE_UNAVAILABLE.
+linear_model: artifacts/B04_real_ROM_model.json
+residual_model: artifacts/B55_residual_20261018_trial01/model.json
+evaluation_datasets: []

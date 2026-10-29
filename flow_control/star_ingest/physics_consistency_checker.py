@@ -74,14 +74,14 @@ def check_case(
         explicit_path=boundary_mapping_path,
         manifest=manifest,
         key="boundary_mapping_file",
-        default_path="docs/week3/B02_boundary_mapping.csv",
+        default_path="configs/mappings/B02_boundary_mapping.csv",
     )
     report_path = _configured_mapping_path(
         case_path,
         explicit_path=report_mapping_path,
         manifest=manifest,
         key="report_mapping_file",
-        default_path="docs/week3/B02_report_mapping.csv",
+        default_path="configs/mappings/B02_report_mapping.csv",
     )
 
     if not timeseries:
@@ -763,8 +763,8 @@ def _is_unknown(value: str) -> bool:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run B04 physics consistency checks.")
     parser.add_argument("case_dirs", nargs="+", help="standard case directories to check")
-    parser.add_argument("--boundary-mapping", default="docs/week3/B02_boundary_mapping.csv")
-    parser.add_argument("--report-mapping", default="docs/week3/B02_report_mapping.csv")
+    parser.add_argument("--boundary-mapping", default="configs/mappings/B02_boundary_mapping.csv")
+    parser.add_argument("--report-mapping", default="configs/mappings/B02_report_mapping.csv")
     parser.add_argument("--output", default="B04_physics_QC_report.json")
     args = parser.parse_args(argv)
 

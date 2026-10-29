@@ -1,42 +1,33 @@
+# ---- 系统 / IDE / Python ----
 .DS_Store
 .claude/
 .idea/
 .venv/
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
+# ---- 数据与运行产物：一律不入库（体积大，可由脚本重新生成或从集群拷回）----
+runs/*
+!runs/.gitkeep
+artifacts/
 logs/
 results/
 results_validation/
-runs/*
-!runs/.gitkeep
-!runs/real_star/
-!runs/real_star/**
-archive/legacy/*
-!archive/legacy/.gitkeep
-
-offline_packages/
-offline_packages_linux_x86_64_py310_py311_py312.tar.gz
-
-runs/starccm_single/
-runs/starccm_no/
-
-# STAR-CCM+ 崩溃调试产物（含 694MB starccm_runtime_plan.json），不入库
 traceback/
+offline_packages/
+汇报图_*/
 
+# ---- 存档：旧文档、旧数据快照，只留本地 ----
+archive/
+
+# ---- STAR-CCM+ 模板与大文件 ----
 *.sim
 *.sim~
 *.log
-!runs/real_star/**/*.log
 *.csv.tmp
 *.pdf
 *.key
+*.zip
+*.tar.gz
 ~$*
-
-# 本地打包的算例归档
-cifu0_nojet_*.tar.gz
-
-# 数据产物不入库（体积大，可由脚本重新生成）
-artifacts/B53_training_data/*_dataset.csv
-artifacts/*_predictions.csv
-runs/real_star/**/.DS_Store

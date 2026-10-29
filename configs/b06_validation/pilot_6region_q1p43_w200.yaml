@@ -1,0 +1,27 @@
+# B06 小测试：六个区域各一个喷口依次长喷 0.2 s。cifu0.sim；区域：区域；独立测试，禁止并入训练集。
+# 用训练集的 6 个代表喷口 J02、J03（S1）→ J09、J11（S2）→ J17、J19（S3）。
+# 前 0.5 s 全关（启动段，不用于评估）；之后每个喷口喷 0.2 s、全关恢复 0.6 s，依次进行；总时长 5.3 s。
+# 事件顺序由 random_seed 决定：20261305 恰好给出上面的顺序（其他种子会打乱）。
+# 流量单位 kg/s，为每个喷口的指令值；求解 dt=1e-4 s。
+actuation:
+  mode: balanced_singlejet_pulses
+  n_jets: 24
+  jet_ids:
+  - 2
+  - 3
+  - 9
+  - 11
+  - 17
+  - 19
+  mass_flow_levels:
+  - 1.43
+  checkpoint_duration: 0.5
+  actuation_window_duration: 0.2
+  recovery_duration: 0.6
+  solver_time_step: 0.0001
+  repetitions_per_jet: 1
+  random_seed: 20261305
+  max_active_jets: 1
+  max_total_mass_flow: 1.43
+output:
+  run_dir: runs/b06_validation/pilot_6region_q1p43_w200

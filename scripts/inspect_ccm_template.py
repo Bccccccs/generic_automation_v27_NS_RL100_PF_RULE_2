@@ -9,7 +9,7 @@ Online (needs starccm+ on this machine, e.g. a compute node):
     python scripts/inspect_ccm_template.py --sim cifunewest.sim --out-dir runs/_inspect
     python scripts/inspect_ccm_template.py --sim cifunewest.sim --out-dir runs/_inspect \
         --starccm /path/to/starccm+ --np 8 --podkey <key> \
-        --manifest runs/real_star/G00_nojet_existing/case_manifest.yaml --write
+        --manifest configs/week4/case_manifest_template.yaml --write
 
 Offline (reuse the log of an earlier run on the same .sim; no geometry_version):
     python scripts/inspect_ccm_template.py --sim cifunewest.sim --log traceback/starccm_flow_control.log

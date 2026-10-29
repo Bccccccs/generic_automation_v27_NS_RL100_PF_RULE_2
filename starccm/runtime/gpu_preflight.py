@@ -8,7 +8,7 @@
 所有外部诊断都用参数列表调用并带超时，捕获返回码/stdout/stderr；超时不是
 “设备不存在”的同义词，单独分类记录。诊断只在当前节点运行，不拼接用户原始
 shell 片段。真机取证在 G0 解除前仍是 BLOCKED，见
-``docs/gpu/20.02-evidence-register.md``。
+``docs/GPU.md``。
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ NVIDIA_DEVICE_KEYS = (
 )
 SUPPORTED_GPU_VENDORS = ("nvidia", "hygon")
 
-# 海光 HyHAL（hy-smi）：厂商证据来自 docs/gpu/20.02-evidence-register.md 的真机
+# 海光 HyHAL（hy-smi）：厂商证据来自 docs/GPU.md 的真机
 # 诊断输出（型号 C-3000/BW，8 卡节点）。只用已实测过的 --show*/--json 组合，
 # 不假设未验证过的参数拼接（例如把多个 --show* 参数合并成一次调用）。
 HYGON_VISIBLE_DEVICES_ENV = "HIP_VISIBLE_DEVICES"
@@ -76,7 +76,7 @@ _EVIDENCE_TEXT_LIMIT = 4000
 _SLURM_KEY_VALUE_RE = re.compile(r"(?:^|\s)([A-Za-z][A-Za-z0-9_]*)=(\S*)")
 # Slurm 上加速卡的 Gres/TRES 资源名不统一：NVIDIA 站点通常叫 gpu，海光 DCU 站点
 # 常见叫 dcu（与本仓库既有 run_python.slurm 的 --gres=dcu:8 一致，见
-# docs/STARCCM_GPU.md 海光小节）。两个名字都只做资源计数解析，不代表已经确认
+# docs/GPU.md 海光小节）。两个名字都只做资源计数解析，不代表已经确认
 # 卡的厂商——厂商判定仍然完全来自 hy-smi/nvidia-smi 的实时查询。
 _SLURM_GRES_ACCELERATOR_NAMES = ("gpu", "dcu")
 _TRES_GPU_RE = re.compile(
@@ -420,7 +420,7 @@ def _query_hygon_devices(evidence, _fail) -> list[dict[str, Any]]:
     """用 hy-smi 枚举海光 DCU/HCU 设备。
 
     每个 ``--show*`` 查询单独调用并各自记录诊断证据；不假设未实测过的参数
-    组合方式。字段来源（均为真机实测，见 docs/gpu/20.02-evidence-register.md）：
+    组合方式。字段来源（均为真机实测，见 docs/GPU.md）：
     ``--showuniqueid --json`` → uuid；``--showbus --json`` → pci_bus_id；
     ``--showproductname --json`` → name；``--showmeminfo vram --json`` →
     memory_total；``--showdriverversion``（不支持 --json）→ 全卡共用的驱动版本；

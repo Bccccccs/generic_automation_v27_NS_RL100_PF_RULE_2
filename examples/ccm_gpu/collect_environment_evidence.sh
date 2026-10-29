@@ -8,7 +8,7 @@
 #   * 必须在已经分配给本次任务的计算节点、且处于实际 STAR 启动上下文里执行
 #     （原生安装或站点已核验的容器 / launcher wrapper）。宿主机可见不等于容器可见。
 #   * 只打印白名单内的资源字段，不打印完整环境变量，不打印许可证或 PoD 密钥。
-#   * 输出需要人工脱敏后归档到 docs/gpu/20.02-evidence-register.md 对应的 BLOCKED 项。
+#   * 输出需要人工脱敏后归档到 docs/GPU.md 对应的 BLOCKED 项。
 
 set -uo pipefail
 
@@ -130,5 +130,5 @@ else
 fi
 
 printf '\n===== 采集结束 =====\n'
-printf '下一步：人工核对每项输出，把结论写入 docs/gpu/20.02-evidence-register.md，\n'
+printf '下一步：人工核对每项输出，把结论写入 docs/GPU.md，\n'
 printf '并据此填写资格文件。本脚本的输出本身不构成 GPU 求解验收证据。\n'

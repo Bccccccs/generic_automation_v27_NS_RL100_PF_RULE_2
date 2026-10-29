@@ -30,8 +30,8 @@ field_contract:
     actual_massflow: actual_massflow_01..actual_massflow_24
     force_and_moment: [Fz_S1L, Fz_S1R, Fz_S2L, Fz_S2R, Fz_S3L, Fz_S3R, Fz_Total, Drag_Total, Pitch_Moment, Roll_Moment, Jet_Reaction_Z]
     raw_only_not_in_processed_timeseries: [fz]
-  j_jet_mapping_file: docs/week4/B01_J_JET_mapping.csv
-  report_mapping_file: docs/week4/B01_report_mapping.csv
+  j_jet_mapping_file: configs/mappings/B01_J_JET_mapping.csv
+  report_mapping_file: configs/mappings/B01_report_mapping.csv
   policy: "Use the listed 0816 field names unchanged; do not synthesize vehicle lift, six-zone resultant, or momentum-reaction fields."
 report_semantics:
   Fz_S1L..Fz_S3R: "FZ_image_10000.csv：底面分区域升力。"
@@ -39,7 +39,7 @@ report_semantics:
   Fz_Total: "Fz Monitor：带车壳升力，积分面为JET01..JET24加tail。"
   Jet_Reaction_Z: "J01..J24表面+Z力；是否代表喷气动量反作用力等待浩坤确认。"
 surface_mapping:
-  source: docs/week4/B01_J_JET_mapping.csv
+  source: configs/mappings/B01_J_JET_mapping.csv
   jet_boundary: J01..J24
   underbody_zone: JET01..JET24
   area_unit: m^2
