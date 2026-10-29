@@ -1,0 +1,92 @@
+{
+  "schema_version": "ccm_gpu_qualification_v1",
+  "reviewed_at": "2026-10-13",
+  "reviewer": "Yan Bochao",
+  "star_release": "2606",
+  "star_build": "21.04.007",
+  "precision": "double",
+  "documentation": [
+    {
+      "title": "starccm+ -help (Simcenter STAR-CCM+ 2606 Build 21.04.007)",
+      "build": "21.04.007",
+      "chapter": "-gpgpu / -require-gpgpu-compatibility / -mpi 选项说明",
+      "source": "runs/_evidence/rtxpro6000.txt",
+      "sha256": null
+    }
+  ],
+  "approved_platforms": [
+    {
+      "os": "Linux",
+      "os_id": "ubuntu",
+      "cpu_arch": "x86_64",
+      "gpu_vendor": "nvidia",
+      "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+      "match_rule": "os/cpu_arch 精确相等；gpu_model 为 nvidia-smi 设备名子串；4 卡同型号",
+      "driver_requirement": ">=590.48.01",
+      "evidence": "runs/_evidence/rtxpro6000.txt 与 nvidia-smi 实测（2026-10-13）"
+    }
+  ],
+  "approved_launch": {
+    "mode": "native",
+    "identity": "/home/ybc/apps/Siemens/21.04.007-R8/STAR-CCM+21.04.007-R8/star/bin/starccm+",
+    "identity_sha256": null,
+    "scheduler": "manual",
+    "mpi": "openmpi",
+    "mpi_version": "5.0.9-cda-002",
+    "launch_method": "独占工作站本机启动，无 machinefile",
+    "approved_ranks_per_gpu": 1,
+    "approved_gpu_counts": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "mps_policy": "disabled",
+    "single_node_only": true,
+    "gpu_count_source": "manual 独占服务器，按 nvidia-smi 实测 4 卡"
+  },
+  "sim_review": {
+    "items": [
+      {
+        "name": "Implicit Unsteady",
+        "kind": "solver",
+        "status": "compatible",
+        "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"
+      },
+      {
+        "name": "Segregated Flow",
+        "kind": "model",
+        "status": "compatible",
+        "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"
+      },
+      {
+        "name": "Segregated Fluid Energy",
+        "kind": "model",
+        "status": "compatible",
+        "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"
+      },
+      {
+        "name": "K-Omega Turbulence",
+        "kind": "model",
+        "status": "compatible",
+        "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"
+      },
+      {
+        "name": "Gas density model",
+        "kind": "model",
+        "status": "compatible",
+        "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"
+      },
+      {
+        "name": "Motion",
+        "kind": "motion",
+        "status": "compatible",
+        "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"
+      }
+    ]
+  },
+  "required_flags": {
+    "gpgpu_flag": "-gpgpu",
+    "strict_compatibility_flag": "-require-gpgpu-compatibility"
+  }
+}

@@ -1,7 +1,7 @@
 # GPU 求解手册
 
 STAR-CCM+ GPU 求解的操作步骤、资格文件、失败码、各机器差异和速度数据。
-CPU 求解不需要本文，见 [`AGENTS.md`](../AGENTS.md) 第 5.3 节。代码位置：
+CPU 求解不需要本文，见 [`AGENTS.md`](../AGENTS.md) 第 6.3 节；英伟达新机器从零开跑见 AGENTS.md 第 5 节。代码位置：
 `starccm/runtime/gpu_preflight.py`（预检）、`gpu_qualification.py`（资格文件）、
 `gpu_evidence.py`（日志证据）、`flow_control/adapters/starccm_runner.py`（启动）。
 
@@ -58,7 +58,8 @@ Slurm 限制（2026-10-14 实测）：
 - STAR 2606 的启动器会执行自带 python 的 `-m starccm`，当前目录是仓库根时会被仓库里的 `starccm/`
   包遮蔽（报 `No module named starccm.__main__`）。**变通方法**：`cd "$CASE_DIR"` 后用绝对路径调用
   `$REPO/scripts/workflow.py`，`--manifest-template` 也传绝对路径。
-- 资格文件：`configs/ccm_gpu/qualification.rtxpro6000.json`（只在该机器上，`sim_review` 已由用户 2026-10-14 确认）。
+- 资格文件：`configs/ccm_gpu/qualification.rtxpro6000.json`（用户 2026-10-13 核验；同内容已收进仓库 `examples/ccm_gpu/qualification.rtxpro6000.json`，作为英伟达机器的底稿，见第 4 节）。
+- SSH 别名 `Pro6000`（`~/.ssh/config`，用户 ybc）。用户允许时 agent 可以直接只读查看；短时间连接太多次会被服务器断开。
 
 ### 2.3 NexGPU PRO5000 容器
 
@@ -130,33 +131,248 @@ python3 -c "import json,sys;r=json.load(open(sys.argv[1]));print(r['state'],r.ge
 
 被预检拦下（`BLOCKED`）的目录没有 `case_manifest.yaml`，`ccm-status` 会报错，此时直接读 `gpu_execution.json`。
 
-## 4. 资格文件
+## 4. 资格文件（qualification）
 
-从 `examples/ccm_gpu/qualification.hygon.example.json`（NVIDIA 用 `qualification.example.json`）复制到
-`configs/ccm_gpu/qualification.<机器>.json`，把所有 `BLOCKED-...` 和占位值换成真实值，**删除 `"test_only": true`**。
+### 4.1 它是什么、什么时候要写
 
-取证命令（海光）：`hy-smi --showproductname`（gpu_model，实测 `BW`）、`hy-smi --showdriverversion`
-（driver_requirement，只写数值前缀如 `>=6.3.31`）、`grep '^ID=' /etc/os-release`、`uname -m`、
-`"$STARCCM_BIN" -version`（star_build 须包含 `20.02.007`）、`sha256sum "$STARCCM_BIN"`（可为 null）。
-也可以运行 `bash examples/ccm_gpu/collect_environment_evidence.sh "$STARCCM_BIN"` 一次收齐。
+- 资格文件是一份 JSON，声明“这台机器 + 这版 STAR + 这份 `.sim` 允许用 GPU 跑”。`--compute-backend gpu --execution-mode run`
+  必须用 `--gpu-qualification <文件>` 指定它；`dry-run` 不读它。
+- 每次真实运行都会**完整重新校验**：先查格式（`starccm/runtime/gpu_qualification.py`），再在预检里拿本机实时信息逐项比对
+  （`starccm/runtime/gpu_preflight.py`）。任何一项不符就 `BLOCKED`，不会启动 STAR。
+- **一台机器一份**，放在那台机器的 `configs/ccm_gpu/qualification.<机器名>.json`。英伟达租用机器每换一台都要写一份新的；
+  同一台机器只要 STAR、驱动、`.sim` 不变，就可以一直用。
+- JSON 里**不能加注释或自定义字段**（如 `"_comment"`），未知字段会被直接拒绝。说明文字写进 `match_rule`、`evidence`、`source` 这些字符串字段里。
 
-| 字段 | 要求 |
-|---|---|
-| `schema_version` | `ccm_gpu_qualification_v1` |
-| `reviewed_at` / `reviewer` | 核验日期（不晚于今天）/ 本人姓名 |
-| `star_release` / `star_build` / `precision` | 如 `2502` / `20.02.007` / `double`；运行时 `-version` 输出里找不到 build 会报 `STAR_BUILD_MISMATCH` |
-| `documentation[]` | 至少一条官方文档依据，`build` 等于 `star_build`；`sha256` 不知道写 `null` |
-| `approved_platforms[]` | `os`、`cpu_arch`、`os_id` 与本机一致；`gpu_vendor`（`hygon`/`nvidia`）；`gpu_model` 子串匹配；`driver_requirement` 只允许 `>=`/`==` + 数值 |
-| `approved_launch` | `mode=native`，`identity`=starccm+ 绝对路径，`scheduler`=`slurm`/`manual`，`mpi`/`mpi_version`，`approved_ranks_per_gpu=1`，`approved_gpu_counts`，`mps_policy=disabled`，`single_node_only=true` |
-| `sim_review.items[]` | `.sim` 实际启用的 solver/物理模型/interface/report，`kind` ∈ solver/model/interface/motion/report/derived_part/mesh；**任一项不是 `compatible` 就拒绝** |
-| `required_flags` | 保持 `-gpgpu` / `-require-gpgpu-compatibility` |
+### 4.2 英伟达机器：以 PRO 6000 现用文件为基准
 
-`sim_review.items` 必须由用户本人在 STAR GUI 里核对后填写；agent 不得代填 `compatible`，
-不确定写 `unknown`（运行会被拒绝，这是预期行为）。离线检查格式：
+[`examples/ccm_gpu/qualification.rtxpro6000.json`](../examples/ccm_gpu/qualification.rtxpro6000.json) 是 PRO 6000 工作站上
+**实际在用、用户 2026-10-13 亲自核验过的文件**，从服务器原样拷来（sha256 `bfc492b0…10ecb3`），格式校验通过：
+
+```json
+{
+  "schema_version": "ccm_gpu_qualification_v1",
+  "reviewed_at": "2026-10-13",
+  "reviewer": "Yan Bochao",
+  "star_release": "2606",
+  "star_build": "21.04.007",
+  "precision": "double",
+  "documentation": [
+    {
+      "title": "starccm+ -help (Simcenter STAR-CCM+ 2606 Build 21.04.007)",
+      "build": "21.04.007",
+      "chapter": "-gpgpu / -require-gpgpu-compatibility / -mpi 选项说明",
+      "source": "runs/_evidence/rtxpro6000.txt",
+      "sha256": null
+    }
+  ],
+  "approved_platforms": [
+    {
+      "os": "Linux",
+      "os_id": "ubuntu",
+      "cpu_arch": "x86_64",
+      "gpu_vendor": "nvidia",
+      "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
+      "match_rule": "os/cpu_arch 精确相等；gpu_model 为 nvidia-smi 设备名子串；4 卡同型号",
+      "driver_requirement": ">=590.48.01",
+      "evidence": "runs/_evidence/rtxpro6000.txt 与 nvidia-smi 实测（2026-10-13）"
+    }
+  ],
+  "approved_launch": {
+    "mode": "native",
+    "identity": "/home/ybc/apps/Siemens/21.04.007-R8/STAR-CCM+21.04.007-R8/star/bin/starccm+",
+    "identity_sha256": null,
+    "scheduler": "manual",
+    "mpi": "openmpi",
+    "mpi_version": "5.0.9-cda-002",
+    "launch_method": "独占工作站本机启动，无 machinefile",
+    "approved_ranks_per_gpu": 1,
+    "approved_gpu_counts": [1, 2, 3, 4],
+    "mps_policy": "disabled",
+    "single_node_only": true,
+    "gpu_count_source": "manual 独占服务器，按 nvidia-smi 实测 4 卡"
+  },
+  "sim_review": {
+    "items": [
+      {"name": "Implicit Unsteady",       "kind": "solver", "status": "compatible", "source": "Yan Bochao 于 2026-10-13 人工核验确认可用；模型清单与老集群 cifu0.sim 资格文件一致；2606 文档章节未记录"},
+      {"name": "Segregated Flow",         "kind": "model",  "status": "compatible", "source": "（同上）"},
+      {"name": "Segregated Fluid Energy", "kind": "model",  "status": "compatible", "source": "（同上）"},
+      {"name": "K-Omega Turbulence",      "kind": "model",  "status": "compatible", "source": "（同上）"},
+      {"name": "Gas density model",       "kind": "model",  "status": "compatible", "source": "（同上）"},
+      {"name": "Motion",                  "kind": "motion", "status": "compatible", "source": "（同上）"}
+    ]
+  },
+  "required_flags": {
+    "gpgpu_flag": "-gpgpu",
+    "strict_compatibility_flag": "-require-gpgpu-compatibility"
+  }
+}
+```
+
+（为了便于阅读，这里把 `sim_review` 压成了每项一行，后 5 项的 `source` 缩写成“同上”；原文件中每项写的是完整句子。）
+
+当时那台机器的实测值，对照着看哪个字段来自哪里：
+
+```text
+$ starccm+ -version
+Simcenter STAR-CCM+ 2606 Build 21.04.007 (linux-x86_64-2.28/clang20.1-r8 Double Precision)
+$ uname -srm
+Linux 6.8.0-90-generic x86_64
+$ grep '^ID=' /etc/os-release
+ID=ubuntu
+$ nvidia-smi --query-gpu=index,name,driver_version,mig.mode.current --format=csv,noheader
+0, NVIDIA RTX PRO 6000 Blackwell Server Edition, 590.48.01, Disabled      （共 4 行）
+$ ls <STAR 安装目录>/mpi/openmpi/
+5.0.9-cda-002
+```
+
+### 4.3 换一台新的英伟达机器：5 步
 
 ```bash
-PYTHONPATH=. python -c "from pathlib import Path; from starccm.runtime.gpu_qualification import load_gpu_qualification as f; f(Path('configs/ccm_gpu/qualification.hygon.json')); print('ok')"
+# 在新机器的仓库根目录执行；STARCCM_BIN 换成这台机器上 starccm+ 的绝对路径
+STARCCM_BIN=/path/to/STAR-CCM+21.04.007-R8/star/bin/starccm+
+MACHINE=<机器名，如 rtxpro5000>
+
+# 1. 取证：一次收齐版本、系统、GPU、MPI 信息，留作 evidence（只读，不改任何东西）
+mkdir -p runs/_evidence configs/ccm_gpu
+bash examples/ccm_gpu/collect_environment_evidence.sh "$STARCCM_BIN" > runs/_evidence/$MACHINE.txt 2>&1
+"$STARCCM_BIN" -version
+uname -srm; grep '^ID=' /etc/os-release
+nvidia-smi --query-gpu=index,name,driver_version,mig.mode.current --format=csv,noheader
+ls "$(dirname "$(dirname "$(dirname "$STARCCM_BIN")")")/mpi/openmpi/"
+
+# 2. 以 PRO 6000 文件为底稿
+cp examples/ccm_gpu/qualification.rtxpro6000.json configs/ccm_gpu/qualification.$MACHINE.json
+
+# 3. 按下表改字段（编辑器手改）
+
+# 4. 离线校验格式（只查格式，平台/驱动/版本要到第 5 步才实时比对）
+PYTHONPATH=. python -c "from pathlib import Path; from starccm.runtime.gpu_qualification import load_gpu_qualification as f; f(Path('configs/ccm_gpu/qualification.$MACHINE.json')); print('格式校验通过')"
+
+# 5. 真实运行（--scheduler 必须与文件里的 scheduler 一致），然后看预检是否通过
+python3 -c "import json,sys;r=json.load(open(sys.argv[1]));print('预检:',(r.get('evidence') or [{}])[0].get('state'));print('最终:',r.get('state'),r.get('failure_code'));print(r.get('failure_detail') or '')" <case_dir>/raw_star/gpu_execution.json
+#    “预检: PREFLIGHT_PASSED”即资格文件被接受；“最终”一行仍会是 FAILED GPU_EXECUTION_UNCONFIRMED（见第 1 节），
+#    被拒时“预检”为 BLOCKED，failure_code / failure_detail 说明是哪个字段不符（对照 4.6）。
+#    注意：按 2.2 的变通方法 cd 到 Case 目录运行时，--gpu-qualification 要写绝对路径。
 ```
+
+第 3 步逐字段改法（“PRO 6000 值”一列即样例里的值）：
+
+| 字段 | PRO 6000 值 | 新机器怎么填 | 换机器要改？ | 运行时怎么比对 |
+|---|---|---|---|---|
+| `reviewed_at` | `2026-10-13` | 今天的日期 `YYYY-MM-DD` | 改 | 不能晚于今天 |
+| `reviewer` | `Yan Bochao` | 核验人姓名 | 一般不改 | 非空 |
+| `star_release` | `2606` | `-version` 输出里 `STAR-CCM+` 后面的发布号 | STAR 不同才改 | 只记录 |
+| `star_build` | `21.04.007` | `-version` 输出里 `Build` 后面的号 | STAR 不同才改 | 必须出现在 `-version` 输出里，否则 `STAR_BUILD_MISMATCH` |
+| `precision` | `double` | `-version` 输出括号里的精度 | STAR 不同才改 | 只记录 |
+| `documentation[].build` | `21.04.007` | 与 `star_build` 相同 | 随 `star_build` 改 | 必须等于 `star_build` |
+| `documentation[].source` | `runs/_evidence/rtxpro6000.txt` | `runs/_evidence/<机器>.txt` | 改 | 非空 |
+| `approved_platforms[].os` / `cpu_arch` | `Linux` / `x86_64` | `uname -srm` 第一项和最后一项 | 通常不改 | 与本机精确相等（不分大小写） |
+| `approved_platforms[].os_id` | `ubuntu` | `/etc/os-release` 的 `ID=` | 系统不同才改 | 与本机精确相等；不想比对可删掉这个字段 |
+| `approved_platforms[].gpu_vendor` | `nvidia` | `nvidia` | 不改 | 决定用 `nvidia-smi` 查卡 |
+| `approved_platforms[].gpu_model` | `RTX PRO 6000 Blackwell Server Edition` | `nvidia-smi` 设备名去掉前缀 `NVIDIA ` | **改** | 必须是每张要用的卡的设备名子串（不分大小写），否则 `PLATFORM_NOT_APPROVED`。注意 Server Edition 与 Workstation Edition 名字不同 |
+| `approved_platforms[].driver_requirement` | `>=590.48.01` | `>=` + 本机 `driver_version` | **改** | 只比较数值；本机驱动低于它就拒绝。只能写 `>=版本` 或 `==版本` |
+| `approved_platforms[].match_rule` / `evidence` | 见样例 | 照样例改成本机的卡数、取证文件名和日期 | 改 | 非空，`match_rule` 里不能有 `*` |
+| `approved_launch.identity` | `/home/ybc/apps/.../starccm+` | `$STARCCM_BIN` 的绝对路径 | **改** | 非空（运行时不比对路径） |
+| `approved_launch.identity_sha256` | `null` | `null`，或 `sha256sum "$STARCCM_BIN"` 的结果 | 可选 | 64 位小写十六进制或 `null` |
+| `approved_launch.scheduler` | `manual` | 租用机器、工作站用 `manual`；Slurm 集群用 `slurm` | 视机器 | 必须等于命令行的 `--scheduler`，否则 `LAUNCH_NOT_APPROVED` |
+| `approved_launch.mpi` / `mpi_version` | `openmpi` / `5.0.9-cda-002` | `openmpi` / `mpi/openmpi/` 下的目录名 | STAR 不同才改 | 非空（不比对） |
+| `approved_launch.launch_method` | `独占工作站本机启动，无 machinefile` | 如实描述 | 视机器 | 非空 |
+| `approved_launch.approved_gpu_counts` | `[1, 2, 3, 4]` | 从 1 到本机卡数，如 2 卡写 `[1, 2]` | **改** | `--gpgpu auto:N:nomps` 的 N 必须在列表里，否则 `GPU_COUNT_NOT_APPROVED` |
+| `approved_launch.gpu_count_source` | `manual 独占服务器，按 nvidia-smi 实测 4 卡` | 改成本机卡数 | 改 | 非空 |
+| `approved_launch.approved_ranks_per_gpu` / `mps_policy` / `single_node_only` | `1` / `disabled` / `true` | 保持不变 | 不改 | 只能是这三个值 |
+| `sim_review.items` | 6 项，见样例 | 见 4.4 | 一般不改 | 每一项都必须是 `compatible` |
+| `required_flags` | `-gpgpu` / `-require-gpgpu-compatibility` | 保持不变 | 不改 | 必须与代码一致 |
+| `schema_version` | `ccm_gpu_qualification_v1` | 保持不变 | 不改 | 必须相等 |
+
+例：2 × RTX PRO 5000 租用容器（NexGPU，`/workspace` 路径）相对底稿只需改这些字段（卡名和驱动以该机器的 `nvidia-smi` 实测为准）：
+
+```diff
+-  "reviewed_at": "2026-10-13",
++  "reviewed_at": "<核验当天日期>",
+-      "source": "runs/_evidence/rtxpro6000.txt",
++      "source": "runs/_evidence/rtxpro5000.txt",
+-      "gpu_model": "RTX PRO 6000 Blackwell Server Edition",
++      "gpu_model": "<nvidia-smi 设备名去掉 NVIDIA 前缀>",
+-      "match_rule": "os/cpu_arch 精确相等；gpu_model 为 nvidia-smi 设备名子串；4 卡同型号",
++      "match_rule": "os/cpu_arch 精确相等；gpu_model 为 nvidia-smi 设备名子串；2 卡同型号",
+-      "driver_requirement": ">=590.48.01",
++      "driver_requirement": ">=595.84",
+-      "evidence": "runs/_evidence/rtxpro6000.txt 与 nvidia-smi 实测（2026-10-13）"
++      "evidence": "runs/_evidence/rtxpro5000.txt 与 nvidia-smi 实测（<日期>）"
+-    "identity": "/home/ybc/apps/Siemens/21.04.007-R8/STAR-CCM+21.04.007-R8/star/bin/starccm+",
++    "identity": "/workspace/Siemens/21.04.007-R8/STAR-CCM+21.04.007-R8/star/bin/starccm+",
+-    "launch_method": "独占工作站本机启动，无 machinefile",
++    "launch_method": "租用容器本机启动，root 运行，已放开 OpenMPI root 限制，无 machinefile",
+-    "approved_gpu_counts": [1, 2, 3, 4],
++    "approved_gpu_counts": [1, 2],
+-    "gpu_count_source": "manual 独占服务器，按 nvidia-smi 实测 4 卡"
++    "gpu_count_source": "manual 独占容器，按 nvidia-smi 实测 2 卡"
+```
+
+`star_build`、`mpi_version`、`sim_review` 不变，因为这台容器装的也是 21.04.007，跑的也是同一份 `cifu0.sim`。
+
+### 4.4 `sim_review`：唯一需要人判断的部分
+
+- 内容是 `cifu0.sim` 实际启用的求解器和物理模型。PRO 6000 文件里的 6 项是用户本人核验过的清单
+  （Implicit Unsteady、Segregated Flow、Segregated Fluid Energy、K-Omega Turbulence、Gas density model、Motion）。
+  海光集群 20.02 的运行日志里加载的模块与之对应：`SegregatedFlowModel/Solver`、`SegregatedFluidIsothermalModel`、
+  `SstKwTurbModel`、`KwTurbSolver`、`MotionModel`。
+- **同一份 `.sim` + 同一个 STAR 版本**：直接沿用这 6 项（NexGPU 的文件就是这样做的）。
+- **换了 `.sim`，或 STAR 换了大版本**：必须由用户本人在 STAR GUI（Continua → Physics、Solvers）里重新核对，
+  对照该版本的 GPU 支持说明确认后再写 `compatible`，`source` 里写清是谁、哪天、依据什么确认的。
+  agent 可以先用只读宏导出清单交给用户核对（任何 `.sim` 都能用，不修改、不保存 `.sim`）：
+
+  ```bash
+  cd /tmp     # 不要在仓库根目录运行，避免 STAR 2606 的 starccm 模块被遮蔽（见 2.2）
+  "$STARCCM_BIN" -batch "$REPO/examples/ccm_gpu/ListSimPhysics.java" -np 1 /abs/path/<模板>.sim > sim_physics.log 2>&1
+  grep '^SIM_' sim_physics.log      # SIM_MODEL / SIM_SOLVER 行就是候选的 sim_review.items
+  ```
+
+  2026-10-20 在 PRO 6000 上用同样的宏核对另一份测试模板时，得到的是 `Three Dimensional`、`Gas`、`Segregated Flow`、`Ideal Gas`、
+  `Segregated Fluid Isothermal`、`Implicit Unsteady`、`K-Omega Turbulence`、`SST (Menter) K-Omega`、`All y+ Wall Treatment` 等条目；
+  用户确认后，那次运行写了一份专用资格文件，并在 Case 目录保存了 `user_confirmation.json`（确认时间、原话、模板 sha256）。
+  已有运行日志时，也可以用 `grep -E "Loading module|Initialization of" <case>/raw_star/starccm_flow_control.log | sort -u` 粗看一遍。
+- agent 不得代填 `compatible`。拿不准就写 `unknown`：运行会被拒绝，这正是这个检查的用途。不能为了通过检查去关闭物理模型。
+- `kind` 只能取 `solver` / `model` / `interface` / `motion` / `report` / `derived_part` / `mesh`；`status` 只能取 `compatible` / `incompatible` / `unknown`。
+  旧模板里的 `sim_sha256` 已不再校验，可以删掉。
+
+### 4.5 海光集群的文件与英伟达的差别
+
+海光从 `examples/ccm_gpu/qualification.hygon.example.json` 起步（或直接用集群上已有的 `configs/ccm_gpu/qualification.hygon.json`）。
+2026-10-16 B06 运行实际使用的值（来自该次 `gpu_execution.json`）：
+
+| 字段 | 海光值 |
+|---|---|
+| `star_release` / `star_build` | `2502` / `20.02.007`（`-version`：`Simcenter STAR-CCM+ 2502 Build 20.02.007 (linux-x86_64-2.28/clang17.0-r8 Double Precision)`） |
+| `os_id` | `sugon` |
+| `gpu_vendor` / `gpu_model` | `hygon` / `BW`（`hy-smi --showproductname` 的 Card Series；预检拿它去匹配 `C-3000 IC Design Co., Ltd. BW`） |
+| `driver_requirement` | `>=6.3.31`（实测 `6.3.31-V1.5.0a`，只比较数值前缀） |
+| `identity` | `/public/home/yanbochao/apprepo/starccmplus/20.02.007-glibc2.28_double/app/20.02.007-R8/STAR-CCM+20.02.007-R8/star/bin/starccm+` |
+| `scheduler` | `slurm` |
+| `mpi` / `mpi_version` | `openmpi` / `4.1.5-cda-003` |
+| `approved_gpu_counts` | `[8]` |
+| `gpu_count_source` | `scontrol show job -o 的 Gres/TRES 字段（gres/dcu）` |
+
+### 4.6 被拒时看什么
+
+| 报错 / 失败码 | 原因 |
+|---|---|
+| `QUALIFICATION_MISSING` | 没传 `--gpu-qualification`，或路径不存在 |
+| `QUALIFICATION_INVALID: ...test_only=true` | 从 example 复制后没删 `"test_only": true` |
+| `QUALIFICATION_INVALID: ...未知字段` | 加了注释字段或拼错字段名 |
+| `QUALIFICATION_INVALID: reviewed_at ... 晚于今天` | 日期写错 |
+| `QUALIFICATION_INVALID: driver_requirement 必须写成 '>=版本'` | 写了 `latest`、`590+` 之类 |
+| `QUALIFICATION_INVALID: ...属于无限通配` | 平台字段写了 `*`、`any`、`unknown` |
+| `QUALIFICATION_INVALID: sim_review 存在未确认或不兼容项` | 有一项不是 `compatible` |
+| `STAR_BUILD_MISMATCH` | `star_build` 不在 `-version` 输出里，检查 `--starccm-path` 是否指错版本 |
+| `PLATFORM_NOT_APPROVED` | `os` / `cpu_arch` / `os_id` 不符，或 `gpu_model` 不是设备名子串，或驱动低于下限 |
+| `LAUNCH_NOT_APPROVED` | 文件里写的 `scheduler` 与命令行的 `--scheduler` 不一致 |
+| `GPU_COUNT_NOT_APPROVED` / `RANK_GPU_MISMATCH` | 卡数不在 `approved_gpu_counts` 里 / `--np` 不等于卡数 |
+| `MIG_NOT_APPROVED` | `nvidia-smi` 显示 MIG 已启用（只接受 `Disabled`、`[N/A]`、`[Not Supported]`） |
+| `GPU_DEVICE_UNAVAILABLE` | `CUDA_VISIBLE_DEVICES` 限制后可见卡数少于请求卡数 |
+
+英伟达 manual 模式下默认用本机全部可见卡里的前 N 张；要指定具体哪几张，在运行前设置 `CUDA_VISIBLE_DEVICES`。
+卡上已有其他进程时预检不会拦截，只记录在证据里，所以运行前请先用 `nvidia-smi` 人工确认卡是空闲的。
 
 ## 5. 换 `.sim` 模板
 
